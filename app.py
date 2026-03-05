@@ -166,59 +166,25 @@ if menu == "Calendar":
     # -------------------------
     # Unified Add/Edit Form
     # -------------------------
-    if st.session_state.calendar_mode == "form":
-        is_edit = st.session_state.selected_calendar is not None
-
+            # ---- Delete (edit mode only) ----
         if is_edit:
-            idx = st.session_state.selected_calendar
-            ev = data["calendar"][idx]
-            ensure_event_utc_fields(ev)
+            st.divider()
+            st.subheader("Danger Zone")
 
-            sdt = get_event_dt_utc(ev, "start_utc")
-            edt = get_event_dt_utc(ev, "end_utc")
+            confirm_delete = st.checkbox("I understand this will permanently delete the event.", key="confirm_delete")
 
-            if sdt:
-                s_date, s_time = utc_to_local_parts(sdt)
-            else:
-                s_date, s_time = date.today(), time(9, 0)
-
-            if edt:
-                e_date, e_time = utc_to_local_parts(edt)
-            else:
-                e_date, e_time = date.today(), time(9, 30)
-
-            default_title = ev.get("title", "")
-            default_desc = ev.get("description", "")
-            default_status = ev.get("status", "Scheduled")
-        else:
-            default_title = ""
-            default_desc = ""
-            default_status = "Scheduled"
-            s_date, s_time = date.today(), time(9, 0)
-            e_date, e_time = date.today(), time(9, 30)
-
-        st.subheader("Edit Event" if is_edit else "Add Event")
-
-        with st.form("calendar_form"):
-            title = st.text_input("Title", value=default_title, placeholder="e.g., 1:1 with Bob")
-
-            c1, c2 = st.columns(2)
-            start_date = c1.date_input("Start Date", value=s_date, key="form_start_date")
-            start_time = c2.time_input("Start Time", value=s_time, key="form_start_time")
-
-            c3, c4 = st.columns(2)
-            end_date = c3.date_input("End Date", value=e_date, key="form_end_date")
-            end_time = c4.time_input("End Time", value=e_time, key="form_end_time")
-
-            description = st.text_area("Description", value=default_desc, placeholder="Optional notes / agenda")
-
-            status = st.selectbox(
-                "Status",
-                ["Scheduled", "Complete"],
-                index=0 if default_status != "Complete" else 1
-            )
-
-            submitted = st.form_submit_button("Save Changes" if is_edit else "Create Event")
+            del_cols = st.columns([2, 8])
+            if del_cols[0].button("Delete Event"):
+                if not confirm_delete:
+                    st.error("Please confirm deletion first.")
+                else:
+                    # Delete and return to list
+                    del data["calendar"][idx]
+                    st.session_state.calendar_mode = "list"
+                    st.session_state.selected_calendar = None
+                    # Reset checkbox so it doesn't stay checked
+                    st.session_state.confirm_delete = False
+                    st.rerun()
 
         b1, b2 = st.columns([1, 9])
         if b1.button("Back to Calendar"):
