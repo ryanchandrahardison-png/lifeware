@@ -13,17 +13,11 @@ UTC_TZ = ZoneInfo("UTC")
 # Helpers
 # -----------------------------
 def fmt_ny(dt_utc: datetime) -> str:
-    """Display UTC datetime in America/New_York in DD-MON-YYYY 24H:MM."""
     dt_local = dt_utc.astimezone(NY_TZ)
     return dt_local.strftime("%d-%b-%Y %H:%M").upper()
 
 
 def parse_dt_any(value: str) -> datetime | None:
-    """
-    Best-effort parse of a datetime string.
-    Returns an aware datetime in UTC if possible.
-    Accepts ISO strings with timezone; 'Z' is supported.
-    """
     if not value or not isinstance(value, str):
         return None
     v = value.strip()
@@ -32,7 +26,6 @@ def parse_dt_any(value: str) -> datetime | None:
             v = v[:-1] + "+00:00"
         dt = datetime.fromisoformat(v)
         if dt.tzinfo is None:
-            # Assume UTC if tz missing (conservative for storage)
             dt = dt.replace(tzinfo=UTC_TZ)
         return dt.astimezone(UTC_TZ)
     except Exception:
@@ -40,10 +33,6 @@ def parse_dt_any(value: str) -> datetime | None:
 
 
 def ensure_event_utc_fields(ev: dict) -> None:
-    """
-    Ensure calendar event has start_utc/end_utc ISO strings.
-    If only legacy start/end exist, attempt to parse and promote.
-    """
     if "start_utc" not in ev:
         dt = parse_dt_any(ev.get("start", ""))
         if dt:
@@ -55,20 +44,21 @@ def ensure_event_utc_fields(ev: dict) -> None:
 
 
 def get_event_dt_utc(ev: dict, key: str) -> datetime | None:
-    """Return event datetime for key start_utc/end_utc in UTC."""
     dt = parse_dt_any(ev.get(key, ""))
     if dt:
         return dt
-    # fallback: parse legacy keys if needed
     legacy_key = "start" if key == "start_utc" else "end"
     return parse_dt_any(ev.get(legacy_key, ""))
 
 
 def local_to_utc_iso(d: date, t: time) -> str:
-    """Convert America/New_York local date+time to UTC ISO string."""
     dt_local = datetime.combine(d, t).replace(tzinfo=NY_TZ)
-    dt_utc = dt_local.astimezone(UTC_TZ)
-    return dt_utc.isoformat()
+    return dt_local.astimezone(UTC_TZ).isoformat()
+
+
+def utc_to_local_parts(dt_utc: datetime) -> tuple[date, time]:
+    dt_local = dt_utc.astimezone(NY_TZ)
+    return dt_local.date(), dt_local.time().replace(second=0, microsecond=0)
 
 
 # -----------------------------
@@ -82,7 +72,7 @@ if "data" not in st.session_state:
         "routines": []
     }
 
-# Selection state for detail views
+# Selection state
 if "selected_action" not in st.session_state:
     st.session_state.selected_action = None
 if "selected_calendar" not in st.session_state:
@@ -92,11 +82,11 @@ if "selected_delegation" not in st.session_state:
 if "selected_routine" not in st.session_state:
     st.session_state.selected_routine = None
 
-# Calendar screen mode: list | detail | add
+# Calendar mode: list | form
 if "calendar_mode" not in st.session_state:
     st.session_state.calendar_mode = "list"
 
-# Upload signature so we load file only once (prevents overwriting edits)
+# Upload signature so we load only once
 if "uploaded_sig" not in st.session_state:
     st.session_state.uploaded_sig = None
 
@@ -114,16 +104,13 @@ if uploaded_file is not None:
     file_bytes = uploaded_file.getvalue()
     sig = (uploaded_file.name, len(file_bytes))
 
-    # Only load when upload changes (fixes "can't add after upload" issue)
     if st.session_state.uploaded_sig != sig:
         loaded = json.loads(file_bytes.decode("utf-8"))
 
-        # Defensive: ensure keys exist
         for k in ["actions", "calendar", "delegations", "routines"]:
             if k not in loaded or not isinstance(loaded[k], list):
                 loaded[k] = []
 
-        # Normalize calendar events to include UTC fields if possible
         for ev in loaded["calendar"]:
             if isinstance(ev, dict):
                 ensure_event_utc_fields(ev)
@@ -131,7 +118,7 @@ if uploaded_file is not None:
         st.session_state.data = loaded
         data = st.session_state.data
 
-        # Reset selections + calendar mode
+        # Reset selections/modes on new file load
         st.session_state.selected_action = None
         st.session_state.selected_calendar = None
         st.session_state.selected_delegation = None
@@ -156,7 +143,7 @@ st.sidebar.warning("Remember to download your updated GTD file before leaving.")
 # -----------------------------
 # Main Menu
 # -----------------------------
-st.title("Control Engine — Step 2 (Calendar Upgrade)")
+st.title("Control Engine — Calendar Edit Upgrade")
 
 menu = st.sidebar.radio(
     "Main Menu",
@@ -170,100 +157,107 @@ menu = st.sidebar.radio(
 if menu == "Calendar":
     st.header("Calendar")
 
-    # Top button: Add Event (goes to add screen)
     top_cols = st.columns([1, 9])
     if top_cols[0].button("Add Event"):
-        st.session_state.calendar_mode = "add"
         st.session_state.selected_calendar = None
+        st.session_state.calendar_mode = "form"
         st.rerun()
 
-    # ---- Add Screen ----
-    if st.session_state.calendar_mode == "add":
-        st.subheader("Add Event")
+    # -------------------------
+    # Unified Add/Edit Form
+    # -------------------------
+    if st.session_state.calendar_mode == "form":
+        is_edit = st.session_state.selected_calendar is not None
 
-        with st.form("calendar_add_form"):
-            title = st.text_input("Title", placeholder="e.g., 1:1 with Bob")
+        if is_edit:
+            idx = st.session_state.selected_calendar
+            ev = data["calendar"][idx]
+            ensure_event_utc_fields(ev)
 
-            # Date/time pickers (display local NY time, store UTC)
+            sdt = get_event_dt_utc(ev, "start_utc")
+            edt = get_event_dt_utc(ev, "end_utc")
+
+            if sdt:
+                s_date, s_time = utc_to_local_parts(sdt)
+            else:
+                s_date, s_time = date.today(), time(9, 0)
+
+            if edt:
+                e_date, e_time = utc_to_local_parts(edt)
+            else:
+                e_date, e_time = date.today(), time(9, 30)
+
+            default_title = ev.get("title", "")
+            default_desc = ev.get("description", "")
+            default_status = ev.get("status", "Scheduled")
+        else:
+            default_title = ""
+            default_desc = ""
+            default_status = "Scheduled"
+            s_date, s_time = date.today(), time(9, 0)
+            e_date, e_time = date.today(), time(9, 30)
+
+        st.subheader("Edit Event" if is_edit else "Add Event")
+
+        with st.form("calendar_form"):
+            title = st.text_input("Title", value=default_title, placeholder="e.g., 1:1 with Bob")
+
             c1, c2 = st.columns(2)
-            start_date = c1.date_input("Start Date", value=date.today(), key="add_start_date")
-            start_time = c2.time_input("Start Time", value=time(9, 0), key="add_start_time")
+            start_date = c1.date_input("Start Date", value=s_date, key="form_start_date")
+            start_time = c2.time_input("Start Time", value=s_time, key="form_start_time")
 
             c3, c4 = st.columns(2)
-            end_date = c3.date_input("End Date", value=date.today(), key="add_end_date")
-            end_time = c4.time_input("End Time", value=time(9, 30), key="add_end_time")
+            end_date = c3.date_input("End Date", value=e_date, key="form_end_date")
+            end_time = c4.time_input("End Time", value=e_time, key="form_end_time")
 
-            description = st.text_area("Description", placeholder="Optional notes / agenda")
+            description = st.text_area("Description", value=default_desc, placeholder="Optional notes / agenda")
 
-            submitted = st.form_submit_button("Create Event")
+            status = st.selectbox(
+                "Status",
+                ["Scheduled", "Complete"],
+                index=0 if default_status != "Complete" else 1
+            )
 
-        btn_cols = st.columns([1, 9])
-        if btn_cols[0].button("Back to Calendar"):
+            submitted = st.form_submit_button("Save Changes" if is_edit else "Create Event")
+
+        b1, b2 = st.columns([1, 9])
+        if b1.button("Back to Calendar"):
             st.session_state.calendar_mode = "list"
+            st.session_state.selected_calendar = None
             st.rerun()
 
         if submitted:
             start_utc = local_to_utc_iso(start_date, start_time)
             end_utc = local_to_utc_iso(end_date, end_time)
 
-            # Basic validation: end after start
-            sdt = parse_dt_any(start_utc)
-            edt = parse_dt_any(end_utc)
-            if sdt and edt and edt <= sdt:
+            sdt2 = parse_dt_any(start_utc)
+            edt2 = parse_dt_any(end_utc)
+            if sdt2 and edt2 and edt2 <= sdt2:
                 st.error("End must be after Start.")
             else:
-                data["calendar"].append({
-                    "title": title.strip() or "Untitled Event",
+                payload = {
+                    "title": title.strip() or ("Untitled Event" if not is_edit else default_title or "Untitled Event"),
                     "description": description.strip(),
-                    "status": "Scheduled",
-                    # store canonical UTC
+                    "status": status,
                     "start_utc": start_utc,
                     "end_utc": end_utc,
-                    # keep legacy fields for readability / compatibility
+                    # legacy fields (kept for compatibility / readability)
                     "start": start_utc,
                     "end": end_utc,
-                })
+                }
+
+                if is_edit:
+                    data["calendar"][idx].update(payload)
+                else:
+                    data["calendar"].append(payload)
+
                 st.session_state.calendar_mode = "list"
+                st.session_state.selected_calendar = None
                 st.rerun()
 
-    # ---- Detail Screen ----
-    elif st.session_state.calendar_mode == "detail" and st.session_state.selected_calendar is not None:
-        idx = st.session_state.selected_calendar
-        item = data["calendar"][idx]
-        ensure_event_utc_fields(item)
-
-        st.subheader("Event Detail")
-
-        st.write("Title:", item.get("title", ""))
-        st.write("Status:", item.get("status", ""))
-
-        sdt = get_event_dt_utc(item, "start_utc")
-        edt = get_event_dt_utc(item, "end_utc")
-
-        st.write("Start (NY):", fmt_ny(sdt) if sdt else item.get("start", ""))
-        st.write("End (NY):", fmt_ny(edt) if edt else item.get("end", ""))
-
-        # Show stored UTC too (for audit)
-        with st.expander("Stored UTC values"):
-            st.write("start_utc:", item.get("start_utc", ""))
-            st.write("end_utc:", item.get("end_utc", ""))
-
-        desc = item.get("description", "")
-        if desc:
-            st.write("Description:")
-            st.write(desc)
-
-        col1, col2 = st.columns(2)
-        if col1.button("Mark Complete"):
-            data["calendar"][idx]["status"] = "Complete"
-            st.rerun()
-
-        if col2.button("Back"):
-            st.session_state.calendar_mode = "list"
-            st.session_state.selected_calendar = None
-            st.rerun()
-
-    # ---- List Screen (table) ----
+    # -------------------------
+    # List Screen (table)
+    # -------------------------
     else:
         st.session_state.calendar_mode = "list"
         st.session_state.selected_calendar = None
@@ -271,15 +265,14 @@ if menu == "Calendar":
         if not data["calendar"]:
             st.info("No calendar items.")
         else:
-            # Header row
-            h = st.columns([5, 3, 3, 2, 1])
-            h[0].markdown("**Title**")
-            h[1].markdown("**Start**")
-            h[2].markdown("**End**")
-            h[3].markdown("**Status**")
-            h[4].markdown("**View**")
+            # Header row: View | Title | Start | End | Status
+            h = st.columns([1, 5, 3, 3, 2])
+            h[0].markdown("**View**")
+            h[1].markdown("**Title**")
+            h[2].markdown("**Start**")
+            h[3].markdown("**End**")
+            h[4].markdown("**Status**")
 
-            # Rows
             for i, item in enumerate(data["calendar"]):
                 if not isinstance(item, dict):
                     continue
@@ -292,16 +285,17 @@ if menu == "Calendar":
                 start_txt = fmt_ny(sdt) if sdt else (item.get("start", "") or "")
                 end_txt = fmt_ny(edt) if edt else (item.get("end", "") or "")
 
-                cols = st.columns([5, 3, 3, 2, 1])
-                cols[0].write(item.get("title", "Untitled"))
-                cols[1].write(start_txt)
-                cols[2].write(end_txt)
-                cols[3].write(item.get("status", "Scheduled"))
+                cols = st.columns([1, 5, 3, 3, 2])
 
-                if cols[4].button("👁️", key=f"cal_view_{i}"):
+                if cols[0].button("👁️", key=f"cal_view_{i}"):
                     st.session_state.selected_calendar = i
-                    st.session_state.calendar_mode = "detail"
+                    st.session_state.calendar_mode = "form"
                     st.rerun()
+
+                cols[1].write(item.get("title", "Untitled"))
+                cols[2].write(start_txt)
+                cols[3].write(end_txt)
+                cols[4].write(item.get("status", "Scheduled"))
 
 
 # -----------------------------
@@ -327,7 +321,6 @@ if menu == "Actions":
         if col2.button("Back"):
             st.session_state.selected_action = None
             st.rerun()
-
     else:
         if not data["actions"]:
             st.info("No actions.")
@@ -381,14 +374,12 @@ if menu == "Delegations":
         if col2.button("Back"):
             st.session_state.selected_delegation = None
             st.rerun()
-
     else:
         if not data["delegations"]:
             st.info("No delegations.")
         else:
             for i, item in enumerate(data["delegations"]):
                 cols = st.columns([6, 2])
-
                 owner = item.get("owner", "Unknown")
                 title = item.get("title", "Untitled Delegation")
                 status = item.get("status", "Waiting")
@@ -438,14 +429,12 @@ if menu == "Routines":
         if col2.button("Back"):
             st.session_state.selected_routine = None
             st.rerun()
-
     else:
         if not data["routines"]:
             st.info("No routines.")
         else:
             for i, item in enumerate(data["routines"]):
                 cols = st.columns([6, 2])
-
                 cadence = item.get("cadence", "Daily")
                 title = item.get("title", "Untitled Routine")
                 status = item.get("status", "Open")
@@ -459,10 +448,7 @@ if menu == "Routines":
 
         st.divider()
         with st.form("add_routine"):
-            cadence = st.selectbox(
-                "Cadence",
-                ["Daily", "Weekly", "Monthly", "Quarterly", "Yearly"]
-            )
+            cadence = st.selectbox("Cadence", ["Daily", "Weekly", "Monthly", "Quarterly", "Yearly"])
             title = st.text_input("Routine", placeholder="e.g., Shine sink")
             submitted = st.form_submit_button("Add Routine")
 
