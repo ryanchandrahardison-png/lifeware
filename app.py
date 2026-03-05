@@ -17,52 +17,45 @@ def fmt_ny(dt_utc: datetime) -> str:
     return dt_local.strftime("%d-%b-%Y %H:%M").upper()
 
 
-def parse_dt_any(value: str) -> datetime | None:
-    if not value or not isinstance(value, str):
+def parse_dt_any(value):
+    if not value:
         return None
-    v = value.strip()
     try:
+        v = value
         if v.endswith("Z"):
             v = v[:-1] + "+00:00"
         dt = datetime.fromisoformat(v)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC_TZ)
         return dt.astimezone(UTC_TZ)
-    except Exception:
+    except:
         return None
 
 
-def ensure_event_utc_fields(ev: dict) -> None:
+def ensure_event_utc_fields(ev):
     if "start_utc" not in ev:
-        dt = parse_dt_any(ev.get("start", ""))
+        dt = parse_dt_any(ev.get("start"))
         if dt:
             ev["start_utc"] = dt.isoformat()
+
     if "end_utc" not in ev:
-        dt = parse_dt_any(ev.get("end", ""))
+        dt = parse_dt_any(ev.get("end"))
         if dt:
             ev["end_utc"] = dt.isoformat()
 
 
-def get_event_dt_utc(ev: dict, key: str) -> datetime | None:
-    dt = parse_dt_any(ev.get(key, ""))
-    if dt:
-        return dt
-    legacy_key = "start" if key == "start_utc" else "end"
-    return parse_dt_any(ev.get(legacy_key, ""))
-
-
-def local_to_utc_iso(d: date, t: time) -> str:
+def local_to_utc_iso(d, t):
     dt_local = datetime.combine(d, t).replace(tzinfo=NY_TZ)
     return dt_local.astimezone(UTC_TZ).isoformat()
 
 
-def utc_to_local_parts(dt_utc: datetime) -> tuple[date, time]:
-    dt_local = dt_utc.astimezone(NY_TZ)
+def utc_to_local_parts(dt):
+    dt_local = dt.astimezone(NY_TZ)
     return dt_local.date(), dt_local.time().replace(second=0, microsecond=0)
 
 
 # -----------------------------
-# Initialize Session State
+# Session State
 # -----------------------------
 if "data" not in st.session_state:
     st.session_state.data = {
@@ -72,21 +65,12 @@ if "data" not in st.session_state:
         "routines": []
     }
 
-# Selection state
-if "selected_action" not in st.session_state:
-    st.session_state.selected_action = None
-if "selected_calendar" not in st.session_state:
-    st.session_state.selected_calendar = None
-if "selected_delegation" not in st.session_state:
-    st.session_state.selected_delegation = None
-if "selected_routine" not in st.session_state:
-    st.session_state.selected_routine = None
-
-# Calendar mode: list | form
 if "calendar_mode" not in st.session_state:
     st.session_state.calendar_mode = "list"
 
-# Upload signature so we load only once
+if "selected_calendar" not in st.session_state:
+    st.session_state.selected_calendar = None
+
 if "uploaded_sig" not in st.session_state:
     st.session_state.uploaded_sig = None
 
@@ -94,56 +78,53 @@ data = st.session_state.data
 
 
 # -----------------------------
-# Sidebar: Session File
+# Sidebar File Handling
 # -----------------------------
 st.sidebar.title("Session File")
 
 uploaded_file = st.sidebar.file_uploader("Upload GTD JSON", type="json")
 
 if uploaded_file is not None:
+
     file_bytes = uploaded_file.getvalue()
     sig = (uploaded_file.name, len(file_bytes))
 
     if st.session_state.uploaded_sig != sig:
+
         loaded = json.loads(file_bytes.decode("utf-8"))
 
         for k in ["actions", "calendar", "delegations", "routines"]:
-            if k not in loaded or not isinstance(loaded[k], list):
+            if k not in loaded:
                 loaded[k] = []
 
         for ev in loaded["calendar"]:
-            if isinstance(ev, dict):
-                ensure_event_utc_fields(ev)
+            ensure_event_utc_fields(ev)
 
         st.session_state.data = loaded
-        data = st.session_state.data
+        data = loaded
 
-        # Reset selections/modes on new file load
-        st.session_state.selected_action = None
-        st.session_state.selected_calendar = None
-        st.session_state.selected_delegation = None
-        st.session_state.selected_routine = None
         st.session_state.calendar_mode = "list"
-
+        st.session_state.selected_calendar = None
         st.session_state.uploaded_sig = sig
+
         st.sidebar.success("GTD file loaded")
 
 export_json = json.dumps(data, indent=2)
 
 st.sidebar.download_button(
-    label="Download Updated GTD",
-    data=export_json,
-    file_name="gtd_updated.json",
-    mime="application/json"
+    "Download Updated GTD",
+    export_json,
+    "gtd_updated.json",
+    "application/json"
 )
 
-st.sidebar.warning("Remember to download your updated GTD file before leaving.")
+st.sidebar.warning("Download before leaving.")
 
 
 # -----------------------------
 # Main Menu
 # -----------------------------
-st.title("Control Engine — Calendar Edit Upgrade")
+st.title("Control Engine")
 
 menu = st.sidebar.radio(
     "Main Menu",
@@ -151,284 +132,202 @@ menu = st.sidebar.radio(
 )
 
 
-# -----------------------------
+# =====================================================
 # Calendar
-# -----------------------------
+# =====================================================
 if menu == "Calendar":
+
     st.header("Calendar")
 
-    top_cols = st.columns([1, 9])
-    if top_cols[0].button("Add Event"):
-        st.session_state.selected_calendar = None
+    top = st.columns([1,9])
+    if top[0].button("Add Event"):
         st.session_state.calendar_mode = "form"
+        st.session_state.selected_calendar = None
         st.rerun()
 
-    # -------------------------
-    # Unified Add/Edit Form
-    # -------------------------
-            # ---- Delete (edit mode only) ----
+    # -------------------------------------
+    # FORM SCREEN (Add/Edit)
+    # -------------------------------------
+    if st.session_state.calendar_mode == "form":
+
+        is_edit = st.session_state.selected_calendar is not None
+
         if is_edit:
-            st.divider()
-            st.subheader("Danger Zone")
+            idx = st.session_state.selected_calendar
+            ev = data["calendar"][idx]
+            ensure_event_utc_fields(ev)
 
-            confirm_delete = st.checkbox("I understand this will permanently delete the event.", key="confirm_delete")
+            sdt = parse_dt_any(ev["start_utc"])
+            edt = parse_dt_any(ev["end_utc"])
 
-            del_cols = st.columns([2, 8])
-            if del_cols[0].button("Delete Event"):
-                if not confirm_delete:
-                    st.error("Please confirm deletion first.")
-                else:
-                    # Delete and return to list
-                    del data["calendar"][idx]
-                    st.session_state.calendar_mode = "list"
-                    st.session_state.selected_calendar = None
-                    # Reset checkbox so it doesn't stay checked
-                    st.session_state.confirm_delete = False
-                    st.rerun()
+            s_date, s_time = utc_to_local_parts(sdt)
+            e_date, e_time = utc_to_local_parts(edt)
 
-        b1, b2 = st.columns([1, 9])
-        if b1.button("Back to Calendar"):
+            default_title = ev.get("title","")
+            default_desc = ev.get("description","")
+            default_status = ev.get("status","Scheduled")
+
+        else:
+            default_title = ""
+            default_desc = ""
+            default_status = "Scheduled"
+            s_date = date.today()
+            e_date = date.today()
+            s_time = time(9,0)
+            e_time = time(9,30)
+
+        st.subheader("Edit Event" if is_edit else "Add Event")
+
+        with st.form("calendar_form"):
+
+            title = st.text_input("Title", value=default_title)
+
+            c1,c2 = st.columns(2)
+            start_date = c1.date_input("Start Date", value=s_date)
+            start_time = c2.time_input("Start Time", value=s_time)
+
+            c3,c4 = st.columns(2)
+            end_date = c3.date_input("End Date", value=e_date)
+            end_time = c4.time_input("End Time", value=e_time)
+
+            description = st.text_area("Description", value=default_desc)
+
+            status = st.selectbox(
+                "Status",
+                ["Scheduled","Complete"],
+                index=0 if default_status!="Complete" else 1
+            )
+
+            submitted = st.form_submit_button(
+                "Save Changes" if is_edit else "Create Event"
+            )
+
+        if submitted:
+
+            start_utc = local_to_utc_iso(start_date,start_time)
+            end_utc = local_to_utc_iso(end_date,end_time)
+
+            payload = {
+                "title": title,
+                "description": description,
+                "status": status,
+                "start_utc": start_utc,
+                "end_utc": end_utc,
+                "start": start_utc,
+                "end": end_utc
+            }
+
+            if is_edit:
+                data["calendar"][idx].update(payload)
+            else:
+                data["calendar"].append(payload)
+
             st.session_state.calendar_mode = "list"
             st.session_state.selected_calendar = None
             st.rerun()
 
-        if submitted:
-            start_utc = local_to_utc_iso(start_date, start_time)
-            end_utc = local_to_utc_iso(end_date, end_time)
+        # DELETE EVENT
+        if is_edit:
 
-            sdt2 = parse_dt_any(start_utc)
-            edt2 = parse_dt_any(end_utc)
-            if sdt2 and edt2 and edt2 <= sdt2:
-                st.error("End must be after Start.")
-            else:
-                payload = {
-                    "title": title.strip() or ("Untitled Event" if not is_edit else default_title or "Untitled Event"),
-                    "description": description.strip(),
-                    "status": status,
-                    "start_utc": start_utc,
-                    "end_utc": end_utc,
-                    # legacy fields (kept for compatibility / readability)
-                    "start": start_utc,
-                    "end": end_utc,
-                }
+            st.divider()
+            st.subheader("Danger Zone")
 
-                if is_edit:
-                    data["calendar"][idx].update(payload)
+            confirm_delete = st.checkbox(
+                "Confirm deletion of this event"
+            )
+
+            if st.button("Delete Event"):
+
+                if confirm_delete:
+                    del data["calendar"][idx]
+
+                    st.session_state.calendar_mode = "list"
+                    st.session_state.selected_calendar = None
+
+                    st.rerun()
                 else:
-                    data["calendar"].append(payload)
+                    st.error("Check confirmation box first.")
 
-                st.session_state.calendar_mode = "list"
-                st.session_state.selected_calendar = None
-                st.rerun()
+        if st.button("Back to Calendar"):
+            st.session_state.calendar_mode = "list"
+            st.session_state.selected_calendar = None
+            st.rerun()
 
-    # -------------------------
-    # List Screen (table)
-    # -------------------------
+    # -------------------------------------
+    # LIST SCREEN
+    # -------------------------------------
     else:
-        st.session_state.calendar_mode = "list"
-        st.session_state.selected_calendar = None
 
         if not data["calendar"]:
-            st.info("No calendar items.")
+            st.info("No calendar events.")
         else:
-            # Header row: View | Title | Start | End | Status
-            h = st.columns([1, 5, 3, 3, 2])
-            h[0].markdown("**View**")
-            h[1].markdown("**Title**")
-            h[2].markdown("**Start**")
-            h[3].markdown("**End**")
-            h[4].markdown("**Status**")
 
-            for i, item in enumerate(data["calendar"]):
-                if not isinstance(item, dict):
-                    continue
+            header = st.columns([1,5,3,3,2])
 
-                ensure_event_utc_fields(item)
+            header[0].markdown("**View**")
+            header[1].markdown("**Title**")
+            header[2].markdown("**Start**")
+            header[3].markdown("**End**")
+            header[4].markdown("**Status**")
 
-                sdt = get_event_dt_utc(item, "start_utc")
-                edt = get_event_dt_utc(item, "end_utc")
+            for i,ev in enumerate(data["calendar"]):
 
-                start_txt = fmt_ny(sdt) if sdt else (item.get("start", "") or "")
-                end_txt = fmt_ny(edt) if edt else (item.get("end", "") or "")
+                ensure_event_utc_fields(ev)
 
-                cols = st.columns([1, 5, 3, 3, 2])
+                sdt = parse_dt_any(ev.get("start_utc"))
+                edt = parse_dt_any(ev.get("end_utc"))
 
-                if cols[0].button("👁️", key=f"cal_view_{i}"):
+                start_txt = fmt_ny(sdt) if sdt else ""
+                end_txt = fmt_ny(edt) if edt else ""
+
+                row = st.columns([1,5,3,3,2])
+
+                if row[0].button("👁️", key=f"view{i}"):
                     st.session_state.selected_calendar = i
                     st.session_state.calendar_mode = "form"
                     st.rerun()
 
-                cols[1].write(item.get("title", "Untitled"))
-                cols[2].write(start_txt)
-                cols[3].write(end_txt)
-                cols[4].write(item.get("status", "Scheduled"))
+                row[1].write(ev.get("title",""))
+                row[2].write(start_txt)
+                row[3].write(end_txt)
+                row[4].write(ev.get("status","Scheduled"))
 
 
-# -----------------------------
+# =====================================================
 # Actions
-# -----------------------------
+# =====================================================
 if menu == "Actions":
+
     st.header("Actions")
 
-    if st.session_state.selected_action is not None:
-        idx = st.session_state.selected_action
-        action = data["actions"][idx]
-
-        st.subheader("Action Detail")
-        st.write("Title:", action.get("title", ""))
-        st.write("Context:", action.get("context", ""))
-        st.write("Status:", action.get("status", ""))
-
-        col1, col2 = st.columns(2)
-        if col1.button("Mark Done"):
-            data["actions"][idx]["status"] = "Done"
-            st.rerun()
-
-        if col2.button("Back"):
-            st.session_state.selected_action = None
-            st.rerun()
-    else:
-        if not data["actions"]:
-            st.info("No actions.")
-        else:
-            for i, item in enumerate(data["actions"]):
-                cols = st.columns([6, 2])
-                title = item.get("title", "Untitled Action")
-                status = item.get("status", "Open")
-
-                if cols[0].button(title, key=f"act_open_{i}"):
-                    st.session_state.selected_action = i
-                    st.rerun()
-
-                cols[1].write(status)
-
-        st.divider()
-        with st.form("add_action"):
-            title = st.text_input("Action", placeholder="e.g., Draft stakeholder email")
-            context = st.text_input("Context", "@Computer")
-            submitted = st.form_submit_button("Add Action")
-
-        if submitted:
-            data["actions"].append({
-                "title": title.strip() or "Untitled Action",
-                "context": context.strip() or "@Computer",
-                "status": "Open"
-            })
-            st.rerun()
+    for a in data["actions"]:
+        st.write(a.get("title",""))
 
 
-# -----------------------------
+# =====================================================
 # Delegations
-# -----------------------------
+# =====================================================
 if menu == "Delegations":
+
     st.header("Delegations")
 
-    if st.session_state.selected_delegation is not None:
-        idx = st.session_state.selected_delegation
-        item = data["delegations"][idx]
-
-        st.subheader("Delegation Detail")
-        st.write("Owner:", item.get("owner", ""))
-        st.write("Delegation:", item.get("title", ""))
-        st.write("Status:", item.get("status", ""))
-
-        col1, col2 = st.columns(2)
-        if col1.button("Mark Received"):
-            data["delegations"][idx]["status"] = "Received"
-            st.rerun()
-
-        if col2.button("Back"):
-            st.session_state.selected_delegation = None
-            st.rerun()
-    else:
-        if not data["delegations"]:
-            st.info("No delegations.")
-        else:
-            for i, item in enumerate(data["delegations"]):
-                cols = st.columns([6, 2])
-                owner = item.get("owner", "Unknown")
-                title = item.get("title", "Untitled Delegation")
-                status = item.get("status", "Waiting")
-                label = f"{owner} — {title}"
-
-                if cols[0].button(label, key=f"del_open_{i}"):
-                    st.session_state.selected_delegation = i
-                    st.rerun()
-
-                cols[1].write(status)
-
-        st.divider()
-        with st.form("add_delegation"):
-            owner = st.text_input("Owner", placeholder="e.g., Vikram")
-            title = st.text_input("Delegation", placeholder="e.g., Update deployment checklist")
-            submitted = st.form_submit_button("Add Delegation")
-
-        if submitted:
-            data["delegations"].append({
-                "owner": owner.strip() or "Unknown",
-                "title": title.strip() or "Untitled Delegation",
-                "status": "Waiting"
-            })
-            st.rerun()
+    for d in data["delegations"]:
+        st.write(d.get("title",""))
 
 
-# -----------------------------
+# =====================================================
 # Routines
-# -----------------------------
+# =====================================================
 if menu == "Routines":
+
     st.header("Routines")
 
-    if st.session_state.selected_routine is not None:
-        idx = st.session_state.selected_routine
-        item = data["routines"][idx]
-
-        st.subheader("Routine Detail")
-        st.write("Cadence:", item.get("cadence", ""))
-        st.write("Routine:", item.get("title", ""))
-        st.write("Status:", item.get("status", ""))
-
-        col1, col2 = st.columns(2)
-        if col1.button("Mark Done"):
-            data["routines"][idx]["status"] = "Done"
-            st.rerun()
-
-        if col2.button("Back"):
-            st.session_state.selected_routine = None
-            st.rerun()
-    else:
-        if not data["routines"]:
-            st.info("No routines.")
-        else:
-            for i, item in enumerate(data["routines"]):
-                cols = st.columns([6, 2])
-                cadence = item.get("cadence", "Daily")
-                title = item.get("title", "Untitled Routine")
-                status = item.get("status", "Open")
-                label = f"{cadence} — {title}"
-
-                if cols[0].button(label, key=f"rt_open_{i}"):
-                    st.session_state.selected_routine = i
-                    st.rerun()
-
-                cols[1].write(status)
-
-        st.divider()
-        with st.form("add_routine"):
-            cadence = st.selectbox("Cadence", ["Daily", "Weekly", "Monthly", "Quarterly", "Yearly"])
-            title = st.text_input("Routine", placeholder="e.g., Shine sink")
-            submitted = st.form_submit_button("Add Routine")
-
-        if submitted:
-            data["routines"].append({
-                "cadence": cadence,
-                "title": title.strip() or "Untitled Routine",
-                "status": "Open"
-            })
-            st.rerun()
+    for r in data["routines"]:
+        st.write(r.get("title",""))
 
 
 # -----------------------------
-# Debug Section
+# Debug
 # -----------------------------
 with st.expander("Debug Session Data"):
     st.json(data)
