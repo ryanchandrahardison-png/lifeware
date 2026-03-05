@@ -15,6 +15,8 @@ if "data" not in st.session_state:
     }
 
 # Selection state for detail views
+if "uploaded_sig" not in st.session_state:
+    st.session_state.uploaded_sig = None
 if "selected_action" not in st.session_state:
     st.session_state.selected_action = None
 if "selected_calendar" not in st.session_state:
@@ -32,29 +34,31 @@ data = st.session_state.data
 # -----------------------------
 st.sidebar.title("Session File")
 
-uploaded_file = st.sidebar.file_uploader(
-    "Upload GTD JSON",
-    type="json"
-)
+uploaded_file = st.sidebar.file_uploader("Upload GTD JSON", type="json")
 
 if uploaded_file is not None:
-    loaded = json.load(uploaded_file)
+    # Create a signature so we only load when the upload changes
+    file_bytes = uploaded_file.getvalue()
+    sig = (uploaded_file.name, len(file_bytes))
 
-    # Defensive: ensure keys exist
-    for k in ["actions", "calendar", "delegations", "routines"]:
-        if k not in loaded or not isinstance(loaded[k], list):
-            loaded[k] = []
+    if st.session_state.uploaded_sig != sig:
+        loaded = json.loads(file_bytes.decode("utf-8"))
 
-    st.session_state.data = loaded
-    data = st.session_state.data
+        # Defensive: ensure keys exist
+        for k in ["actions", "calendar", "delegations", "routines"]:
+            if k not in loaded or not isinstance(loaded[k], list):
+                loaded[k] = []
 
-    # Reset any open detail views when new file loads
-    st.session_state.selected_action = None
-    st.session_state.selected_calendar = None
-    st.session_state.selected_delegation = None
-    st.session_state.selected_routine = None
+        st.session_state.data = loaded
 
-    st.sidebar.success("GTD file loaded")
+        # Reset any open detail views when new file loads
+        st.session_state.selected_action = None
+        st.session_state.selected_calendar = None
+        st.session_state.selected_delegation = None
+        st.session_state.selected_routine = None
+
+        st.session_state.uploaded_sig = sig
+        st.sidebar.success("GTD file loaded")
 
 export_json = json.dumps(data, indent=2)
 
