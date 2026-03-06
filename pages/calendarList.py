@@ -1,4 +1,3 @@
-import pandas as pd
 import streamlit as st
 
 from core.calendar_event_form import render_calendar_event_form
@@ -82,6 +81,12 @@ def _grouped_calendar_rows() -> list[tuple[str, list[dict]]]:
     return ordered_groups
 
 
+def _open_event(source_index: int) -> None:
+    st.session_state.calendar_edit_index = source_index
+    st.session_state.calendar_new_mode = False
+    st.rerun()
+
+
 with list_col:
     if st.button("Add Event"):
         st.session_state.calendar_edit_index = None
@@ -94,33 +99,23 @@ with list_col:
         for group_num, (day_label, rows) in enumerate(_grouped_calendar_rows()):
             st.subheader(day_label)
 
-            df = pd.DataFrame(
-                [
-                    {
-                        "Title": row["Title"],
-                        "Start": row["Start"],
-                        "End": row["End"],
-                        "Status": row["Status"],
-                    }
-                    for row in rows
-                ]
-            )
+            header_cols = st.columns([4, 1.2, 1.2, 1.2], gap="small")
+            header_cols[0].markdown("**Title**")
+            header_cols[1].markdown("**Start**")
+            header_cols[2].markdown("**End**")
+            header_cols[3].markdown("**Status**")
 
-            event = st.dataframe(
-                df,
-                use_container_width=True,
-                hide_index=True,
-                on_select="rerun",
-                selection_mode="single-row",
-                key=f"calendar_day_{group_num}",
-            )
+            for row_num, row in enumerate(rows):
+                row_cols = st.columns([4, 1.2, 1.2, 1.2], gap="small")
+                for col, field in zip(row_cols, ["Title", "Start", "End", "Status"]):
+                    if col.button(
+                        row[field] or " ",
+                        key=f"calendar_row_{group_num}_{row_num}_{field.lower()}",
+                        use_container_width=True,
+                    ):
+                        _open_event(row["source_index"])
 
-            selected_rows = event.selection.rows
-            if selected_rows:
-                selected_row = rows[selected_rows[0]]
-                st.session_state.calendar_edit_index = selected_row["source_index"]
-                st.session_state.calendar_new_mode = False
-                st.rerun()
+            st.markdown("")
 
 if drawer_col is not None:
     with drawer_col:
