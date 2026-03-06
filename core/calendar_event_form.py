@@ -124,62 +124,65 @@ def render_calendar_event_form(data: dict, *, event_index: int | None = None, dr
     with st.form(f"calendar_form_{'drawer' if drawer_mode else 'page'}"):
         title = st.text_input("Title", value=values["title"])
 
-        c1, c2 = st.columns(2)
+c1, c2 = st.columns(2)
 
-        effective_start_date = max(values["start_date"], min_start_dt_local.date())
-        start_date = c1.date_input(
-            "Start Date",
-            value=effective_start_date,
-            min_value=min_start_dt_local.date(),
-        )
+default_start_date = values["start_date"]
+start_min_date = None if is_edit else min_start_dt_local.date()
 
-        start_time_min = time(0, 0)
-        if start_date == min_start_dt_local.date():
-            start_time_min = min_start_dt_local.time().replace(second=0, microsecond=0)
+start_date = c1.date_input(
+    "Start Date",
+    value=default_start_date,
+    min_value=start_min_date,
+)
 
-        start_time_options = [t for t in TIME_OPTIONS if t >= start_time_min]
-        if not start_time_options:
-            start_time_options = [min_start_dt_local.time().replace(second=0, microsecond=0)]
+start_time_min = time(0, 0)
+if not is_edit and start_date == min_start_dt_local.date():
+    start_time_min = min_start_dt_local.time().replace(second=0, microsecond=0)
 
-        preferred_start_time = values["start_time"]
-        if start_date == min_start_dt_local.date() and preferred_start_time < start_time_min:
-            preferred_start_time = start_time_min
+start_time_options = [t for t in TIME_OPTIONS if t >= start_time_min]
+if not start_time_options:
+    start_time_options = [min_start_dt_local.time().replace(second=0, microsecond=0)]
 
-        start_time = c2.selectbox(
-            "Start Time",
-            options=start_time_options,
-            index=_time_index(start_time_options, preferred_start_time),
-            format_func=_format_time_label,
-        )
+preferred_start_time = values["start_time"]
+if not is_edit and start_date == min_start_dt_local.date() and preferred_start_time < start_time_min:
+    preferred_start_time = start_time_min
 
-        c3, c4 = st.columns(2)
+start_time = c2.selectbox(
+    "Start Time",
+    options=start_time_options,
+    index=_time_index(start_time_options, preferred_start_time),
+    format_func=_format_time_label,
+)
 
-        min_end_date = start_date
-        effective_end_date = max(values["end_date"], min_end_date)
-        end_date = c3.date_input(
-            "End Date",
-            value=effective_end_date,
-            min_value=min_end_date,
-        )
+c3, c4 = st.columns(2)
 
-        end_time_min = time(0, 0)
-        if end_date == start_date:
-            end_time_min = start_time
+default_end_date = values["end_date"]
+end_min_date = None if is_edit else start_date
 
-        end_time_options = [t for t in TIME_OPTIONS if t >= end_time_min]
-        if not end_time_options:
-            end_time_options = [end_time_min]
+end_date = c3.date_input(
+    "End Date",
+    value=default_end_date,
+    min_value=end_min_date,
+)
 
-        preferred_end_time = values["end_time"]
-        if end_date == start_date and preferred_end_time < end_time_min:
-            preferred_end_time = end_time_min
+end_time_min = time(0, 0)
+if not is_edit and end_date == start_date:
+    end_time_min = start_time
 
-        end_time = c4.selectbox(
-            "End Time",
-            options=end_time_options,
-            index=_time_index(end_time_options, preferred_end_time),
-            format_func=_format_time_label,
-        )
+end_time_options = [t for t in TIME_OPTIONS if t >= end_time_min]
+if not end_time_options:
+    end_time_options = [end_time_min]
+
+preferred_end_time = values["end_time"]
+if not is_edit and end_date == start_date and preferred_end_time < end_time_min:
+    preferred_end_time = end_time_min
+
+end_time = c4.selectbox(
+    "End Time",
+    options=end_time_options,
+    index=_time_index(end_time_options, preferred_end_time),
+    format_func=_format_time_label,
+)
 
         description = st.text_area("Description", value=values["description"], height=180)
 

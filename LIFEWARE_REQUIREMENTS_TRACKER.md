@@ -106,3 +106,5 @@ When continuing development in a new conversation, the assistant should be told 
 - read this requirements tracker first
 - preserve all requirements in this file unless explicitly overridden
 - then apply only the newly requested change
+
+- In Event View, opening an existing past event must display that event's actual stored start/end date and time values, not the last selected UI values.
