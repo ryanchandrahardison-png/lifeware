@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, time, datetime, timedelta
 from zoneinfo import ZoneInfo
+
 import streamlit as st
 
 from core.calendar_utils import (
@@ -10,7 +11,6 @@ from core.calendar_utils import (
     local_to_utc_iso,
     utc_to_local_parts,
 )
-
 
 DEFAULT_STATUS_OPTIONS = ["Scheduled", "Complete"]
 UTC_TZ = ZoneInfo("UTC")
@@ -26,7 +26,7 @@ def _round_up_to_next_slot(value: datetime, minutes: int = 30) -> datetime:
 
 
 def _time_options(step_minutes: int = 30) -> list[time]:
-    options = []
+    options: list[time] = []
     current = datetime.combine(date.today(), time(0, 0))
     end = current + timedelta(days=1)
     while current < end:
@@ -52,7 +52,7 @@ def _time_index(options: list[time], selected: time) -> int:
         option_minutes = option.hour * 60 + option.minute
         if option_minutes >= selected_minutes:
             return i
-    return len(options) - 1
+    return max(0, len(options) - 1)
 
 
 def _default_form_values(event: dict | None) -> dict:
@@ -85,7 +85,9 @@ def _default_form_values(event: dict | None) -> dict:
     return values
 
 
-def render_calendar_event_form(data: dict, *, event_index: int | None = None, drawer_mode: bool = False) -> None:
+def render_calendar_event_form(
+    data: dict, *, event_index: int | None = None, drawer_mode: bool = False
+) -> None:
     calendar = data.setdefault("calendar", [])
     is_edit = event_index is not None and 0 <= event_index < len(calendar)
     event = calendar[event_index] if is_edit else None
@@ -124,65 +126,69 @@ def render_calendar_event_form(data: dict, *, event_index: int | None = None, dr
     with st.form(f"calendar_form_{'drawer' if drawer_mode else 'page'}"):
         title = st.text_input("Title", value=values["title"])
 
-c1, c2 = st.columns(2)
+        c1, c2 = st.columns(2)
 
-default_start_date = values["start_date"]
-start_min_date = None if is_edit else min_start_dt_local.date()
+        default_start_date = values["start_date"]
+        start_min_date = None if is_edit else min_start_dt_local.date()
 
-start_date = c1.date_input(
-    "Start Date",
-    value=default_start_date,
-    min_value=start_min_date,
-)
+        start_date = c1.date_input(
+            "Start Date",
+            value=default_start_date,
+            min_value=start_min_date,
+        )
 
-start_time_min = time(0, 0)
-if not is_edit and start_date == min_start_dt_local.date():
-    start_time_min = min_start_dt_local.time().replace(second=0, microsecond=0)
+        start_time_min = time(0, 0)
+        if not is_edit and start_date == min_start_dt_local.date():
+            start_time_min = min_start_dt_local.time().replace(second=0, microsecond=0)
 
-start_time_options = [t for t in TIME_OPTIONS if t >= start_time_min]
-if not start_time_options:
-    start_time_options = [min_start_dt_local.time().replace(second=0, microsecond=0)]
+        start_time_options = [t for t in TIME_OPTIONS if t >= start_time_min]
+        if not start_time_options:
+            start_time_options = [min_start_dt_local.time().replace(second=0, microsecond=0)]
 
-preferred_start_time = values["start_time"]
-if not is_edit and start_date == min_start_dt_local.date() and preferred_start_time < start_time_min:
-    preferred_start_time = start_time_min
+        preferred_start_time = values["start_time"]
+        if (
+            not is_edit
+            and start_date == min_start_dt_local.date()
+            and preferred_start_time < start_time_min
+        ):
+            preferred_start_time = start_time_min
 
-start_time = c2.selectbox(
-    "Start Time",
-    options=start_time_options,
-    index=_time_index(start_time_options, preferred_start_time),
-    format_func=_format_time_label,
-)
+        start_time = c2.selectbox(
+            "Start Time",
+            options=start_time_options,
+            index=_time_index(start_time_options, preferred_start_time),
+            format_func=_format_time_label,
+        )
 
-c3, c4 = st.columns(2)
+        c3, c4 = st.columns(2)
 
-default_end_date = values["end_date"]
-end_min_date = None if is_edit else start_date
+        default_end_date = values["end_date"]
+        end_min_date = None if is_edit else start_date
 
-end_date = c3.date_input(
-    "End Date",
-    value=default_end_date,
-    min_value=end_min_date,
-)
+        end_date = c3.date_input(
+            "End Date",
+            value=default_end_date,
+            min_value=end_min_date,
+        )
 
-end_time_min = time(0, 0)
-if not is_edit and end_date == start_date:
-    end_time_min = start_time
+        end_time_min = time(0, 0)
+        if not is_edit and end_date == start_date:
+            end_time_min = start_time
 
-end_time_options = [t for t in TIME_OPTIONS if t >= end_time_min]
-if not end_time_options:
-    end_time_options = [end_time_min]
+        end_time_options = [t for t in TIME_OPTIONS if t >= end_time_min]
+        if not end_time_options:
+            end_time_options = [end_time_min]
 
-preferred_end_time = values["end_time"]
-if not is_edit and end_date == start_date and preferred_end_time < end_time_min:
-    preferred_end_time = end_time_min
+        preferred_end_time = values["end_time"]
+        if not is_edit and end_date == start_date and preferred_end_time < end_time_min:
+            preferred_end_time = end_time_min
 
-end_time = c4.selectbox(
-    "End Time",
-    options=end_time_options,
-    index=_time_index(end_time_options, preferred_end_time),
-    format_func=_format_time_label,
-)
+        end_time = c4.selectbox(
+            "End Time",
+            options=end_time_options,
+            index=_time_index(end_time_options, preferred_end_time),
+            format_func=_format_time_label,
+        )
 
         description = st.text_area("Description", value=values["description"], height=180)
 
@@ -210,6 +216,7 @@ end_time = c4.selectbox(
             st.rerun()
         else:
             st.switch_page("pages/calendarList.py")
+        return
 
     if delete and is_edit:
         if not confirm_delete:
@@ -222,6 +229,7 @@ end_time = c4.selectbox(
                 st.rerun()
             else:
                 st.switch_page("pages/calendarList.py")
+        return
 
     if save:
         start_utc = local_to_utc_iso(start_date, start_time)

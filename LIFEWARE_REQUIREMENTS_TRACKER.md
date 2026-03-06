@@ -108,3 +108,5 @@ When continuing development in a new conversation, the assistant should be told 
 - then apply only the newly requested change
 
 - In Event View, opening an existing past event must display that event's actual stored start/end date and time values, not the last selected UI values.
+
+- `core/calendar_event_form.py` must remain syntactically valid and importable after updates.
