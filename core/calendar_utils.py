@@ -3,12 +3,13 @@ from zoneinfo import ZoneInfo
 
 NY_TZ = ZoneInfo("America/New_York")
 UTC_TZ = ZoneInfo("UTC")
+DEFAULT_STATUS = "Scheduled"
+ALLOWED_STATUSES = ["Scheduled", "Complete"]
 
 
-def fmt_ny(dt_utc: datetime) -> str:
+def fmt_ny(dt_utc):
     dt_local = dt_utc.astimezone(NY_TZ)
     return dt_local.strftime("%d-%b-%Y %H:%M").upper()
-
 
 
 def parse_dt_any(value):
@@ -37,29 +38,69 @@ def parse_dt_any(value):
         return None
 
 
-
-def ensure_event_utc_fields(ev: dict) -> None:
-    if "start_utc" not in ev or not ev.get("start_utc"):
-        dt = parse_dt_any(ev.get("start", ""))
-        if dt:
-            ev["start_utc"] = dt.isoformat()
-
-    if "end_utc" not in ev or not ev.get("end_utc"):
-        dt = parse_dt_any(ev.get("end", ""))
-        if dt:
-            ev["end_utc"] = dt.isoformat()
-
-    ev.setdefault("start_utc", "")
-    ev.setdefault("end_utc", "")
+def combine_local_to_utc(start_date: date, start_time: time):
+    dt_local = datetime.combine(start_date, start_time).replace(tzinfo=NY_TZ)
+    return dt_local.astimezone(UTC_TZ)
 
 
-
-def local_to_utc_iso(d: date, t: time) -> str:
-    dt_local = datetime.combine(d, t).replace(tzinfo=NY_TZ)
-    return dt_local.astimezone(UTC_TZ).isoformat()
-
-
-
-def utc_to_local_parts(dt_utc: datetime):
+def split_utc_to_local_parts(value, default_date=None, default_time=None):
+    dt_utc = parse_dt_any(value)
+    if dt_utc is None:
+        return default_date, default_time
     dt_local = dt_utc.astimezone(NY_TZ)
     return dt_local.date(), dt_local.time().replace(second=0, microsecond=0)
+
+
+def build_event_payload(title, description, status, start_date, start_time, end_date, end_time):
+    status_value = status if status in ALLOWED_STATUSES else DEFAULT_STATUS
+    start_utc = combine_local_to_utc(start_date, start_time)
+    end_utc = combine_local_to_utc(end_date, end_time)
+    return {
+        "title": (title or "").strip(),
+        "description": (description or "").strip(),
+        "status": status_value,
+        "start_utc": start_utc.isoformat(),
+        "end_utc": end_utc.isoformat(),
+    }
+
+
+def normalize_calendar_event(ev):
+    if not isinstance(ev, dict):
+        return {
+            "title": "",
+            "description": "",
+            "status": DEFAULT_STATUS,
+            "start_utc": "",
+            "end_utc": "",
+        }
+
+    normalized = {
+        "title": ev.get("title", "") or "",
+        "description": ev.get("description", "") or "",
+        "status": ev.get("status", DEFAULT_STATUS) or DEFAULT_STATUS,
+        "start_utc": ev.get("start_utc", "") or "",
+        "end_utc": ev.get("end_utc", "") or "",
+    }
+
+    if normalized["status"] not in ALLOWED_STATUSES:
+        normalized["status"] = DEFAULT_STATUS
+
+    if not normalized["start_utc"]:
+        dt = parse_dt_any(ev.get("start", ""))
+        if dt:
+            normalized["start_utc"] = dt.isoformat()
+
+    if not normalized["end_utc"]:
+        dt = parse_dt_any(ev.get("end", ""))
+        if dt:
+            normalized["end_utc"] = dt.isoformat()
+
+    return normalized
+
+
+def normalize_calendar_events(data):
+    calendar = data.get("calendar", [])
+    if not isinstance(calendar, list):
+        data["calendar"] = []
+        return
+    data["calendar"] = [normalize_calendar_event(ev) for ev in calendar if isinstance(ev, dict)]
