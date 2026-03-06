@@ -54,11 +54,6 @@ def parse_dt_any(value) -> datetime | None:
 
 
 def ensure_event_utc_fields(ev: dict) -> None:
-    """
-    Ensure keys exist: start_utc/end_utc.
-    If we can parse legacy start/end, populate them.
-    If not, set blank strings so UI doesn't crash.
-    """
     if "start_utc" not in ev or not ev.get("start_utc"):
         dt = parse_dt_any(ev.get("start", ""))
         if dt:
@@ -242,11 +237,39 @@ if menu == "Calendar":
                 index=0 if default_status != "Complete" else 1,
             )
 
-            submitted = st.form_submit_button(
+            if is_edit:
+                confirm_delete = st.checkbox(
+                    "Confirm deletion of this event",
+                    key="confirm_delete",
+                )
+            else:
+                confirm_delete = False
+
+            btn_cols = st.columns(3)
+            save_clicked = btn_cols[0].form_submit_button(
                 "Save Changes" if is_edit else "Create Event"
             )
+            delete_clicked = btn_cols[1].form_submit_button(
+                "Delete Event",
+                disabled=not is_edit,
+            )
+            back_clicked = btn_cols[2].form_submit_button("Back to Calendar")
 
-        if submitted:
+        if back_clicked:
+            st.session_state.calendar_mode = "list"
+            st.session_state.selected_calendar = None
+            st.rerun()
+
+        if delete_clicked and is_edit:
+            if not confirm_delete:
+                st.error("Check confirmation box first.")
+            else:
+                del data["calendar"][idx]
+                st.session_state.calendar_mode = "list"
+                st.session_state.selected_calendar = None
+                st.rerun()
+
+        if save_clicked:
             start_utc = local_to_utc_iso(start_date, start_time)
             end_utc = local_to_utc_iso(end_date, end_time)
 
@@ -278,28 +301,6 @@ if menu == "Calendar":
                 st.session_state.calendar_mode = "list"
                 st.session_state.selected_calendar = None
                 st.rerun()
-
-        if is_edit:
-            st.divider()
-            st.subheader("Danger Zone")
-            confirm_delete = st.checkbox(
-                "Confirm deletion of this event",
-                key="confirm_delete",
-            )
-
-            if st.button("Delete Event"):
-                if not confirm_delete:
-                    st.error("Check confirmation box first.")
-                else:
-                    del data["calendar"][idx]
-                    st.session_state.calendar_mode = "list"
-                    st.session_state.selected_calendar = None
-                    st.rerun()
-
-        if st.button("Back to Calendar"):
-            st.session_state.calendar_mode = "list"
-            st.session_state.selected_calendar = None
-            st.rerun()
 
     # -------------------------------------
     # LIST SCREEN
