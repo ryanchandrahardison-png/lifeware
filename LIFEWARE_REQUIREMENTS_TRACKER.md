@@ -65,6 +65,7 @@ lifeware/
   - Save/Create, Delete, Back behavior already implemented
 
 ## Calendar Data Model Requirements
+- The calendar must always read from the currently loaded GTD JSON in `st.session_state.data`.
 - Keep canonical event payload fields consistent:
   - title
   - description
@@ -73,6 +74,7 @@ lifeware/
   - end_utc
 - Calendar list should read canonical UTC fields.
 - Do not mutate events during calendar rendering.
+- GTD reload detection must use file content, not just filename/size, so updated GTD files are reloaded correctly.
 
 ## Current Known Intent
 The user wants the app to feel more like Asana over time, but without unnecessary architecture changes.
