@@ -1,7 +1,8 @@
 import streamlit as st
+import pandas as pd
 from core.state import init_session_state
 from core.layout import render_session_sidebar
-from core.calendar_utils import parse_dt_any, fmt_ny
+from core.calendar_utils import ensure_event_utc_fields, parse_dt_any, fmt_ny
 
 init_session_state()
 render_session_sidebar()
@@ -16,32 +17,47 @@ if top[0].button("Add Event"):
     st.session_state.calendar_new_mode = True
     st.switch_page("pages/calendarEvent.py")
 
-calendar_events = [ev for ev in data["calendar"] if isinstance(ev, dict)]
-
-if not calendar_events:
-    st.info("No calendar events yet. Click Add Event to create one.")
+if not data["calendar"]:
+    st.info("No calendar events.")
 else:
-    header = st.columns([0.8, 4, 2.4, 2.4, 1.6])
-    header[0].markdown("**View**")
-    header[1].markdown("**Title**")
-    header[2].markdown("**Start**")
-    header[3].markdown("**End**")
-    header[4].markdown("**Status**")
+    rows = []
+    row_map = []
 
-    for idx, ev in enumerate(calendar_events):
-        sdt = parse_dt_any(ev.get("start_utc"))
-        edt = parse_dt_any(ev.get("end_utc"))
+    for i, ev in enumerate(data["calendar"]):
+        if not isinstance(ev, dict):
+            continue
 
-        row = st.columns([0.8, 4, 2.4, 2.4, 1.6])
-        if row[0].button("👁️", key=f"view_event_{idx}"):
-            st.session_state.calendar_edit_index = idx
-            st.session_state.calendar_new_mode = False
-            st.switch_page("pages/calendarEvent.py")
+        ensure_event_utc_fields(ev)
+        sdt = parse_dt_any(ev.get("start_utc")) or parse_dt_any(ev.get("start"))
+        edt = parse_dt_any(ev.get("end_utc")) or parse_dt_any(ev.get("end"))
 
-        row[1].write(ev.get("title", ""))
-        row[2].write(fmt_ny(sdt) if sdt else "")
-        row[3].write(fmt_ny(edt) if edt else "")
-        row[4].write(ev.get("status", "Scheduled"))
+        rows.append(
+            {
+                "#": i + 1,
+                "Title": ev.get("title", ""),
+                "Start": fmt_ny(sdt) if sdt else "",
+                "End": fmt_ny(edt) if edt else "",
+                "Status": ev.get("status", "Scheduled"),
+            }
+        )
+        row_map.append(i)
+
+    df = pd.DataFrame(rows)
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+    open_cols = st.columns([2, 8])
+    selected_number = open_cols[0].number_input(
+        "Open row #",
+        min_value=1,
+        max_value=len(row_map),
+        value=1,
+        step=1,
+    )
+
+    if open_cols[1].button("👁️ View Event"):
+        st.session_state.calendar_edit_index = row_map[selected_number - 1]
+        st.session_state.calendar_new_mode = False
+        st.switch_page("pages/calendarEvent.py")
 
 with st.expander("Debug Session Data"):
     st.json(data)

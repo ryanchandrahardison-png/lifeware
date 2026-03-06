@@ -1,6 +1,5 @@
 import json
 import streamlit as st
-from core.calendar_utils import normalize_calendar_event
 
 DEFAULT_DATA = {
     "actions": [],
@@ -11,16 +10,9 @@ DEFAULT_DATA = {
 }
 
 
-
 def init_session_state() -> None:
     if "data" not in st.session_state:
-        st.session_state.data = {
-            "actions": [],
-            "calendar": [],
-            "delegations": [],
-            "routines": [],
-            "archived": {},
-        }
+        st.session_state.data = DEFAULT_DATA.copy()
 
     if "uploaded_sig" not in st.session_state:
         st.session_state.uploaded_sig = None
@@ -45,10 +37,6 @@ def normalize_loaded_data(loaded: dict) -> dict:
 
     if not isinstance(result.get("archived"), dict):
         result["archived"] = {}
-
-    result["calendar"] = [
-        normalize_calendar_event(ev) for ev in result["calendar"] if isinstance(ev, dict)
-    ]
 
     return result
 

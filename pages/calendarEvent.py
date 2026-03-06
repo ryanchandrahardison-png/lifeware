@@ -3,9 +3,10 @@ from datetime import date, time
 from core.state import init_session_state
 from core.layout import render_session_sidebar
 from core.calendar_utils import (
+    ensure_event_utc_fields,
     parse_dt_any,
     utc_to_local_parts,
-    build_calendar_event_payload,
+    local_to_utc_iso,
 )
 
 init_session_state()
@@ -33,12 +34,14 @@ if is_edit:
         st.stop()
 
     ev = data["calendar"][idx]
+    ensure_event_utc_fields(ev)
+
     default_title = ev.get("title", "")
     default_desc = ev.get("description", "")
     default_status = ev.get("status", "Scheduled")
 
-    sdt = parse_dt_any(ev.get("start_utc"))
-    edt = parse_dt_any(ev.get("end_utc"))
+    sdt = parse_dt_any(ev.get("start_utc")) or parse_dt_any(ev.get("start"))
+    edt = parse_dt_any(ev.get("end_utc")) or parse_dt_any(ev.get("end"))
 
     if sdt:
         s_date, s_time = utc_to_local_parts(sdt)
@@ -94,32 +97,32 @@ if delete_clicked and is_edit:
         st.switch_page("pages/calendarList.py")
 
 if save_clicked:
-    if not title.strip():
-        st.error("Title is required.")
+    start_utc = local_to_utc_iso(start_date, start_time)
+    end_utc = local_to_utc_iso(end_date, end_time)
+
+    sdt2 = parse_dt_any(start_utc)
+    edt2 = parse_dt_any(end_utc)
+    if sdt2 and edt2 and edt2 <= sdt2:
+        st.error("End must be after Start.")
     else:
-        payload = build_calendar_event_payload(
-            title=title,
-            description=description,
-            status=status,
-            start_date=start_date,
-            start_time=start_time,
-            end_date=end_date,
-            end_time=end_time,
-        )
+        payload = {
+            "title": title.strip() or "Untitled Event",
+            "description": description.strip(),
+            "status": status,
+            "start_utc": start_utc,
+            "end_utc": end_utc,
+            "start": start_utc,
+            "end": end_utc,
+        }
 
-        sdt2 = parse_dt_any(payload["start_utc"])
-        edt2 = parse_dt_any(payload["end_utc"])
-        if sdt2 and edt2 and edt2 <= sdt2:
-            st.error("End must be after Start.")
+        if is_edit:
+            data["calendar"][idx].update(payload)
         else:
-            if is_edit:
-                data["calendar"][idx] = payload
-            else:
-                data["calendar"].append(payload)
+            data["calendar"].append(payload)
 
-            st.session_state.calendar_edit_index = None
-            st.session_state.calendar_new_mode = False
-            st.switch_page("pages/calendarList.py")
+        st.session_state.calendar_edit_index = None
+        st.session_state.calendar_new_mode = False
+        st.switch_page("pages/calendarList.py")
 
 with st.expander("Debug Session Data"):
     st.json(data)
