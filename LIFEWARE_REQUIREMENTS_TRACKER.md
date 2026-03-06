@@ -110,3 +110,7 @@ When continuing development in a new conversation, the assistant should be told 
 - In Event View, opening an existing past event must display that event's actual stored start/end date and time values, not the last selected UI values.
 
 - `core/calendar_event_form.py` must remain syntactically valid and importable after updates.
+
+- Event forms must always contain visible `st.form_submit_button()` controls.
+- Default form values passed into `date_input` must always satisfy its `min_value` constraints.
+- Before packaging, compile-check key Python files to catch syntax/import errors.
