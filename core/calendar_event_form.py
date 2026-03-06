@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date, time, datetime
+from zoneinfo import ZoneInfo
 import streamlit as st
 
 from core.calendar_utils import (
@@ -12,6 +13,7 @@ from core.calendar_utils import (
 
 
 DEFAULT_STATUS_OPTIONS = ["Scheduled", "Complete"]
+UTC_TZ = ZoneInfo("UTC")
 
 
 def _default_form_values(event: dict | None) -> dict:
@@ -54,7 +56,7 @@ def render_calendar_event_form(data: dict, *, event_index: int | None = None, dr
     title_text = "Edit Event" if is_edit else "Add Event"
     if drawer_mode:
         st.markdown(
-            """
+            '''
             <style>
             .lw-drawer {
                 background: white;
@@ -65,7 +67,7 @@ def render_calendar_event_form(data: dict, *, event_index: int | None = None, dr
                 top: 0.5rem;
             }
             </style>
-            """,
+            ''',
             unsafe_allow_html=True,
         )
         st.markdown('<div class="lw-drawer">', unsafe_allow_html=True)
@@ -132,7 +134,15 @@ def render_calendar_event_form(data: dict, *, event_index: int | None = None, dr
         start_utc = local_to_utc_iso(start_date, start_time)
         end_utc = local_to_utc_iso(end_date, end_time)
 
-        if end_utc <= start_utc:
+        start_dt = parse_dt_any(start_utc)
+        end_dt = parse_dt_any(end_utc)
+        now_utc = datetime.now(UTC_TZ)
+
+        if start_dt and start_dt < now_utc:
+            st.error("Start time cannot be before the current date/time.")
+            return
+
+        if not start_dt or not end_dt or end_dt <= start_dt:
             st.error("End time must be after start time.")
             return
 

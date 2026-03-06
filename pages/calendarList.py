@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from core.state import init_state
 from core.layout import sidebar_file_controls
 
@@ -16,18 +17,16 @@ st.sidebar.page_link("pages/actions.py", label="Actions", icon="✅")
 st.sidebar.page_link("pages/delegations.py", label="Delegations", icon="🤝")
 st.sidebar.page_link("pages/routines.py", label="Routines", icon="🔁")
 
+UTC_TZ = ZoneInfo("UTC")
+
 data = st.session_state.data
 events = data.get("calendar", [])
 
 st.title("Calendar")
 
-# Keep selectable table behavior for true row click, but hide Streamlit's
-# selection column and suppress the red cell focus styling so the table
-# looks like a clean read-only calendar list.
 st.markdown(
     '''
     <style>
-    /* Hide selection checkbox column */
     [data-testid="stDataFrame"] [role="columnheader"][aria-colindex="1"],
     [data-testid="stDataFrame"] [role="gridcell"][aria-colindex="1"] {
         display: none !important;
@@ -37,7 +36,6 @@ st.markdown(
         border: 0 !important;
     }
 
-    /* Remove red focus/selection box on clicked cell */
     [data-testid="stDataFrame"] [role="gridcell"]:focus,
     [data-testid="stDataFrame"] [role="gridcell"]:focus-visible,
     [data-testid="stDataFrame"] [tabindex="0"]:focus,
@@ -68,50 +66,86 @@ def sort_key(item):
     return (0 if has_dt else 1, sortable, idx)
 
 
-events_sorted = sorted(enumerate(events), key=sort_key)
+def render_event_table(rows, row_index, key_suffix):
+    if not rows:
+        return
 
-grouped = {}
+    df = pd.DataFrame(rows)
+
+    selection = st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        key=key_suffix,
+    )
+
+    selected_rows = selection.selection.get("rows", []) if selection else []
+    if selected_rows:
+        selected_pos = selected_rows[0]
+        st.session_state.calendar_edit_index = row_index[selected_pos]
+        st.session_state.calendar_new_mode = False
+        st.switch_page("pages/calendarEvent.py")
+
+
+events_sorted = sorted(enumerate(events), key=sort_key)
+now_utc = datetime.now(UTC_TZ)
+
+past_grouped = {}
+upcoming_grouped = {}
+
 for idx, ev in events_sorted:
     dt = parse_dt(ev.get("start_utc"))
     if not dt:
         continue
-    grouped.setdefault(dt.date(), []).append((idx, ev, dt))
+
+    target = past_grouped if dt < now_utc else upcoming_grouped
+    target.setdefault(dt.date(), []).append((idx, ev, dt))
 
 
-for day in sorted(grouped.keys()):
-    st.subheader(day.strftime("%A, %B %d"))
+if past_grouped:
+    st.subheader("Past Events")
+    for day in sorted(past_grouped.keys(), reverse=True):
+        st.markdown(f"**{day.strftime('%A, %B %d')}**")
 
-    rows = []
-    row_index = []
+        rows = []
+        row_index = []
 
-    for idx, ev, dt in grouped[day]:
-        end_dt = parse_dt(ev.get("end_utc"))
-        rows.append({
-            "Title": ev.get("title", "Untitled"),
-            "Start": dt.strftime("%I:%M %p"),
-            "End": end_dt.strftime("%I:%M %p") if end_dt else "",
-            "Status": ev.get("status", "")
-        })
-        row_index.append(idx)
+        for idx, ev, dt in past_grouped[day]:
+            end_dt = parse_dt(ev.get("end_utc"))
+            rows.append({
+                "Title": ev.get("title", "Untitled"),
+                "Start": dt.strftime("%I:%M %p"),
+                "End": end_dt.strftime("%I:%M %p") if end_dt else "",
+                "Status": ev.get("status", "")
+            })
+            row_index.append(idx)
 
-    if rows:
-        df = pd.DataFrame(rows)
+        render_event_table(rows, row_index, f"calendar_past_{day.isoformat()}")
 
-        selection = st.dataframe(
-            df,
-            use_container_width=True,
-            hide_index=True,
-            on_select="rerun",
-            selection_mode="single-row",
-            key=f"calendar_day_{day.isoformat()}",
-        )
+if upcoming_grouped:
+    st.subheader("Upcoming Events")
+    for day in sorted(upcoming_grouped.keys()):
+        st.markdown(f"**{day.strftime('%A, %B %d')}**")
 
-        selected_rows = selection.selection.get("rows", []) if selection else []
-        if selected_rows:
-            selected_pos = selected_rows[0]
-            st.session_state.calendar_edit_index = row_index[selected_pos]
-            st.session_state.calendar_new_mode = False
-            st.switch_page("pages/calendarEvent.py")
+        rows = []
+        row_index = []
+
+        for idx, ev, dt in upcoming_grouped[day]:
+            end_dt = parse_dt(ev.get("end_utc"))
+            rows.append({
+                "Title": ev.get("title", "Untitled"),
+                "Start": dt.strftime("%I:%M %p"),
+                "End": end_dt.strftime("%I:%M %p") if end_dt else "",
+                "Status": ev.get("status", "")
+            })
+            row_index.append(idx)
+
+        render_event_table(rows, row_index, f"calendar_upcoming_{day.isoformat()}")
+
+if not past_grouped and not upcoming_grouped:
+    st.info("No calendar events found in the loaded GTD file.")
 
 st.divider()
 

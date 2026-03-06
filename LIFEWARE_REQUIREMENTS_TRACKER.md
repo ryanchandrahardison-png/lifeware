@@ -50,6 +50,7 @@ lifeware/
 - True row click selection must remain enabled:
   - clicking anywhere on a row opens the event view for that event.
 - Keep the calendar sorted by start time.
+- In Calendar View, events before the current date/time must appear under a separate **Past Events** section.
 - Keep the "Add Event" action.
 - Implementation note:
   - true row click selection is implemented with Streamlit selectable tables
@@ -63,6 +64,8 @@ lifeware/
   - used for Add and Edit
   - fields: Title, Description, Status, Start Date, Start Time, End Date, End Time
   - Save/Create, Delete, Back behavior already implemented
+- In Event View, do not allow start date/time before the current date/time.
+- In Event View, do not allow end date/time before start date/time.
 
 ## Calendar Data Model Requirements
 - The calendar must always read from the currently loaded GTD JSON in `st.session_state.data`.
