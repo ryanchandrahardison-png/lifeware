@@ -21,15 +21,32 @@ events = data.get("calendar", [])
 
 st.title("Calendar")
 
-# Streamlit adds a selection column for selectable dataframes.
-# Hide that column so the table keeps a clean Asana-style look while
-# preserving true row-click selection behavior.
+# Keep selectable table behavior for true row click, but hide Streamlit's
+# selection column and suppress the red cell focus styling so the table
+# looks like a clean read-only calendar list.
 st.markdown(
     '''
     <style>
-    [data-testid="stDataFrame"] [role="gridcell"][aria-colindex="1"],
-    [data-testid="stDataFrame"] [role="columnheader"][aria-colindex="1"] {
+    /* Hide selection checkbox column */
+    [data-testid="stDataFrame"] [role="columnheader"][aria-colindex="1"],
+    [data-testid="stDataFrame"] [role="gridcell"][aria-colindex="1"] {
         display: none !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+    }
+
+    /* Remove red focus/selection box on clicked cell */
+    [data-testid="stDataFrame"] [role="gridcell"]:focus,
+    [data-testid="stDataFrame"] [role="gridcell"]:focus-visible,
+    [data-testid="stDataFrame"] [tabindex="0"]:focus,
+    [data-testid="stDataFrame"] [tabindex="0"]:focus-visible,
+    [data-testid="stDataFrame"] *:focus,
+    [data-testid="stDataFrame"] *:focus-visible {
+        outline: none !important;
+        box-shadow: none !important;
+        border-color: transparent !important;
     }
     </style>
     ''',

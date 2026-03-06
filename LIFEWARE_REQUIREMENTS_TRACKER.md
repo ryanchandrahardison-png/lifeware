@@ -75,6 +75,7 @@ lifeware/
 - Calendar list should read canonical UTC fields.
 - Do not mutate events during calendar rendering.
 - GTD reload detection must use file content, not just filename/size, so updated GTD files are reloaded correctly.
+- If selectable tables are used for true row click, hide the selection checkbox column and suppress cell focus styling so no checkbox or red click box is visible.
 
 ## Current Known Intent
 The user wants the app to feel more like Asana over time, but without unnecessary architecture changes.
