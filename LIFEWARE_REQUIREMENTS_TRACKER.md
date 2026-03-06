@@ -67,6 +67,7 @@ lifeware/
 - In Event View, do not allow start date/time before the current date/time.
 - In Event View, do not allow end date/time before start date/time.
 - In Event View, if the selected end date equals the selected start date, the end time picker must not allow times before the selected start time.
+- In Event View, when saving changes to an existing event, do not re-check start/end date-time validation rules.
 - In Event View, the end date picker must gray out dates before the selected start date.
 - In Event View, if the selected start date is today, the start time picker must not allow times before the current time window.
 - In Event View, the start date picker must gray out dates before today.

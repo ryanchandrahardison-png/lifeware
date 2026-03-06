@@ -228,13 +228,14 @@ def render_calendar_event_form(data: dict, *, event_index: int | None = None, dr
         end_dt = parse_dt_any(end_utc)
         now_utc = datetime.now(UTC_TZ)
 
-        if start_dt and start_dt < now_utc:
-            st.error("Start time cannot be before the current date/time.")
-            return
+        if not is_edit:
+            if start_dt and start_dt < now_utc:
+                st.error("Start time cannot be before the current date/time.")
+                return
 
-        if not start_dt or not end_dt or end_dt <= start_dt:
-            st.error("End time must be after start time.")
-            return
+            if not start_dt or not end_dt or end_dt <= start_dt:
+                st.error("End time must be after start time.")
+                return
 
         clean_title = title.strip()
         if not clean_title:
