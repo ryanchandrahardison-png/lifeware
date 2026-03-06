@@ -1,6 +1,6 @@
 import streamlit as st
 import json
-from datetime import datetime, date, time
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 st.set_page_config(page_title="Control Engine", layout="wide")
@@ -60,16 +60,6 @@ def ensure_event_utc_fields(ev):
     ev.setdefault("end_utc", "")
 
 
-def local_to_utc_iso(d, t):
-    dt_local = datetime.combine(d, t).replace(tzinfo=NY_TZ)
-    return dt_local.astimezone(UTC_TZ).isoformat()
-
-
-def utc_to_local_parts(dt):
-    dt_local = dt.astimezone(NY_TZ)
-    return dt_local.date(), dt_local.time().replace(second=0, microsecond=0)
-
-
 # -----------------------------
 # Session State
 # -----------------------------
@@ -81,14 +71,14 @@ if "data" not in st.session_state:
         "routines": [],
     }
 
-if "calendar_mode" not in st.session_state:
-    st.session_state.calendar_mode = "list"
-
-if "selected_calendar" not in st.session_state:
-    st.session_state.selected_calendar = None
-
 if "uploaded_sig" not in st.session_state:
     st.session_state.uploaded_sig = None
+
+if "calendar_edit_index" not in st.session_state:
+    st.session_state.calendar_edit_index = None
+
+if "calendar_new_mode" not in st.session_state:
+    st.session_state.calendar_new_mode = False
 
 data = st.session_state.data
 
@@ -116,11 +106,10 @@ if uploaded_file is not None:
                 ensure_event_utc_fields(ev)
 
         st.session_state.data = loaded
-        data = loaded
-
-        st.session_state.calendar_mode = "list"
-        st.session_state.selected_calendar = None
         st.session_state.uploaded_sig = sig
+        st.session_state.calendar_edit_index = None
+        st.session_state.calendar_new_mode = False
+        data = st.session_state.data
 
         st.sidebar.success("GTD file loaded")
 
@@ -148,160 +137,50 @@ menu = st.sidebar.radio(
 
 
 # =====================================================
-# Calendar
+# Calendar List Page
 # =====================================================
 if menu == "Calendar":
     st.header("Calendar")
 
     top = st.columns([1, 9])
     if top[0].button("Add Event"):
-        st.session_state.calendar_mode = "form"
-        st.session_state.selected_calendar = None
-        st.rerun()
+        st.session_state.calendar_edit_index = None
+        st.session_state.calendar_new_mode = True
+        st.switch_page("pages/1_Calendar_Event.py")
 
-    # -------------------------------------
-    # FORM SCREEN
-    # -------------------------------------
-    if st.session_state.calendar_mode == "form":
-        is_edit = st.session_state.selected_calendar is not None
+    if not data["calendar"]:
+        st.info("No calendar events.")
+    else:
+        header = st.columns([1, 5, 3, 3, 2])
+        header[0].markdown("**View**")
+        header[1].markdown("**Title**")
+        header[2].markdown("**Start**")
+        header[3].markdown("**End**")
+        header[4].markdown("**Status**")
 
-        default_title = ""
-        default_desc = ""
-        default_status = "Scheduled"
-        s_date, s_time = date.today(), time(9, 0)
-        e_date, e_time = date.today(), time(9, 30)
-
-        if is_edit:
-            idx = st.session_state.selected_calendar
-            ev = data["calendar"][idx]
+        for i, ev in enumerate(data["calendar"]):
+            if not isinstance(ev, dict):
+                continue
 
             ensure_event_utc_fields(ev)
-
-            default_title = ev.get("title", "")
-            default_desc = ev.get("description", "")
-            default_status = ev.get("status", "Scheduled")
 
             sdt = parse_dt_any(ev.get("start_utc")) or parse_dt_any(ev.get("start"))
             edt = parse_dt_any(ev.get("end_utc")) or parse_dt_any(ev.get("end"))
 
-            if sdt:
-                s_date, s_time = utc_to_local_parts(sdt)
-            if edt:
-                e_date, e_time = utc_to_local_parts(edt)
+            start_txt = fmt_ny(sdt) if sdt else ""
+            end_txt = fmt_ny(edt) if edt else ""
 
-        st.subheader("Edit Event" if is_edit else "Add Event")
+            row = st.columns([1, 5, 3, 3, 2])
 
-        with st.form("calendar_form"):
-            title = st.text_input("Title", value=default_title)
+            if row[0].button("👁️", key=f"view_{i}"):
+                st.session_state.calendar_edit_index = i
+                st.session_state.calendar_new_mode = False
+                st.switch_page("pages/1_Calendar_Event.py")
 
-            c1, c2 = st.columns(2)
-            start_date = c1.date_input("Start Date", value=s_date)
-            start_time = c2.time_input("Start Time", value=s_time)
-
-            c3, c4 = st.columns(2)
-            end_date = c3.date_input("End Date", value=e_date)
-            end_time = c4.time_input("End Time", value=e_time)
-
-            description = st.text_area("Description", value=default_desc)
-
-            status = st.selectbox(
-                "Status",
-                ["Scheduled", "Complete"],
-                index=0 if default_status != "Complete" else 1,
-            )
-
-            if is_edit:
-                confirm_delete = st.checkbox("Confirm deletion")
-            else:
-                confirm_delete = False
-
-            cols = st.columns(3)
-
-            save_clicked = cols[0].form_submit_button(
-                "Save Changes" if is_edit else "Create Event"
-            )
-
-            delete_clicked = cols[1].form_submit_button(
-                "Delete Event",
-                disabled=not is_edit,
-            )
-
-            back_clicked = cols[2].form_submit_button("Back to Calendar")
-
-        if back_clicked:
-            st.session_state.calendar_mode = "list"
-            st.session_state.selected_calendar = None
-            st.rerun()
-
-        if delete_clicked and is_edit:
-            if not confirm_delete:
-                st.error("Confirm deletion first")
-            else:
-                del data["calendar"][idx]
-                st.session_state.calendar_mode = "list"
-                st.session_state.selected_calendar = None
-                st.rerun()
-
-        if save_clicked:
-            start_utc = local_to_utc_iso(start_date, start_time)
-            end_utc = local_to_utc_iso(end_date, end_time)
-
-            payload = {
-                "title": title,
-                "description": description,
-                "status": status,
-                "start_utc": start_utc,
-                "end_utc": end_utc,
-                "start": start_utc,
-                "end": end_utc,
-            }
-
-            if is_edit:
-                data["calendar"][idx].update(payload)
-            else:
-                data["calendar"].append(payload)
-
-            st.session_state.calendar_mode = "list"
-            st.session_state.selected_calendar = None
-            st.rerun()
-
-    # -------------------------------------
-    # LIST SCREEN
-    # -------------------------------------
-    else:
-        if not data["calendar"]:
-            st.info("No calendar events.")
-        else:
-            header = st.columns([1, 5, 3, 3, 2])
-            header[0].markdown("**View**")
-            header[1].markdown("**Title**")
-            header[2].markdown("**Start**")
-            header[3].markdown("**End**")
-            header[4].markdown("**Status**")
-
-            for i, ev in enumerate(data["calendar"]):
-                if not isinstance(ev, dict):
-                    continue
-
-                ensure_event_utc_fields(ev)
-
-                sdt = parse_dt_any(ev.get("start_utc")) or parse_dt_any(ev.get("start"))
-                edt = parse_dt_any(ev.get("end_utc")) or parse_dt_any(ev.get("end"))
-
-                start_txt = fmt_ny(sdt) if sdt else ""
-                end_txt = fmt_ny(edt) if edt else ""
-
-                row = st.columns([1, 5, 3, 3, 2])
-
-                if row[0].button("👁️", key=f"view_{i}"):
-                    st.session_state.selected_calendar = i
-                    st.session_state.calendar_mode = "form"
-                    st.rerun()
-
-                row[1].write(ev.get("title", ""))
-                row[2].write(start_txt)
-                row[3].write(end_txt)
-                row[4].write(ev.get("status", "Scheduled"))
+            row[1].write(ev.get("title", ""))
+            row[2].write(start_txt)
+            row[3].write(end_txt)
+            row[4].write(ev.get("status", "Scheduled"))
 
 
 # =====================================================
