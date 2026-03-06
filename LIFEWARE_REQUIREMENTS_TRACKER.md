@@ -51,19 +51,20 @@ lifeware/
   - clicking anywhere on a row opens the event view for that event.
 - Keep the calendar sorted by start time.
 - In Calendar View, events before the current date/time must appear under a separate **Past Events** section.
-- Keep the "Add Event" action.
+- Keep the "New Event"/add event action available in Calendar View.
 - Implementation note:
   - true row click selection is implemented with Streamlit selectable tables
   - if Streamlit renders a selection column, hide it so no checkbox column is visible
 
 ## Event View Requirements
-- Event View is frozen unless explicitly requested.
-- Do not change the Event View layout or behavior unless the user specifically asks.
+- Event View remains the baseline interaction pattern for editable detail screens unless explicitly requested otherwise.
+- Keep the Event View layout and behavior available for Add and Edit.
 - Current behavior:
   - separate Calendar Event page
   - used for Add and Edit
   - fields: Title, Description, Status, Start Date, Start Time, End Date, End Time
   - Save/Create, Delete, Back behavior already implemented
+- "Freeze Calendar/Event" means preserve this editable behavior and avoid unrelated redesigns; it does not mean disable New Event or make Event View read-only unless explicitly requested.
 - In Event View, do not allow start date/time before the current date/time.
 - In Event View, do not allow end date/time before start date/time.
 - In Event View, if the selected end date equals the selected start date, the end time picker must not allow times before the selected start time.
@@ -73,21 +74,27 @@ lifeware/
 - In Event View, the start date picker must gray out dates before today.
 
 ## Actions View Requirements
-- Actions View is frozen unless explicitly requested.
-- Do not add create, edit, complete, delete, or inline-mutation behavior to Actions unless the user specifically asks.
-- Actions list must remain read-only and support true row click selection:
+- Actions list must support true row click selection:
   - clicking anywhere on a row opens the separate Action Details page for that action.
-- Action Details page must remain read-only.
-- Action Details page must provide Back to Actions navigation.
+- Action Details page is editable.
+- Action Details page must include:
+  - Title
+  - Details
+  - Due Date (date only)
+  - Status
+  - Save, Delete, and Back actions styled like Event View actions
+- Do not show a Source field in Action Details.
+- Due Date must follow the same guardrail pattern as Event View date handling:
+  - preserve stored past dates for existing records
+  - only apply minimum-date restrictions when creating a new record in the future
 - When a new GTD JSON file is loaded, any prior action selection state must be cleared to prevent stale details from a previous file.
 
 ## Delegations View Requirements
-- Delegations View is frozen unless explicitly requested.
-- Do not add create, edit, complete, delete, or inline-mutation behavior to Delegations unless the user specifically asks.
-- Delegations list must remain read-only and support true row click selection:
+- Delegations list must support true row click selection:
   - clicking anywhere on a row opens the separate Delegation Details page for that item.
-- Delegation Details page must remain read-only.
-- Delegation Details page must provide Back to Delegations navigation.
+- Delegation Details page is editable.
+- Delegation Details page must include Save, Delete, and Back actions styled like Event View actions.
+- Do not show a Source field in Delegation Details.
 - When a new GTD JSON file is loaded, any prior delegation selection state must be cleared to prevent stale details from a previous file.
 
 ## Calendar Data Model Requirements
@@ -177,3 +184,5 @@ Details:
 - Implemented list → detail navigation for actions
 - Implemented list → detail navigation for delegations
 - Updated requirements tracker to enforce frozen behavior
+- Action and Delegation detail forms must preserve unknown fields by updating existing records instead of replacing them wholesale.
+- Action and Delegation detail forms must remove the visible `source` field from the editable details layout.

@@ -23,7 +23,12 @@ data = st.session_state.data
 events = data.get("calendar", [])
 
 st.title("Calendar")
-st.caption("Calendar is currently read-only. Select a row to view event details.")
+st.caption("Select a row to view or edit event details.")
+
+if st.button("New Event"):
+    st.session_state.calendar_edit_index = None
+    st.session_state.calendar_new_mode = True
+    st.switch_page("pages/calendarEvent.py")
 
 st.markdown(
     '''

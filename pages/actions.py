@@ -15,7 +15,7 @@ st.sidebar.page_link("pages/delegations.py", label="Delegations", icon="🤝")
 st.sidebar.page_link("pages/routines.py", label="Routines", icon="🔁")
 
 st.title("✅ Actions")
-st.caption("Actions are currently read-only. Select a row to view details.")
+st.caption("Actions are Select a row to view or edit details.")
 
 st.markdown(
     '''
