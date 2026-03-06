@@ -7,6 +7,7 @@ DEFAULT_DATA = {
     "routines": []
 }
 
+
 def init_state():
     if "data" not in st.session_state:
         st.session_state.data = DEFAULT_DATA.copy()
@@ -16,6 +17,12 @@ def init_state():
 
     if "calendar_new_mode" not in st.session_state:
         st.session_state.calendar_new_mode = False
+
+    if "action_view_index" not in st.session_state:
+        st.session_state.action_view_index = None
+
+    if "delegation_view_index" not in st.session_state:
+        st.session_state.delegation_view_index = None
 
     if "uploaded_sig" not in st.session_state:
         st.session_state.uploaded_sig = None

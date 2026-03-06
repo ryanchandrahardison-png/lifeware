@@ -86,7 +86,11 @@ def _default_form_values(event: dict | None) -> dict:
 
 
 def render_calendar_event_form(
-    data: dict, *, event_index: int | None = None, drawer_mode: bool = False
+    data: dict,
+    *,
+    event_index: int | None = None,
+    drawer_mode: bool = False,
+    read_only: bool = False,
 ) -> None:
     calendar = data.setdefault("calendar", [])
     is_edit = event_index is not None and 0 <= event_index < len(calendar)
@@ -96,7 +100,7 @@ def render_calendar_event_form(
     now_local = datetime.now(NY_TZ)
     min_start_dt_local = _round_up_to_next_slot(now_local, 30)
 
-    title_text = "Edit Event" if is_edit else "Add Event"
+    title_text = "Event Details" if read_only else ("Edit Event" if is_edit else "Add Event")
     if drawer_mode:
         st.markdown(
             '''
@@ -122,6 +126,14 @@ def render_calendar_event_form(
             st.rerun()
     else:
         st.title(f"📅 {title_text}")
+
+    if read_only and not is_edit:
+        st.info("No event is selected.")
+        if st.button("Back to Calendar"):
+            st.switch_page("pages/calendarList.py")
+        if drawer_mode:
+            st.markdown("</div>", unsafe_allow_html=True)
+        return
 
     if is_edit:
         start_default_date = values["start_date"]
@@ -177,19 +189,21 @@ def render_calendar_event_form(
     end_time_index = _time_index(end_time_options, preferred_end_time)
 
     with st.form(f"calendar_form_{'drawer' if drawer_mode else 'page'}"):
-        title = st.text_input("Title", value=values["title"])
+        title = st.text_input("Title", value=values["title"], disabled=read_only)
 
         c1, c2 = st.columns(2)
         start_date = c1.date_input(
             "Start Date",
             value=start_default_date,
             min_value=start_min_date,
+            disabled=read_only,
         )
         start_time = c2.selectbox(
             "Start Time",
             options=start_time_options,
             index=start_time_index,
             format_func=_format_time_label,
+            disabled=read_only,
         )
 
         c3, c4 = st.columns(2)
@@ -197,29 +211,43 @@ def render_calendar_event_form(
             "End Date",
             value=end_default_date,
             min_value=end_min_date,
+            disabled=read_only,
         )
         end_time = c4.selectbox(
             "End Time",
             options=end_time_options,
             index=end_time_index,
             format_func=_format_time_label,
+            disabled=read_only,
         )
 
-        description = st.text_area("Description", value=values["description"], height=180)
+        description = st.text_area(
+            "Description",
+            value=values["description"],
+            height=180,
+            disabled=read_only,
+        )
 
         status = st.selectbox(
             "Status",
             DEFAULT_STATUS_OPTIONS,
             index=0 if values["status"] != "Complete" else 1,
+            disabled=read_only,
         )
 
-        confirm_delete = st.checkbox("Confirm deletion") if is_edit else False
-
-        action_cols = st.columns(3)
-        save = action_cols[0].form_submit_button("Save Changes" if is_edit else "Create Event")
-        delete = action_cols[1].form_submit_button("Delete Event", disabled=not is_edit)
-        back_label = "Close" if drawer_mode else "Back to Calendar"
-        back = action_cols[2].form_submit_button(back_label)
+        if read_only:
+            back_label = "Close" if drawer_mode else "Back to Calendar"
+            back = st.form_submit_button(back_label)
+            save = False
+            delete = False
+            confirm_delete = False
+        else:
+            confirm_delete = st.checkbox("Confirm deletion") if is_edit else False
+            action_cols = st.columns(3)
+            save = action_cols[0].form_submit_button("Save Changes" if is_edit else "Create Event")
+            delete = action_cols[1].form_submit_button("Delete Event", disabled=not is_edit)
+            back_label = "Close" if drawer_mode else "Back to Calendar"
+            back = action_cols[2].form_submit_button(back_label)
 
     if drawer_mode:
         st.markdown("</div>", unsafe_allow_html=True)

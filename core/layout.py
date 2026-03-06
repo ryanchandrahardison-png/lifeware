@@ -38,6 +38,8 @@ def sidebar_file_controls():
             st.session_state.uploaded_sig = sig
             st.session_state.calendar_edit_index = None
             st.session_state.calendar_new_mode = False
+            st.session_state.action_view_index = None
+            st.session_state.delegation_view_index = None
             st.sidebar.success("GTD file loaded")
 
     export_json = json.dumps(st.session_state.data, indent=2)

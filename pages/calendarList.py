@@ -23,6 +23,7 @@ data = st.session_state.data
 events = data.get("calendar", [])
 
 st.title("Calendar")
+st.caption("Calendar is currently read-only. Select a row to view event details.")
 
 st.markdown(
     '''
@@ -58,12 +59,14 @@ def parse_dt(value):
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+
 def sort_key(item):
     idx, ev = item
     dt = parse_dt(ev.get("start_utc") or "")
     has_dt = dt is not None
     sortable = dt.isoformat() if dt else ""
     return (0 if has_dt else 1, sortable, idx)
+
 
 
 def render_event_table(rows, row_index, key_suffix):
@@ -87,6 +90,7 @@ def render_event_table(rows, row_index, key_suffix):
         st.session_state.calendar_edit_index = row_index[selected_pos]
         st.session_state.calendar_new_mode = False
         st.switch_page("pages/calendarEvent.py")
+
 
 
 events_sorted = sorted(enumerate(events), key=sort_key)
@@ -146,10 +150,3 @@ if upcoming_grouped:
 
 if not past_grouped and not upcoming_grouped:
     st.info("No calendar events found in the loaded GTD file.")
-
-st.divider()
-
-if st.button("Add Event"):
-    st.session_state.calendar_new_mode = True
-    st.session_state.calendar_edit_index = None
-    st.switch_page("pages/calendarEvent.py")

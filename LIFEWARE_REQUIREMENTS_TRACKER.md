@@ -72,6 +72,24 @@ lifeware/
 - In Event View, if the selected start date is today, the start time picker must not allow times before the current time window.
 - In Event View, the start date picker must gray out dates before today.
 
+## Actions View Requirements
+- Actions View is frozen unless explicitly requested.
+- Do not add create, edit, complete, delete, or inline-mutation behavior to Actions unless the user specifically asks.
+- Actions list must remain read-only and support true row click selection:
+  - clicking anywhere on a row opens the separate Action Details page for that action.
+- Action Details page must remain read-only.
+- Action Details page must provide Back to Actions navigation.
+- When a new GTD JSON file is loaded, any prior action selection state must be cleared to prevent stale details from a previous file.
+
+## Delegations View Requirements
+- Delegations View is frozen unless explicitly requested.
+- Do not add create, edit, complete, delete, or inline-mutation behavior to Delegations unless the user specifically asks.
+- Delegations list must remain read-only and support true row click selection:
+  - clicking anywhere on a row opens the separate Delegation Details page for that item.
+- Delegation Details page must remain read-only.
+- Delegation Details page must provide Back to Delegations navigation.
+- When a new GTD JSON file is loaded, any prior delegation selection state must be cleared to prevent stale details from a previous file.
+
 ## Calendar Data Model Requirements
 - The calendar must always read from the currently loaded GTD JSON in `st.session_state.data`.
 - Keep canonical event payload fields consistent:
@@ -114,3 +132,47 @@ When continuing development in a new conversation, the assistant should be told 
 - Event forms must always contain visible `st.form_submit_button()` controls.
 - Default form values passed into `date_input` must always satisfy its `min_value` constraints.
 - Before packaging, compile-check key Python files to catch syntax/import errors.
+- On GTD reload, clear all selection/view indexes tied to the previous file (calendar, action, delegation) before continuing.
+
+## Development Workflow Requirements
+
+### Mandatory Git Commit Message
+
+Every change request processed by the AI must produce a Git commit message.
+
+The commit message must always be included in the response alongside the returned ZIP.
+
+Format:
+
+<type>: <short summary>
+
+Details:
+- bullet describing key change
+- bullet describing key change
+- bullet describing key change
+
+Types allowed:
+- feat
+- fix
+- refactor
+- docs
+- chore
+
+Examples:
+
+fix: resolve missing Streamlit form submit button
+
+Details:
+- Added st.form_submit_button() to form
+- Prevented Streamlit runtime error
+- Updated tracker to record form requirement
+
+
+feat: freeze calendar, events, actions, and delegations
+
+Details:
+- Converted calendar view to read-only
+- Converted event page to read-only
+- Implemented list → detail navigation for actions
+- Implemented list → detail navigation for delegations
+- Updated requirements tracker to enforce frozen behavior
