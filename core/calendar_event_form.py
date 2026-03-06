@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, time, datetime
+from datetime import date, time, datetime, timedelta
 from zoneinfo import ZoneInfo
 import streamlit as st
 
@@ -14,6 +14,45 @@ from core.calendar_utils import (
 
 DEFAULT_STATUS_OPTIONS = ["Scheduled", "Complete"]
 UTC_TZ = ZoneInfo("UTC")
+NY_TZ = ZoneInfo("America/New_York")
+
+
+def _round_up_to_next_slot(value: datetime, minutes: int = 30) -> datetime:
+    floored = value.replace(second=0, microsecond=0)
+    remainder = floored.minute % minutes
+    if remainder == 0:
+        return floored
+    return floored + timedelta(minutes=(minutes - remainder))
+
+
+def _time_options(step_minutes: int = 30) -> list[time]:
+    options = []
+    current = datetime.combine(date.today(), time(0, 0))
+    end = current + timedelta(days=1)
+    while current < end:
+        options.append(current.time().replace(second=0, microsecond=0))
+        current += timedelta(minutes=step_minutes)
+    return options
+
+
+TIME_OPTIONS = _time_options(30)
+
+
+def _format_time_label(value: time) -> str:
+    return datetime.combine(date.today(), value).strftime("%I:%M %p")
+
+
+def _time_index(options: list[time], selected: time) -> int:
+    selected_clean = selected.replace(second=0, microsecond=0)
+    if selected_clean in options:
+        return options.index(selected_clean)
+
+    selected_minutes = selected_clean.hour * 60 + selected_clean.minute
+    for i, option in enumerate(options):
+        option_minutes = option.hour * 60 + option.minute
+        if option_minutes >= selected_minutes:
+            return i
+    return len(options) - 1
 
 
 def _default_form_values(event: dict | None) -> dict:
@@ -52,6 +91,8 @@ def render_calendar_event_form(data: dict, *, event_index: int | None = None, dr
     event = calendar[event_index] if is_edit else None
 
     values = _default_form_values(event)
+    now_local = datetime.now(NY_TZ)
+    min_start_dt_local = _round_up_to_next_slot(now_local, 30)
 
     title_text = "Edit Event" if is_edit else "Add Event"
     if drawer_mode:
@@ -84,12 +125,61 @@ def render_calendar_event_form(data: dict, *, event_index: int | None = None, dr
         title = st.text_input("Title", value=values["title"])
 
         c1, c2 = st.columns(2)
-        start_date = c1.date_input("Start Date", value=values["start_date"])
-        start_time = c2.time_input("Start Time", value=values["start_time"])
+
+        effective_start_date = max(values["start_date"], min_start_dt_local.date())
+        start_date = c1.date_input(
+            "Start Date",
+            value=effective_start_date,
+            min_value=min_start_dt_local.date(),
+        )
+
+        start_time_min = time(0, 0)
+        if start_date == min_start_dt_local.date():
+            start_time_min = min_start_dt_local.time().replace(second=0, microsecond=0)
+
+        start_time_options = [t for t in TIME_OPTIONS if t >= start_time_min]
+        if not start_time_options:
+            start_time_options = [min_start_dt_local.time().replace(second=0, microsecond=0)]
+
+        preferred_start_time = values["start_time"]
+        if start_date == min_start_dt_local.date() and preferred_start_time < start_time_min:
+            preferred_start_time = start_time_min
+
+        start_time = c2.selectbox(
+            "Start Time",
+            options=start_time_options,
+            index=_time_index(start_time_options, preferred_start_time),
+            format_func=_format_time_label,
+        )
 
         c3, c4 = st.columns(2)
-        end_date = c3.date_input("End Date", value=values["end_date"])
-        end_time = c4.time_input("End Time", value=values["end_time"])
+
+        min_end_date = start_date
+        effective_end_date = max(values["end_date"], min_end_date)
+        end_date = c3.date_input(
+            "End Date",
+            value=effective_end_date,
+            min_value=min_end_date,
+        )
+
+        end_time_min = time(0, 0)
+        if end_date == start_date:
+            end_time_min = start_time
+
+        end_time_options = [t for t in TIME_OPTIONS if t >= end_time_min]
+        if not end_time_options:
+            end_time_options = [end_time_min]
+
+        preferred_end_time = values["end_time"]
+        if end_date == start_date and preferred_end_time < end_time_min:
+            preferred_end_time = end_time_min
+
+        end_time = c4.selectbox(
+            "End Time",
+            options=end_time_options,
+            index=_time_index(end_time_options, preferred_end_time),
+            format_func=_format_time_label,
+        )
 
         description = st.text_area("Description", value=values["description"], height=180)
 
