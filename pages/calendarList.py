@@ -1,135 +1,79 @@
-
 import streamlit as st
 import pandas as pd
-
-from core.calendar_event_form import render_calendar_event_form
-from core.calendar_utils import NY_TZ, parse_dt_any
-from core.layout import sidebar_file_controls
+from datetime import datetime
 from core.state import init_state
 
-
-st.set_page_config(page_title="Calendar", layout="wide")
 init_state()
-sidebar_file_controls()
-
-st.sidebar.markdown("---")
-st.sidebar.page_link("app.py", label="Home", icon="🏠")
-st.sidebar.page_link("pages/calendarList.py", label="Calendar", icon="📅")
-st.sidebar.page_link("pages/actions.py", label="Actions", icon="✅")
-st.sidebar.page_link("pages/delegations.py", label="Delegations", icon="🤝")
-st.sidebar.page_link("pages/routines.py", label="Routines", icon="🔁")
-
 
 data = st.session_state.data
-calendar = data.setdefault("calendar", [])
+events = data.get("calendar", [])
 
-is_drawer_open = (
-    st.session_state.calendar_new_mode
-    or st.session_state.calendar_edit_index is not None
+st.title("Calendar")
+
+
+def parse_dt(value):
+    if not value:
+        return None
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+events_sorted = sorted(
+    enumerate(events),
+    key=lambda x: parse_dt(x[1].get("start_utc") or "") or datetime.max
 )
 
-st.title("📅 Calendar")
+grouped = {}
 
-if is_drawer_open:
-    list_col, drawer_col = st.columns([1.8, 1.1], gap="large")
-else:
-    list_col = st.container()
-    drawer_col = None
+for idx, ev in events_sorted:
+    dt = parse_dt(ev.get("start_utc"))
+    if not dt:
+        continue
 
-
-def _sort_key(event: dict) -> tuple:
-    start_dt = parse_dt_any(event.get("start_utc")) or parse_dt_any(event.get("start"))
-    if start_dt:
-        return (0, start_dt.isoformat(), event.get("title", "").lower())
-    return (1, "", event.get("title", "").lower())
+    day = dt.date()
+    grouped.setdefault(day, []).append((idx, ev, dt))
 
 
+for day in sorted(grouped.keys()):
+    st.subheader(day.strftime("%A, %B %d"))
 
-def _open_event(source_index: int) -> None:
-    st.session_state.calendar_edit_index = source_index
-    st.session_state.calendar_new_mode = False
-    st.rerun()
+    rows = []
+    row_index = []
 
+    for idx, ev, dt in grouped[day]:
+        end_dt = parse_dt(ev.get("end_utc"))
+        start_time = dt.strftime("%I:%M %p")
+        end_time = end_dt.strftime("%I:%M %p") if end_dt else ""
 
-with list_col:
-    if st.button("Add Event"):
-        st.session_state.calendar_edit_index = None
-        st.session_state.calendar_new_mode = True
-        st.rerun()
+        rows.append({
+            "Title": ev.get("title", "Untitled"),
+            "Start": start_time,
+            "End": end_time,
+            "Status": ev.get("status", "")
+        })
+        row_index.append(idx)
 
-    if not calendar:
-        st.info("No calendar events.")
-    else:
-        grouped_rows = []
-        # rebuild grouped rows with day label preserved
-        grouped: dict[str, dict] = {}
-        indexed_events = [(idx, ev) for idx, ev in enumerate(calendar) if isinstance(ev, dict)]
-        for source_index, event in sorted(indexed_events, key=lambda item: _sort_key(item[1])):
-            start_dt = parse_dt_any(event.get("start_utc")) or parse_dt_any(event.get("start"))
-            end_dt = parse_dt_any(event.get("end_utc")) or parse_dt_any(event.get("end"))
+    if rows:
+        df = pd.DataFrame(rows)
 
-            if start_dt:
-                local_start = start_dt.astimezone(NY_TZ)
-                day_key = local_start.date().isoformat()
-                day_label = local_start.strftime("%A, %B %d, %Y")
-                start_txt = local_start.strftime("%I:%M %p").lstrip("0")
-            else:
-                day_key = "no_date"
-                day_label = "No Date"
-                start_txt = ""
-
-            end_txt = ""
-            if end_dt:
-                end_txt = end_dt.astimezone(NY_TZ).strftime("%I:%M %p").lstrip("0")
-
-            grouped.setdefault(day_key, {"label": day_label, "rows": []})
-            grouped[day_key]["rows"].append(
-                {
-                    "source_index": source_index,
-                    "Title": event.get("title", ""),
-                    "Start": start_txt,
-                    "End": end_txt,
-                    "Status": event.get("status", "Scheduled"),
-                }
-            )
-
-        for group_num, day_key in enumerate(sorted(grouped.keys(), key=lambda value: (value == "no_date", value))):
-            day_label = grouped[day_key]["label"]
-            rows = grouped[day_key]["rows"]
-
-            st.subheader(day_label)
-
-            display_df = pd.DataFrame(
-                [
-                    {
-                        "Title": row["Title"],
-                        "Start": row["Start"],
-                        "End": row["End"],
-                        "Status": row["Status"],
-                    }
-                    for row in rows
-                ]
-            )
-
-            event = st.dataframe(
-                display_df,
-                hide_index=True,
-                use_container_width=True,
-                on_select="rerun",
-                selection_mode="single-row",
-                key=f"calendar_day_{group_num}",
-            )
-
-            selected_rows = event.selection.rows if event and event.selection else []
-            if selected_rows:
-                selected_pos = selected_rows[0]
-                _open_event(rows[selected_pos]["source_index"])
-
-if drawer_col is not None:
-    with drawer_col:
-        selected_index = None if st.session_state.calendar_new_mode else st.session_state.calendar_edit_index
-        render_calendar_event_form(
-            data,
-            event_index=selected_index,
-            drawer_mode=True,
+        selection = st.dataframe(
+            df,
+            use_container_width=True,
+            hide_index=True,
+            on_select="rerun",
+            selection_mode="single-row",
+            key=f"calendar_day_{day.isoformat()}"
         )
+
+        selected_rows = selection.selection.get("rows", []) if selection else []
+        if selected_rows:
+            selected_pos = selected_rows[0]
+            st.session_state.calendar_edit_index = row_index[selected_pos]
+            st.session_state.calendar_new_mode = False
+            st.switch_page("pages/calendarEvent.py")
+
+st.divider()
+
+if st.button("Add Event"):
+    st.session_state.calendar_new_mode = True
+    st.session_state.calendar_edit_index = None
+    st.switch_page("pages/calendarEvent.py")
