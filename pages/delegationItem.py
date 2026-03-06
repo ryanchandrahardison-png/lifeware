@@ -1,7 +1,7 @@
 import streamlit as st
 from core.state import init_state
 from core.layout import sidebar_file_controls
-from core.item_detail_form import render_item_detail_form
+from core.item_detail_form import FOLLOW_UP_FIELD_CANDIDATES, render_item_detail_form
 
 st.set_page_config(page_title="Delegation Details", layout="wide")
 init_state()
@@ -24,5 +24,7 @@ render_item_detail_form(
     back_label="Back to Delegations",
     title_keys=["title", "name", "task", "item"],
     subtitle_text="Edit the selected delegation and save changes.",
-    show_due_date=False,
+    show_due_date=True,
+    date_label="Follow Up Date",
+    date_field_candidates=FOLLOW_UP_FIELD_CANDIDATES,
 )

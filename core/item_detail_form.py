@@ -9,6 +9,7 @@ import streamlit as st
 
 DEFAULT_STATUS_OPTIONS = ["Not Started", "In Progress", "Waiting", "Complete"]
 DATE_FIELD_CANDIDATES = ["due_date", "due", "when", "date"]
+FOLLOW_UP_FIELD_CANDIDATES = ["follow_up_date", "follow_up", "due_date", "due", "when", "date"]
 SOURCE_FIELD_NAMES = {"source"}
 
 
@@ -31,8 +32,8 @@ def _parse_iso_date(value: Any) -> date | None:
         return value
     try:
         text = str(value).strip()
-        if 'T' in text:
-            text = text.split('T', 1)[0]
+        if "T" in text:
+            text = text.split("T", 1)[0]
         return date.fromisoformat(text)
     except Exception:
         return None
@@ -44,8 +45,8 @@ def _status_index(status: str) -> int:
     return 0
 
 
-def _delete_known_due_keys(record: dict) -> None:
-    for key in DATE_FIELD_CANDIDATES:
+def _delete_known_date_keys(record: dict, field_candidates: list[str]) -> None:
+    for key in field_candidates:
         record.pop(key, None)
 
 
@@ -65,38 +66,32 @@ def render_item_detail_form(
     title_keys: list[str],
     subtitle_text: str,
     show_due_date: bool = False,
+    date_label: str = "Due Date",
+    date_field_candidates: list[str] | None = None,
 ) -> None:
     items = data.setdefault(list_key, [])
     is_edit = index is not None and 0 <= index < len(items)
+    date_field_candidates = date_field_candidates or DATE_FIELD_CANDIDATES
 
-    if not is_edit:
-        st.info(f"No {page_title.lower()} is selected.")
-        if st.button(back_label):
-            st.session_state[f"{list_key[:-1]}_view_index"] = None
-            st.switch_page(back_page)
-        return
-
-    original = _as_dict(items[index])
+    original = _as_dict(items[index]) if is_edit else {}
 
     default_title = _pick(original, title_keys, "")
     default_details = _pick(original, ["details", "description", "notes"], "")
     default_status = _pick(original, ["status", "state"], DEFAULT_STATUS_OPTIONS[0])
-    default_due_date = _parse_iso_date(_pick(original, DATE_FIELD_CANDIDATES, "")) if show_due_date else None
-    if show_due_date and default_due_date is None:
-        default_due_date = date.today()
+    default_due_date = _parse_iso_date(_pick(original, date_field_candidates, "")) if show_due_date else None
 
     st.title(f"{title_emoji} {page_title}")
-    st.caption(subtitle_text)
+    st.caption(subtitle_text if is_edit else f"Create a new {page_title.lower()}.")
 
     with st.form(f"{list_key}_detail_form"):
         title = st.text_input("Title", value=default_title)
 
         due_date_value = None
         if show_due_date:
-            due_date_kwargs = {"value": default_due_date}
+            due_date_kwargs = {"value": default_due_date if default_due_date is not None else date.today()}
             if not is_edit:
                 due_date_kwargs["min_value"] = date.today()
-            due_date_value = st.date_input("Due Date", **due_date_kwargs)
+            due_date_value = st.date_input(date_label, **due_date_kwargs)
 
         details = st.text_area("Details", value=default_details, height=180)
 
@@ -107,8 +102,8 @@ def render_item_detail_form(
         )
 
         action_cols = st.columns(3)
-        save = action_cols[0].form_submit_button("Save Changes")
-        delete = action_cols[1].form_submit_button("Delete")
+        save = action_cols[0].form_submit_button("Save Changes" if is_edit else "Create")
+        delete = action_cols[1].form_submit_button("Delete", disabled=not is_edit)
         back = action_cols[2].form_submit_button("Back")
 
     index_key = f"{list_key[:-1]}_view_index"
@@ -118,7 +113,7 @@ def render_item_detail_form(
         st.switch_page(back_page)
         return
 
-    if delete:
+    if delete and is_edit:
         del items[index]
         st.session_state[index_key] = None
         st.switch_page(back_page)
@@ -130,23 +125,29 @@ def render_item_detail_form(
             st.error("Title is required.")
             return
 
-        updated = deepcopy(original)
+        updated = deepcopy(original) if is_edit else {}
         updated = _sanitize_source_keys(updated)
         updated[title_keys[0]] = clean_title
 
         if show_due_date and due_date_value is not None:
-            _delete_known_due_keys(updated)
-            updated["due_date"] = due_date_value.isoformat()
+            _delete_known_date_keys(updated, date_field_candidates)
+            updated[date_field_candidates[0]] = due_date_value.isoformat()
 
         if details.strip():
             updated["details"] = details.strip()
         else:
             updated.pop("details", None)
+            updated.pop("description", None)
+            updated.pop("notes", None)
 
         if status:
             updated["status"] = status
             updated.pop("state", None)
 
-        items[index] = updated
+        if is_edit:
+            items[index] = updated
+        else:
+            items.append(updated)
+
         st.session_state[index_key] = None
         st.switch_page(back_page)

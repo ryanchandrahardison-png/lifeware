@@ -186,3 +186,20 @@ Details:
 - Updated requirements tracker to enforce frozen behavior
 - Action and Delegation detail forms must preserve unknown fields by updating existing records instead of replacing them wholesale.
 - Action and Delegation detail forms must remove the visible `source` field from the editable details layout.
+
+
+## Additional Preserved Intent Notes
+- Calendar View is now considered stable and should not be changed again unless the user explicitly requests a Calendar change.
+- Event View is now considered stable and should not be changed again unless the user explicitly requests an Event change.
+- Actions List must include a "New Action" button placed in the same top action area pattern as Calendar View.
+- Actions List must be grouped into:
+  - Past Due
+  - Upcoming
+  - Floating (items without a due date)
+- Delegations List must include a "New Delegation" button placed in the same top action area pattern as Calendar View.
+- Delegations List must be grouped into:
+  - Past Due
+  - Upcoming
+  - Floating (items without a follow-up date)
+- New Action and New Delegation flows must open their existing detail pages in create mode rather than introducing a new page pattern.
+- Delegation Details must support a Follow Up Date field using the same minimum-date guardrail pattern as Action Due Date handling.

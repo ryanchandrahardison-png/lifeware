@@ -1,3 +1,5 @@
+from datetime import date
+
 import pandas as pd
 import streamlit as st
 from core.state import init_state
@@ -15,7 +17,11 @@ st.sidebar.page_link("pages/delegations.py", label="Delegations", icon="🤝")
 st.sidebar.page_link("pages/routines.py", label="Routines", icon="🔁")
 
 st.title("✅ Actions")
-st.caption("Actions are Select a row to view or edit details.")
+st.caption("Select a row to view or edit action details.")
+
+if st.button("New Action"):
+    st.session_state.action_view_index = None
+    st.switch_page("pages/actionItem.py")
 
 st.markdown(
     '''
@@ -44,10 +50,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+DATE_FIELD_CANDIDATES = ["due_date", "due", "when", "date"]
+
 
 def _as_dict(item):
     return item if isinstance(item, dict) else {"title": str(item)}
-
 
 
 def _pick(record, keys, default=""):
@@ -58,33 +65,73 @@ def _pick(record, keys, default=""):
     return default
 
 
-items = st.session_state.data.get("actions", [])
-rows = []
-row_index = []
-for idx, item in enumerate(items):
-    record = _as_dict(item)
-    rows.append(
-        {
-            "Title": _pick(record, ["title", "name", "action", "task"], "Untitled"),
-            "Project": _pick(record, ["project", "area", "context"]),
-            "Status": _pick(record, ["status", "state"]),
-            "Due": _pick(record, ["due", "due_date", "when", "date"]),
-        }
-    )
-    row_index.append(idx)
+def _parse_date_only(value):
+    if value in (None, ""):
+        return None
+    try:
+        text = str(value).strip()
+        if "T" in text:
+            text = text.split("T", 1)[0]
+        return date.fromisoformat(text)
+    except Exception:
+        return None
 
-if rows:
+
+def render_action_table(rows, row_index, key_suffix):
+    if not rows:
+        return
+
     selection = st.dataframe(
         pd.DataFrame(rows),
         use_container_width=True,
         hide_index=True,
         on_select="rerun",
         selection_mode="single-row",
-        key="actions_table",
+        key=key_suffix,
     )
     selected_rows = selection.selection.get("rows", []) if selection else []
     if selected_rows:
         st.session_state.action_view_index = row_index[selected_rows[0]]
         st.switch_page("pages/actionItem.py")
-else:
+
+
+items = st.session_state.data.get("actions", [])
+today = date.today()
+past_due = []
+upcoming = []
+floating = []
+
+for idx, item in enumerate(items):
+    record = _as_dict(item)
+    due_value = _pick(record, DATE_FIELD_CANDIDATES)
+    due_date = _parse_date_only(due_value)
+    row = {
+        "Title": _pick(record, ["title", "name", "action", "task"], "Untitled"),
+        "Project": _pick(record, ["project", "area", "context"]),
+        "Status": _pick(record, ["status", "state"]),
+        "Due": due_date.isoformat() if due_date else "",
+    }
+
+    if due_date is None:
+        floating.append((idx, row))
+    elif due_date < today:
+        past_due.append((idx, row))
+    else:
+        upcoming.append((idx, row))
+
+sections = [
+    ("Past Due", sorted(past_due, key=lambda item: (item[1]["Due"], item[1]["Title"])), "actions_past_due"),
+    ("Upcoming", sorted(upcoming, key=lambda item: (item[1]["Due"], item[1]["Title"])), "actions_upcoming"),
+    ("Floating", sorted(floating, key=lambda item: item[1]["Title"]), "actions_floating"),
+]
+
+rendered_any = False
+for label, entries, key_suffix in sections:
+    if not entries:
+        continue
+    rendered_any = True
+    st.subheader(label)
+    render_action_table([row for _, row in entries], [idx for idx, _ in entries], key_suffix)
+
+if not rendered_any:
     st.info("No actions found in the loaded GTD file.")
