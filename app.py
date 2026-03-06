@@ -21,10 +21,10 @@ def parse_dt_any(value) -> datetime | None:
     """
     Best-effort parse into an aware UTC datetime.
     Supports:
-      - ISO 8601 with offset (2026-03-05T14:00:00-05:00)
-      - ISO 8601 with Z (2026-03-05T19:00:00Z)
+      - ISO 8601 with offset
+      - ISO 8601 with Z
       - ISO without tz (assume UTC)
-      - Display format: DD-MON-YYYY HH:MM (assume America/New_York)
+      - DD-MON-YYYY HH:MM (assume America/New_York)
     """
     if not value or not isinstance(value, str):
         return None
@@ -33,7 +33,6 @@ def parse_dt_any(value) -> datetime | None:
     if not v:
         return None
 
-    # 1) ISO handling
     try:
         iso = v
         if iso.endswith("Z"):
@@ -45,10 +44,10 @@ def parse_dt_any(value) -> datetime | None:
     except Exception:
         pass
 
-    # 2) DD-MON-YYYY HH:MM (your display format), assume NY local
     try:
-        # Example: 05-MAR-2026 14:00
-        dt_local = datetime.strptime(v.upper(), "%d-%b-%Y %H:%M").replace(tzinfo=NY_TZ)
+        dt_local = datetime.strptime(v.upper(), "%d-%b-%Y %H:%M").replace(
+            tzinfo=NY_TZ
+        )
         return dt_local.astimezone(UTC_TZ)
     except Exception:
         return None
@@ -60,17 +59,16 @@ def ensure_event_utc_fields(ev: dict) -> None:
     If we can parse legacy start/end, populate them.
     If not, set blank strings so UI doesn't crash.
     """
-    # Try promote from legacy fields if missing
     if "start_utc" not in ev or not ev.get("start_utc"):
         dt = parse_dt_any(ev.get("start", ""))
         if dt:
             ev["start_utc"] = dt.isoformat()
+
     if "end_utc" not in ev or not ev.get("end_utc"):
         dt = parse_dt_any(ev.get("end", ""))
         if dt:
             ev["end_utc"] = dt.isoformat()
 
-    # Guarantee keys exist (even if blank)
     ev.setdefault("start_utc", "")
     ev.setdefault("end_utc", "")
 
@@ -93,7 +91,7 @@ if "data" not in st.session_state:
         "actions": [],
         "calendar": [],
         "delegations": [],
-        "routines": []
+        "routines": [],
     }
 
 if "calendar_mode" not in st.session_state:
@@ -145,7 +143,7 @@ st.sidebar.download_button(
     "Download Updated GTD",
     export_json,
     "gtd_updated.json",
-    "application/json"
+    "application/json",
 )
 
 st.sidebar.warning("Download before leaving.")
@@ -158,7 +156,7 @@ st.title("Control Engine")
 
 menu = st.sidebar.radio(
     "Main Menu",
-    ["Calendar", "Actions", "Delegations", "Routines"]
+    ["Calendar", "Actions", "Delegations", "Routines"],
 )
 
 
@@ -180,7 +178,6 @@ if menu == "Calendar":
     if st.session_state.calendar_mode == "form":
         is_edit = st.session_state.selected_calendar is not None
 
-        # Defaults
         default_title = ""
         default_desc = ""
         default_status = "Scheduled"
@@ -196,8 +193,12 @@ if menu == "Calendar":
             default_desc = ev.get("description", "")
             default_status = ev.get("status", "Scheduled")
 
-            sdt = parse_dt_any(ev.get("start_utc", "")) or parse_dt_any(ev.get("start", ""))
-            edt = parse_dt_any(ev.get("end_utc", "")) or parse_dt_any(ev.get("end", ""))
+            sdt = parse_dt_any(ev.get("start_utc", "")) or parse_dt_any(
+                ev.get("start", "")
+            )
+            edt = parse_dt_any(ev.get("end_utc", "")) or parse_dt_any(
+                ev.get("end", "")
+            )
 
             if sdt:
                 s_date, s_time = utc_to_local_parts(sdt)
@@ -210,42 +211,63 @@ if menu == "Calendar":
             title = st.text_input("Title", value=default_title)
 
             c1, c2 = st.columns(2)
-            start_date = c1.date_input("Start Date", value=s_date, key="form_start_date")
-            start_time = c2.time_input("Start Time", value=s_time, key="form_start_time")
+            start_date = c1.date_input(
+                "Start Date",
+                value=s_date,
+                key="form_start_date",
+            )
+            start_time = c2.time_input(
+                "Start Time",
+                value=s_time,
+                key="form_start_time",
+            )
 
             c3, c4 = st.columns(2)
-            end_date = c3.date_input("End Date", value=e_date, key="form_end_date")
-            end_time = c4.time_input("End Time", value=e_time, key="form_end_time")
+            end_date = c3.date_input(
+                "End Date",
+                value=e_date,
+                key="form_end_date",
+            )
+            end_time = c4.time_input(
+                "End Time",
+                value=e_time,
+                key="form_end_time",
+            )
 
             description = st.text_area("Description", value=default_desc)
 
             status = st.selectbox(
                 "Status",
                 ["Scheduled", "Complete"],
-                index=0 if default_status != "Complete" else 1
+                index=0 if default_status != "Complete" else 1,
             )
 
-            submitted = st.form_submit_button("Save Changes" if is_edit else "Create Event")
+            submitted = st.form_submit_button(
+                "Save Changes" if is_edit else "Create Event"
+            )
 
         if submitted:
             start_utc = local_to_utc_iso(start_date, start_time)
             end_utc = local_to_utc_iso(end_date, end_time)
 
-            # Validate end > start
             sdt2 = parse_dt_any(start_utc)
             edt2 = parse_dt_any(end_utc)
             if sdt2 and edt2 and edt2 <= sdt2:
                 st.error("End must be after Start.")
             else:
                 payload = {
-                    "title": title.strip() or ("Untitled Event" if not is_edit else default_title or "Untitled Event"),
+                    "title": title.strip()
+                    or (
+                        "Untitled Event"
+                        if not is_edit
+                        else default_title or "Untitled Event"
+                    ),
                     "description": description.strip(),
                     "status": status,
                     "start_utc": start_utc,
                     "end_utc": end_utc,
-                    # legacy fields preserved for readability/compatibility
                     "start": start_utc,
-                    "end": end_utc
+                    "end": end_utc,
                 }
 
                 if is_edit:
@@ -257,11 +279,13 @@ if menu == "Calendar":
                 st.session_state.selected_calendar = None
                 st.rerun()
 
-        # DELETE EVENT (edit mode)
         if is_edit:
             st.divider()
             st.subheader("Danger Zone")
-            confirm_delete = st.checkbox("Confirm deletion of this event", key="confirm_delete")
+            confirm_delete = st.checkbox(
+                "Confirm deletion of this event",
+                key="confirm_delete",
+            )
 
             if st.button("Delete Event"):
                 if not confirm_delete:
@@ -270,7 +294,6 @@ if menu == "Calendar":
                     del data["calendar"][idx]
                     st.session_state.calendar_mode = "list"
                     st.session_state.selected_calendar = None
-                    st.session_state.confirm_delete = False
                     st.rerun()
 
         if st.button("Back to Calendar"):
@@ -298,8 +321,12 @@ if menu == "Calendar":
 
                 ensure_event_utc_fields(ev)
 
-                sdt = parse_dt_any(ev.get("start_utc", "")) or parse_dt_any(ev.get("start", ""))
-                edt = parse_dt_any(ev.get("end_utc", "")) or parse_dt_any(ev.get("end", ""))
+                sdt = parse_dt_any(ev.get("start_utc", "")) or parse_dt_any(
+                    ev.get("start", "")
+                )
+                edt = parse_dt_any(ev.get("end_utc", "")) or parse_dt_any(
+                    ev.get("end", "")
+                )
 
                 start_txt = fmt_ny(sdt) if sdt else (ev.get("start", "") or "")
                 end_txt = fmt_ny(edt) if edt else (ev.get("end", "") or "")
@@ -318,7 +345,7 @@ if menu == "Calendar":
 
 
 # =====================================================
-# Actions / Delegations / Routines (placeholder list views)
+# Actions / Delegations / Routines
 # =====================================================
 if menu == "Actions":
     st.header("Actions")
@@ -339,5 +366,8 @@ if menu == "Routines":
             st.write(r.get("title", ""))
 
 
+# -----------------------------
+# Debug
+# -----------------------------
 with st.expander("Debug Session Data"):
     st.json(data)
