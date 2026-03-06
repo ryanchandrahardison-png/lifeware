@@ -1,6 +1,5 @@
-import streamlit as st
-from core.calendar_utils import normalize_calendar_events
 
+import streamlit as st
 
 def init_state():
     if "data" not in st.session_state:
@@ -8,15 +7,8 @@ def init_state():
             "actions": [],
             "calendar": [],
             "delegations": [],
-            "routines": [],
+            "routines": []
         }
-
-    data = st.session_state.data
-    for key in ["actions", "calendar", "delegations", "routines"]:
-        if key not in data or not isinstance(data[key], list):
-            data[key] = []
-
-    data["calendar"] = normalize_calendar_events(data["calendar"])
 
     if "calendar_edit_index" not in st.session_state:
         st.session_state.calendar_edit_index = None
