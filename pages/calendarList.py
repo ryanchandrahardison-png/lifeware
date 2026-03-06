@@ -39,14 +39,11 @@ def sort_key(item):
 events_sorted = sorted(enumerate(events), key=sort_key)
 
 grouped = {}
-
 for idx, ev in events_sorted:
     dt = parse_dt(ev.get("start_utc"))
     if not dt:
         continue
-
-    day = dt.date()
-    grouped.setdefault(day, []).append((idx, ev, dt))
+    grouped.setdefault(dt.date(), []).append((idx, ev, dt))
 
 
 for day in sorted(grouped.keys()):
@@ -57,13 +54,10 @@ for day in sorted(grouped.keys()):
 
     for idx, ev, dt in grouped[day]:
         end_dt = parse_dt(ev.get("end_utc"))
-        start_time = dt.strftime("%I:%M %p")
-        end_time = end_dt.strftime("%I:%M %p") if end_dt else ""
-
         rows.append({
             "Title": ev.get("title", "Untitled"),
-            "Start": start_time,
-            "End": end_time,
+            "Start": dt.strftime("%I:%M %p"),
+            "End": end_dt.strftime("%I:%M %p") if end_dt else "",
             "Status": ev.get("status", "")
         })
         row_index.append(idx)
