@@ -1,6 +1,5 @@
 import streamlit as st
 import json
-import pandas as pd
 from datetime import datetime, date, time
 from zoneinfo import ZoneInfo
 
@@ -23,6 +22,8 @@ def parse_dt_any(value):
         return None
 
     v = value.strip()
+    if not v:
+        return None
 
     try:
         iso = v
@@ -32,7 +33,7 @@ def parse_dt_any(value):
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC_TZ)
         return dt.astimezone(UTC_TZ)
-    except:
+    except Exception:
         pass
 
     try:
@@ -40,7 +41,7 @@ def parse_dt_any(value):
             tzinfo=NY_TZ
         )
         return dt_local.astimezone(UTC_TZ)
-    except:
+    except Exception:
         return None
 
 
@@ -107,11 +108,12 @@ if uploaded_file is not None:
         loaded = json.loads(file_bytes.decode("utf-8"))
 
         for k in ["actions", "calendar", "delegations", "routines"]:
-            if k not in loaded:
+            if k not in loaded or not isinstance(loaded[k], list):
                 loaded[k] = []
 
         for ev in loaded["calendar"]:
-            ensure_event_utc_fields(ev)
+            if isinstance(ev, dict):
+                ensure_event_utc_fields(ev)
 
         st.session_state.data = loaded
         data = loaded
@@ -149,11 +151,9 @@ menu = st.sidebar.radio(
 # Calendar
 # =====================================================
 if menu == "Calendar":
-
     st.header("Calendar")
 
-    top = st.columns([1, 1, 8])
-
+    top = st.columns([1, 9])
     if top[0].button("Add Event"):
         st.session_state.calendar_mode = "form"
         st.session_state.selected_calendar = None
@@ -163,7 +163,6 @@ if menu == "Calendar":
     # FORM SCREEN
     # -------------------------------------
     if st.session_state.calendar_mode == "form":
-
         is_edit = st.session_state.selected_calendar is not None
 
         default_title = ""
@@ -173,7 +172,6 @@ if menu == "Calendar":
         e_date, e_time = date.today(), time(9, 30)
 
         if is_edit:
-
             idx = st.session_state.selected_calendar
             ev = data["calendar"][idx]
 
@@ -188,14 +186,12 @@ if menu == "Calendar":
 
             if sdt:
                 s_date, s_time = utc_to_local_parts(sdt)
-
             if edt:
                 e_date, e_time = utc_to_local_parts(edt)
 
         st.subheader("Edit Event" if is_edit else "Add Event")
 
         with st.form("calendar_form"):
-
             title = st.text_input("Title", value=default_title)
 
             c1, c2 = st.columns(2)
@@ -216,6 +212,8 @@ if menu == "Calendar":
 
             if is_edit:
                 confirm_delete = st.checkbox("Confirm deletion")
+            else:
+                confirm_delete = False
 
             cols = st.columns(3)
 
@@ -245,7 +243,6 @@ if menu == "Calendar":
                 st.rerun()
 
         if save_clicked:
-
             start_utc = local_to_utc_iso(start_date, start_time)
             end_utc = local_to_utc_iso(end_date, end_time)
 
@@ -269,57 +266,42 @@ if menu == "Calendar":
             st.rerun()
 
     # -------------------------------------
-    # LIST SCREEN (DATAFRAME)
+    # LIST SCREEN
     # -------------------------------------
     else:
-
         if not data["calendar"]:
             st.info("No calendar events.")
         else:
-
-            rows = []
-            row_map = []
+            header = st.columns([1, 5, 3, 3, 2])
+            header[0].markdown("**View**")
+            header[1].markdown("**Title**")
+            header[2].markdown("**Start**")
+            header[3].markdown("**End**")
+            header[4].markdown("**Status**")
 
             for i, ev in enumerate(data["calendar"]):
+                if not isinstance(ev, dict):
+                    continue
 
                 ensure_event_utc_fields(ev)
 
                 sdt = parse_dt_any(ev.get("start_utc")) or parse_dt_any(ev.get("start"))
                 edt = parse_dt_any(ev.get("end_utc")) or parse_dt_any(ev.get("end"))
 
-                rows.append(
-                    {
-                        "Title": ev.get("title", ""),
-                        "Start": fmt_ny(sdt) if sdt else "",
-                        "End": fmt_ny(edt) if edt else "",
-                        "Status": ev.get("status", "Scheduled"),
-                    }
-                )
+                start_txt = fmt_ny(sdt) if sdt else ""
+                end_txt = fmt_ny(edt) if edt else ""
 
-                row_map.append(i)
+                row = st.columns([1, 5, 3, 3, 2])
 
-            df = pd.DataFrame(rows)
-
-            event = st.dataframe(
-                df,
-                use_container_width=True,
-                hide_index=True,
-                selection_mode="single-row",
-                on_select="rerun",
-                key="calendar_df",
-            )
-
-            selected = event.selection.rows if event and event.selection else []
-
-            if selected:
-                actual_idx = row_map[selected[0]]
-
-                if top[1].button("Open Selected Event"):
-                    st.session_state.selected_calendar = actual_idx
+                if row[0].button("👁️", key=f"view_{i}"):
+                    st.session_state.selected_calendar = i
                     st.session_state.calendar_mode = "form"
                     st.rerun()
-            else:
-                top[1].button("Open Selected Event", disabled=True)
+
+                row[1].write(ev.get("title", ""))
+                row[2].write(start_txt)
+                row[3].write(end_txt)
+                row[4].write(ev.get("status", "Scheduled"))
 
 
 # =====================================================
@@ -328,17 +310,20 @@ if menu == "Calendar":
 if menu == "Actions":
     st.header("Actions")
     for a in data["actions"]:
-        st.write(a.get("title", ""))
+        if isinstance(a, dict):
+            st.write(a.get("title", ""))
 
 if menu == "Delegations":
     st.header("Delegations")
     for d in data["delegations"]:
-        st.write(d.get("title", ""))
+        if isinstance(d, dict):
+            st.write(d.get("title", ""))
 
 if menu == "Routines":
     st.header("Routines")
     for r in data["routines"]:
-        st.write(r.get("title", ""))
+        if isinstance(r, dict):
+            st.write(r.get("title", ""))
 
 
 # -----------------------------
