@@ -21,6 +21,21 @@ events = data.get("calendar", [])
 
 st.title("Calendar")
 
+# Streamlit adds a selection column for selectable dataframes.
+# Hide that column so the table keeps a clean Asana-style look while
+# preserving true row-click selection behavior.
+st.markdown(
+    '''
+    <style>
+    [data-testid="stDataFrame"] [role="gridcell"][aria-colindex="1"],
+    [data-testid="stDataFrame"] [role="columnheader"][aria-colindex="1"] {
+        display: none !important;
+    }
+    </style>
+    ''',
+    unsafe_allow_html=True,
+)
+
 
 def parse_dt(value):
     if not value:
@@ -71,7 +86,7 @@ for day in sorted(grouped.keys()):
             hide_index=True,
             on_select="rerun",
             selection_mode="single-row",
-            key=f"calendar_day_{day.isoformat()}"
+            key=f"calendar_day_{day.isoformat()}",
         )
 
         selected_rows = selection.selection.get("rows", []) if selection else []

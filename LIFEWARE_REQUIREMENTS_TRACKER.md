@@ -51,6 +51,9 @@ lifeware/
   - clicking anywhere on a row opens the event view for that event.
 - Keep the calendar sorted by start time.
 - Keep the "Add Event" action.
+- Implementation note:
+  - true row click selection is implemented with Streamlit selectable tables
+  - if Streamlit renders a selection column, hide it so no checkbox column is visible
 
 ## Event View Requirements
 - Event View is frozen unless explicitly requested.
