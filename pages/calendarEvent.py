@@ -1,14 +1,17 @@
 import streamlit as st
 from datetime import date, time
+from core.state import init_session_state
+from core.layout import render_session_sidebar
 from core.calendar_utils import (
-    build_calendar_event_payload,
+    parse_dt_any,
     utc_to_local_parts,
+    build_calendar_event_payload,
 )
-from core.state import init_state
 
-init_state()
+init_session_state()
+render_session_sidebar()
+
 data = st.session_state.data
-
 is_edit = (
     st.session_state.calendar_new_mode is False
     and st.session_state.calendar_edit_index is not None
@@ -22,44 +25,60 @@ e_date, e_time = date.today(), time(9, 30)
 
 if is_edit:
     idx = st.session_state.calendar_edit_index
-    ev = data["calendar"][idx]
 
+    if idx >= len(data["calendar"]):
+        st.error("Selected event no longer exists.")
+        if st.button("Back to Calendar"):
+            st.switch_page("pages/calendarList.py")
+        st.stop()
+
+    ev = data["calendar"][idx]
     default_title = ev.get("title", "")
     default_desc = ev.get("description", "")
     default_status = ev.get("status", "Scheduled")
 
-    local_start_date, local_start_time = utc_to_local_parts(ev.get("start_utc"))
-    local_end_date, local_end_time = utc_to_local_parts(ev.get("end_utc"))
+    sdt = parse_dt_any(ev.get("start_utc"))
+    edt = parse_dt_any(ev.get("end_utc"))
 
-    if local_start_date and local_start_time:
-        s_date, s_time = local_start_date, local_start_time
-    if local_end_date and local_end_time:
-        e_date, e_time = local_end_date, local_end_time
+    if sdt:
+        s_date, s_time = utc_to_local_parts(sdt)
+    if edt:
+        e_date, e_time = utc_to_local_parts(edt)
 
 st.title("Edit Event" if is_edit else "Add Event")
 
 with st.form("calendar_form"):
     title = st.text_input("Title", value=default_title)
+
+    c1, c2 = st.columns(2)
+    start_date = c1.date_input("Start Date", value=s_date)
+    start_time = c2.time_input("Start Time", value=s_time)
+
+    c3, c4 = st.columns(2)
+    end_date = c3.date_input("End Date", value=e_date)
+    end_time = c4.time_input("End Time", value=e_time)
+
     description = st.text_area("Description", value=default_desc)
+
     status = st.selectbox(
         "Status",
         ["Scheduled", "Complete"],
         index=0 if default_status != "Complete" else 1,
     )
 
-    time_cols_1 = st.columns(2)
-    start_date = time_cols_1[0].date_input("Start Date", value=s_date)
-    start_time = time_cols_1[1].time_input("Start Time", value=s_time)
-
-    time_cols_2 = st.columns(2)
-    end_date = time_cols_2[0].date_input("End Date", value=e_date)
-    end_time = time_cols_2[1].time_input("End Time", value=e_time)
-
-    confirm_delete = st.checkbox("Confirm deletion") if is_edit else False
+    if is_edit:
+        confirm_delete = st.checkbox("Confirm deletion")
+    else:
+        confirm_delete = False
 
     cols = st.columns(3)
-    save_clicked = cols[0].form_submit_button("Save Changes" if is_edit else "Create Event")
-    delete_clicked = cols[1].form_submit_button("Delete Event", disabled=not is_edit)
+    save_clicked = cols[0].form_submit_button(
+        "Save Changes" if is_edit else "Create Event"
+    )
+    delete_clicked = cols[1].form_submit_button(
+        "Delete Event",
+        disabled=not is_edit,
+    )
     back_clicked = cols[2].form_submit_button("Back to Calendar")
 
 if back_clicked:
@@ -70,28 +89,37 @@ if delete_clicked and is_edit:
         st.error("Confirm deletion first")
     else:
         del data["calendar"][idx]
+        st.session_state.calendar_edit_index = None
+        st.session_state.calendar_new_mode = False
         st.switch_page("pages/calendarList.py")
 
 if save_clicked:
     if not title.strip():
-        st.error("Title is required")
+        st.error("Title is required.")
     else:
-        start_iso = build_calendar_event_payload("x", "", status, start_date, start_time, end_date, end_time)["start_utc"]
-        end_iso = build_calendar_event_payload("x", "", status, start_date, start_time, end_date, end_time)["end_utc"]
-        if start_iso >= end_iso:
-            st.error("End must be after start")
+        payload = build_calendar_event_payload(
+            title=title,
+            description=description,
+            status=status,
+            start_date=start_date,
+            start_time=start_time,
+            end_date=end_date,
+            end_time=end_time,
+        )
+
+        sdt2 = parse_dt_any(payload["start_utc"])
+        edt2 = parse_dt_any(payload["end_utc"])
+        if sdt2 and edt2 and edt2 <= sdt2:
+            st.error("End must be after Start.")
         else:
-            payload = build_calendar_event_payload(
-                title,
-                description,
-                status,
-                start_date,
-                start_time,
-                end_date,
-                end_time,
-            )
             if is_edit:
                 data["calendar"][idx] = payload
             else:
                 data["calendar"].append(payload)
+
+            st.session_state.calendar_edit_index = None
+            st.session_state.calendar_new_mode = False
             st.switch_page("pages/calendarList.py")
+
+with st.expander("Debug Session Data"):
+    st.json(data)
