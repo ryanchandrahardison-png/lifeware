@@ -133,6 +133,7 @@ When continuing development in a new conversation, the assistant should be told 
 - Default form values passed into `date_input` must always satisfy its `min_value` constraints.
 - Before packaging, compile-check key Python files to catch syntax/import errors.
 - On GTD reload, clear all selection/view indexes tied to the previous file (calendar, action, delegation) before continuing.
+- In read-only Event View for existing events, do not pass `None` as a `date_input(min_value=...)`; only supply `min_value` when a real date constraint exists, to avoid Streamlit TypeError runtime failures.
 
 ## Development Workflow Requirements
 

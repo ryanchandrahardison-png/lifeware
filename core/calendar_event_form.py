@@ -192,12 +192,13 @@ def render_calendar_event_form(
         title = st.text_input("Title", value=values["title"], disabled=read_only)
 
         c1, c2 = st.columns(2)
-        start_date = c1.date_input(
-            "Start Date",
-            value=start_default_date,
-            min_value=start_min_date,
-            disabled=read_only,
-        )
+        start_date_kwargs = {
+            "value": start_default_date,
+            "disabled": read_only,
+        }
+        if start_min_date is not None:
+            start_date_kwargs["min_value"] = start_min_date
+        start_date = c1.date_input("Start Date", **start_date_kwargs)
         start_time = c2.selectbox(
             "Start Time",
             options=start_time_options,
@@ -207,12 +208,13 @@ def render_calendar_event_form(
         )
 
         c3, c4 = st.columns(2)
-        end_date = c3.date_input(
-            "End Date",
-            value=end_default_date,
-            min_value=end_min_date,
-            disabled=read_only,
-        )
+        end_date_kwargs = {
+            "value": end_default_date,
+            "disabled": read_only,
+        }
+        if end_min_date is not None:
+            end_date_kwargs["min_value"] = end_min_date
+        end_date = c3.date_input("End Date", **end_date_kwargs)
         end_time = c4.selectbox(
             "End Time",
             options=end_time_options,
