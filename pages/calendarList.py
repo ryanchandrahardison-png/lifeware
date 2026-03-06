@@ -1,6 +1,6 @@
 import streamlit as st
-from core.state import init_state
 from core.calendar_utils import fmt_ny, parse_dt_any
+from core.state import init_state
 
 init_state()
 data = st.session_state.data
@@ -14,10 +14,18 @@ if top[0].button("Add Event"):
     st.session_state.calendar_new_mode = True
     st.switch_page("pages/calendarEvent.py")
 
-calendar_events = data.get("calendar", [])
+calendar_events = []
+for i, ev in enumerate(data["calendar"]):
+    if not isinstance(ev, dict):
+        continue
+    sdt = parse_dt_any(ev.get("start_utc"))
+    edt = parse_dt_any(ev.get("end_utc"))
+    calendar_events.append((i, ev, sdt, edt))
+
+calendar_events.sort(key=lambda row: row[2].isoformat() if row[2] else "")
 
 if not calendar_events:
-    st.info("No calendar events. Click Add Event to create one.")
+    st.info("No calendar events yet. Click Add Event to create one.")
 else:
     header = st.columns([1, 5, 3, 3, 2])
     header[0].markdown("**View**")
@@ -26,10 +34,7 @@ else:
     header[3].markdown("**End**")
     header[4].markdown("**Status**")
 
-    for i, ev in enumerate(calendar_events):
-        sdt = parse_dt_any(ev.get("start_utc"))
-        edt = parse_dt_any(ev.get("end_utc"))
-
+    for i, ev, sdt, edt in calendar_events:
         start_txt = fmt_ny(sdt) if sdt else ""
         end_txt = fmt_ny(edt) if edt else ""
 

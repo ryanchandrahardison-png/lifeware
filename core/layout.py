@@ -1,5 +1,5 @@
-import streamlit as st
 import json
+import streamlit as st
 from core.calendar_utils import normalize_calendar_events
 
 
@@ -8,10 +8,11 @@ def sidebar_file_controls(data):
 
     if uploaded is not None:
         loaded = json.loads(uploaded.getvalue().decode("utf-8"))
-        for k in ["actions", "calendar", "delegations", "routines"]:
-            if k not in loaded:
-                loaded[k] = []
-        normalize_calendar_events(loaded)
+        for key in ["actions", "calendar", "delegations", "routines"]:
+            if key not in loaded or not isinstance(loaded[key], list):
+                loaded[key] = []
+
+        loaded["calendar"] = normalize_calendar_events(loaded["calendar"])
         st.session_state.data = loaded
         data = loaded
         st.sidebar.success("GTD loaded")
@@ -22,5 +23,5 @@ def sidebar_file_controls(data):
         "Download Updated GTD",
         export_json,
         "gtd_updated.json",
-        "application/json"
+        "application/json",
     )
