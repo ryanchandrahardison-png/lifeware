@@ -28,10 +28,15 @@ def parse_dt(value):
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
-events_sorted = sorted(
-    enumerate(events),
-    key=lambda x: parse_dt(x[1].get("start_utc") or "") or datetime.max
-)
+def sort_key(item):
+    idx, ev = item
+    dt = parse_dt(ev.get("start_utc") or "")
+    has_dt = dt is not None
+    sortable = dt.isoformat() if dt else ""
+    return (0 if has_dt else 1, sortable, idx)
+
+
+events_sorted = sorted(enumerate(events), key=sort_key)
 
 grouped = {}
 
