@@ -2,24 +2,7 @@ import hashlib
 import json
 import streamlit as st
 from core.state import init_state
-from core.calendar_utils import ensure_event_utc_fields
-
-REQUIRED_LIST_KEYS = ["actions", "calendar", "delegations", "routines"]
-
-
-def _normalize_loaded_gtd(loaded):
-    if not isinstance(loaded, dict):
-        loaded = {}
-
-    for key in REQUIRED_LIST_KEYS:
-        if key not in loaded or not isinstance(loaded[key], list):
-            loaded[key] = []
-
-    for ev in loaded["calendar"]:
-        if isinstance(ev, dict):
-            ensure_event_utc_fields(ev)
-
-    return loaded
+from core.entities import ensure_integrity, normalize_data
 
 
 def sidebar_file_controls():
@@ -34,13 +17,22 @@ def sidebar_file_controls():
 
         if st.session_state.uploaded_sig != sig:
             loaded = json.loads(file_bytes.decode("utf-8"))
-            st.session_state.data = _normalize_loaded_gtd(loaded)
+            st.session_state.data = normalize_data(loaded)
+            st.session_state.integrity_warnings = ensure_integrity(st.session_state.data)
             st.session_state.uploaded_sig = sig
-            st.session_state.calendar_edit_index = None
-            st.session_state.calendar_new_mode = False
-            st.session_state.action_view_index = None
-            st.session_state.delegation_view_index = None
+            st.session_state.event_view_id = None
+            st.session_state.event_new_mode = False
+            st.session_state.action_view_id = None
+            st.session_state.delegation_view_id = None
+            st.session_state.project_view_id = None
+            st.session_state.project_delete_mode = None
+            st.session_state.draft_project = None
             st.sidebar.success("GTD file loaded")
+
+    if st.session_state.get("integrity_warnings"):
+        with st.sidebar.expander("Integrity repairs", expanded=False):
+            for warning in st.session_state.integrity_warnings:
+                st.write(f"- {warning}")
 
     export_json = json.dumps(st.session_state.data, indent=2)
 

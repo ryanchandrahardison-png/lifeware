@@ -11,6 +11,7 @@ from core.calendar_utils import (
     local_to_utc_iso,
     utc_to_local_parts,
 )
+from core.entities import new_uuid
 
 DEFAULT_STATUS_OPTIONS = ["Scheduled", "Complete"]
 UTC_TZ = ZoneInfo("UTC")
@@ -71,7 +72,7 @@ def _default_form_values(event: dict | None) -> dict:
 
     ensure_event_utc_fields(event)
     values["title"] = event.get("title", "")
-    values["description"] = event.get("description", "")
+    values["description"] = event.get("details", event.get("description", ""))
     values["status"] = event.get("status", "Scheduled")
 
     start_dt = parse_dt_any(event.get("start_utc")) or parse_dt_any(event.get("start"))
@@ -88,13 +89,13 @@ def _default_form_values(event: dict | None) -> dict:
 def render_calendar_event_form(
     data: dict,
     *,
-    event_index: int | None = None,
+    event_index: str | None = None,
     drawer_mode: bool = False,
     read_only: bool = False,
 ) -> None:
-    calendar = data.setdefault("calendar", [])
-    is_edit = event_index is not None and 0 <= event_index < len(calendar)
-    event = calendar[event_index] if is_edit else None
+    events = data.setdefault("events", {})
+    is_edit = event_index is not None and event_index in events
+    event = events.get(event_index) if is_edit else None
 
     values = _default_form_values(event)
     now_local = datetime.now(NY_TZ)
@@ -121,8 +122,8 @@ def render_calendar_event_form(
         header_cols = st.columns([6, 1])
         header_cols[0].subheader(title_text)
         if header_cols[1].button("✕", key="drawer_close", help="Close event view"):
-            st.session_state.calendar_edit_index = None
-            st.session_state.calendar_new_mode = False
+            st.session_state.event_view_id = None
+            st.session_state.event_new_mode = False
             st.rerun()
     else:
         st.title(f"📅 {title_text}")
@@ -255,8 +256,8 @@ def render_calendar_event_form(
         st.markdown("</div>", unsafe_allow_html=True)
 
     if back:
-        st.session_state.calendar_edit_index = None
-        st.session_state.calendar_new_mode = False
+        st.session_state.event_view_id = None
+        st.session_state.event_new_mode = False
         if drawer_mode:
             st.rerun()
         else:
@@ -267,9 +268,9 @@ def render_calendar_event_form(
         if not confirm_delete:
             st.error("Confirm deletion first")
         else:
-            del calendar[event_index]
-            st.session_state.calendar_edit_index = None
-            st.session_state.calendar_new_mode = False
+            del events[event_index]
+            st.session_state.event_view_id = None
+            st.session_state.event_new_mode = False
             if drawer_mode:
                 st.rerun()
             else:
@@ -299,20 +300,18 @@ def render_calendar_event_form(
             return
 
         payload = {
+            "id": event_index if is_edit else new_uuid(),
             "title": clean_title,
-            "description": description.strip(),
+            "details": description.strip(),
             "status": status,
             "start_utc": start_utc,
             "end_utc": end_utc,
         }
 
-        if is_edit:
-            calendar[event_index] = payload
-        else:
-            calendar.append(payload)
+        events[payload["id"]] = payload
 
-        st.session_state.calendar_edit_index = None
-        st.session_state.calendar_new_mode = False
+        st.session_state.event_view_id = None
+        st.session_state.event_new_mode = False
         if drawer_mode:
             st.rerun()
         else:

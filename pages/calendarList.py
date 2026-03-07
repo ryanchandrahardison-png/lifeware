@@ -15,19 +15,20 @@ st.sidebar.page_link("app.py", label="Home", icon="🏠")
 st.sidebar.page_link("pages/calendarList.py", label="Calendar", icon="📅")
 st.sidebar.page_link("pages/actions.py", label="Actions", icon="✅")
 st.sidebar.page_link("pages/delegations.py", label="Delegations", icon="🤝")
+st.sidebar.page_link("pages/projects.py", label="Projects", icon="📁")
 st.sidebar.page_link("pages/routines.py", label="Routines", icon="🔁")
 
 UTC_TZ = ZoneInfo("UTC")
 
 data = st.session_state.data
-events = data.get("calendar", [])
+events = data.get("events", {})
 
 st.title("Calendar")
 st.caption("Select a row to view or edit event details.")
 
 if st.button("New Event"):
-    st.session_state.calendar_edit_index = None
-    st.session_state.calendar_new_mode = True
+    st.session_state.event_view_id = None
+    st.session_state.event_new_mode = True
     st.switch_page("pages/calendarEvent.py")
 
 st.markdown(
@@ -41,17 +42,6 @@ st.markdown(
         padding: 0 !important;
         border: 0 !important;
     }
-
-    [data-testid="stDataFrame"] [role="gridcell"]:focus,
-    [data-testid="stDataFrame"] [role="gridcell"]:focus-visible,
-    [data-testid="stDataFrame"] [tabindex="0"]:focus,
-    [data-testid="stDataFrame"] [tabindex="0"]:focus-visible,
-    [data-testid="stDataFrame"] *:focus,
-    [data-testid="stDataFrame"] *:focus-visible {
-        outline: none !important;
-        box-shadow: none !important;
-        border-color: transparent !important;
-    }
     </style>
     ''',
     unsafe_allow_html=True,
@@ -64,17 +54,15 @@ def parse_dt(value):
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
-
 def sort_key(item):
-    idx, ev = item
+    event_id, ev = item
     dt = parse_dt(ev.get("start_utc") or "")
     has_dt = dt is not None
     sortable = dt.isoformat() if dt else ""
-    return (0 if has_dt else 1, sortable, idx)
+    return (0 if has_dt else 1, sortable, event_id)
 
 
-
-def render_event_table(rows, row_index, key_suffix):
+def render_event_table(rows, row_ids, key_suffix):
     if not rows:
         return
 
@@ -92,25 +80,24 @@ def render_event_table(rows, row_index, key_suffix):
     selected_rows = selection.selection.get("rows", []) if selection else []
     if selected_rows:
         selected_pos = selected_rows[0]
-        st.session_state.calendar_edit_index = row_index[selected_pos]
-        st.session_state.calendar_new_mode = False
+        st.session_state.event_view_id = row_ids[selected_pos]
+        st.session_state.event_new_mode = False
         st.switch_page("pages/calendarEvent.py")
 
 
-
-events_sorted = sorted(enumerate(events), key=sort_key)
+events_sorted = sorted(events.items(), key=sort_key)
 now_utc = datetime.now(UTC_TZ)
 
 past_grouped = {}
 upcoming_grouped = {}
 
-for idx, ev in events_sorted:
+for event_id, ev in events_sorted:
     dt = parse_dt(ev.get("start_utc"))
     if not dt:
         continue
 
     target = past_grouped if dt < now_utc else upcoming_grouped
-    target.setdefault(dt.date(), []).append((idx, ev, dt))
+    target.setdefault(dt.date(), []).append((event_id, ev, dt))
 
 
 if past_grouped:
@@ -119,9 +106,9 @@ if past_grouped:
         st.markdown(f"**{day.strftime('%A, %B %d')}**")
 
         rows = []
-        row_index = []
+        row_ids = []
 
-        for idx, ev, dt in past_grouped[day]:
+        for event_id, ev, dt in past_grouped[day]:
             end_dt = parse_dt(ev.get("end_utc"))
             rows.append({
                 "Title": ev.get("title", "Untitled"),
@@ -129,9 +116,9 @@ if past_grouped:
                 "End": end_dt.strftime("%I:%M %p") if end_dt else "",
                 "Status": ev.get("status", "")
             })
-            row_index.append(idx)
+            row_ids.append(event_id)
 
-        render_event_table(rows, row_index, f"calendar_past_{day.isoformat()}")
+        render_event_table(rows, row_ids, f"calendar_past_{day.isoformat()}")
 
 if upcoming_grouped:
     st.subheader("Upcoming Events")
@@ -139,9 +126,9 @@ if upcoming_grouped:
         st.markdown(f"**{day.strftime('%A, %B %d')}**")
 
         rows = []
-        row_index = []
+        row_ids = []
 
-        for idx, ev, dt in upcoming_grouped[day]:
+        for event_id, ev, dt in upcoming_grouped[day]:
             end_dt = parse_dt(ev.get("end_utc"))
             rows.append({
                 "Title": ev.get("title", "Untitled"),
@@ -149,9 +136,9 @@ if upcoming_grouped:
                 "End": end_dt.strftime("%I:%M %p") if end_dt else "",
                 "Status": ev.get("status", "")
             })
-            row_index.append(idx)
+            row_ids.append(event_id)
 
-        render_event_table(rows, row_index, f"calendar_upcoming_{day.isoformat()}")
+        render_event_table(rows, row_ids, f"calendar_upcoming_{day.isoformat()}")
 
 if not past_grouped and not upcoming_grouped:
     st.info("No calendar events found in the loaded GTD file.")

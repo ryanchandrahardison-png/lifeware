@@ -12,8 +12,9 @@ st.sidebar.page_link("app.py", label="Home", icon="🏠")
 st.sidebar.page_link("pages/calendarList.py", label="Calendar", icon="📅")
 st.sidebar.page_link("pages/actions.py", label="Actions", icon="✅")
 st.sidebar.page_link("pages/delegations.py", label="Delegations", icon="🤝")
+st.sidebar.page_link("pages/projects.py", label="Projects", icon="📁")
 st.sidebar.page_link("pages/routines.py", label="Routines", icon="🔁")
 
 data = st.session_state.data
-selected_index = st.session_state.calendar_edit_index
-render_calendar_event_form(data, event_index=selected_index, drawer_mode=False, read_only=False)
+selected_id = st.session_state.event_view_id
+render_calendar_event_form(data, event_index=selected_id, drawer_mode=False, read_only=False)

@@ -6,10 +6,12 @@ from typing import Any
 
 import streamlit as st
 
+from core.entities import new_uuid
 
-DEFAULT_STATUS_OPTIONS = ["Not Started", "In Progress", "Waiting", "Complete"]
-DATE_FIELD_CANDIDATES = ["due_date", "due", "when", "date"]
-FOLLOW_UP_FIELD_CANDIDATES = ["follow_up_date", "follow_up", "due_date", "due", "when", "date"]
+DEFAULT_STATUS_OPTIONS = ["Open", "Completed"]
+DELEGATION_STATUS_OPTIONS = ["Waiting", "Completed"]
+DATE_FIELD_CANDIDATES = ["due_date"]
+FOLLOW_UP_FIELD_CANDIDATES = ["follow_up_date"]
 SOURCE_FIELD_NAMES = {"source"}
 
 
@@ -39,9 +41,13 @@ def _parse_iso_date(value: Any) -> date | None:
         return None
 
 
-def _status_index(status: str) -> int:
-    if status in DEFAULT_STATUS_OPTIONS:
-        return DEFAULT_STATUS_OPTIONS.index(status)
+def _status_index(status: str, options: list[str]) -> int:
+    if status in options:
+        return options.index(status)
+    lowered = status.lower()
+    for i, option in enumerate(options):
+        if option.lower() == lowered:
+            return i
     return 0
 
 
@@ -58,7 +64,7 @@ def render_item_detail_form(
     *,
     data: dict,
     list_key: str,
-    index: int | None,
+    item_id: str | None,
     title_emoji: str,
     page_title: str,
     back_page: str,
@@ -68,16 +74,18 @@ def render_item_detail_form(
     show_due_date: bool = False,
     date_label: str = "Due Date",
     date_field_candidates: list[str] | None = None,
+    status_options: list[str] | None = None,
 ) -> None:
-    items = data.setdefault(list_key, [])
-    is_edit = index is not None and 0 <= index < len(items)
+    items = data.setdefault(list_key, {})
+    is_edit = item_id is not None and item_id in items
     date_field_candidates = date_field_candidates or DATE_FIELD_CANDIDATES
+    status_options = status_options or DEFAULT_STATUS_OPTIONS
 
-    original = _as_dict(items[index]) if is_edit else {}
+    original = _as_dict(items[item_id]) if is_edit else {}
 
     default_title = _pick(original, title_keys, "")
     default_details = _pick(original, ["details", "description", "notes"], "")
-    default_status = _pick(original, ["status", "state"], DEFAULT_STATUS_OPTIONS[0])
+    default_status = _pick(original, ["status", "state"], status_options[0])
     default_due_date = _parse_iso_date(_pick(original, date_field_candidates, "")) if show_due_date else None
 
     st.title(f"{title_emoji} {page_title}")
@@ -97,8 +105,8 @@ def render_item_detail_form(
 
         status = st.selectbox(
             "Status",
-            DEFAULT_STATUS_OPTIONS,
-            index=_status_index(default_status),
+            status_options,
+            index=_status_index(default_status, status_options),
         )
 
         action_cols = st.columns(3)
@@ -106,7 +114,7 @@ def render_item_detail_form(
         delete = action_cols[1].form_submit_button("Delete", disabled=not is_edit)
         back = action_cols[2].form_submit_button("Back")
 
-    index_key = f"{list_key[:-1]}_view_index"
+    index_key = f"{list_key[:-1]}_view_id"
 
     if back:
         st.session_state[index_key] = None
@@ -114,7 +122,13 @@ def render_item_detail_form(
         return
 
     if delete and is_edit:
-        del items[index]
+        if list_key == "actions":
+            for project in data.setdefault("projects", {}).values():
+                project["action_ids"] = [action_id for action_id in project.get("action_ids", []) if action_id != item_id]
+        elif list_key == "delegations":
+            for project in data.setdefault("projects", {}).values():
+                project["delegation_ids"] = [delegation_id for delegation_id in project.get("delegation_ids", []) if delegation_id != item_id]
+        del items[item_id]
         st.session_state[index_key] = None
         st.switch_page(back_page)
         return
@@ -125,7 +139,7 @@ def render_item_detail_form(
             st.error("Title is required.")
             return
 
-        updated = deepcopy(original) if is_edit else {}
+        updated = deepcopy(original) if is_edit else {"id": new_uuid()}
         updated = _sanitize_source_keys(updated)
         updated[title_keys[0]] = clean_title
 
@@ -133,21 +147,18 @@ def render_item_detail_form(
             _delete_known_date_keys(updated, date_field_candidates)
             updated[date_field_candidates[0]] = due_date_value.isoformat()
 
-        if details.strip():
-            updated["details"] = details.strip()
-        else:
-            updated.pop("details", None)
-            updated.pop("description", None)
-            updated.pop("notes", None)
+        updated["details"] = details.strip()
+        updated["status"] = status
 
-        if status:
-            updated["status"] = status
-            updated.pop("state", None)
+        if list_key == "actions":
+            updated.setdefault("project_id", None)
+            updated.setdefault("is_active_global", True)
+        elif list_key == "delegations":
+            updated.setdefault("project_id", None)
+            updated.setdefault("is_active_global", True)
 
-        if is_edit:
-            items[index] = updated
-        else:
-            items.append(updated)
+        target_id = item_id if is_edit else updated["id"]
+        items[target_id] = updated
 
         st.session_state[index_key] = None
         st.switch_page(back_page)
