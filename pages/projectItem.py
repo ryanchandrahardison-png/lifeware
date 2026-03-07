@@ -186,11 +186,16 @@ if not is_edit:
     st.title("📁 Project Details")
     st.caption("Create a draft project and save it only when it has at least two linked items.")
 
+    draft_due_enabled = st.checkbox(
+        "Set due date",
+        value=bool(draft.get("due_date")),
+        key="draft_project_due_enabled",
+    )
+
     with st.form("draft_project_form"):
         title = st.text_input("Title", value=draft.get("title", ""))
-        due_enabled = st.checkbox("Set due date", value=bool(draft.get("due_date")))
         due_default = parse_date_only(draft.get("due_date")) or date.today()
-        due_date_value = st.date_input("Due Date", value=due_default, disabled=not due_enabled)
+        due_date_value = st.date_input("Due Date", value=due_default, disabled=not draft_due_enabled)
         description = st.text_area("Description", value=draft.get("description", ""), height=180)
         status = st.selectbox("Status", ["Active", "Someday"], index=0 if draft.get("status", "Active") == "Active" else 1)
         save = st.form_submit_button("Save")
@@ -199,7 +204,7 @@ if not is_edit:
     draft["title"] = title
     draft["description"] = description
     draft["status"] = status
-    draft["due_date"] = due_date_value.isoformat() if due_enabled else None
+    draft["due_date"] = due_date_value.isoformat() if draft_due_enabled else None
 
     st.markdown(f"**Linked items:** {draft_linked_count(draft)}")
     st.markdown("**Draft Actions**")
@@ -226,11 +231,16 @@ else:
     current_status = project.get("status", "Active")
     default_index = status_options.index(current_status) if current_status in status_options else 0
 
+    project_due_enabled = st.checkbox(
+        "Set due date",
+        value=bool(project.get("due_date")),
+        key=f"project_due_enabled_{project_id}",
+    )
+
     with st.form("project_detail_form"):
         title = st.text_input("Title", value=project.get("title", ""))
-        due_enabled = st.checkbox("Set due date", value=bool(project.get("due_date")))
         due_default = parse_date_only(project.get("due_date")) or date.today()
-        due_date_value = st.date_input("Due Date", value=due_default, disabled=not due_enabled)
+        due_date_value = st.date_input("Due Date", value=due_default, disabled=not project_due_enabled)
         description = st.text_area("Description", value=project.get("description", ""), height=180)
         status = st.selectbox("Status", status_options, index=default_index)
         if status == "Completed" and not can_complete:
@@ -284,6 +294,6 @@ else:
         else:
             project["title"] = title.strip()
             project["description"] = description.strip()
-            project["due_date"] = due_date_value.isoformat() if due_enabled else None
+            project["due_date"] = due_date_value.isoformat() if project_due_enabled else None
             project["status"] = status
             st.success("Project updated.")

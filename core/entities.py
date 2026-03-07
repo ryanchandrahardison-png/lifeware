@@ -5,6 +5,8 @@ from datetime import date
 import uuid
 from typing import Any
 
+from core.calendar_utils import ensure_event_utc_fields
+
 CANONICAL_COLLECTIONS = ("events", "actions", "delegations", "projects")
 
 
@@ -38,6 +40,7 @@ def _normalize_event(item: dict[str, Any]) -> dict[str, Any]:
     normalized.setdefault("details", normalized.get("description", ""))
     if "description" in normalized and "details" not in item:
         normalized.pop("description", None)
+    ensure_event_utc_fields(normalized)
     return normalized
 
 
