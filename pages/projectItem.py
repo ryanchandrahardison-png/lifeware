@@ -71,6 +71,32 @@ def _set_widget_values(prefix: str, values: dict) -> None:
         st.session_state[f"{prefix}_{key}"] = value
 
 
+def _queue_widget_values(prefix: str, values: dict) -> None:
+    pending = st.session_state.setdefault("_project_item_pending_widget_values", {})
+    pending[prefix] = dict(values)
+
+
+def _apply_pending_widget_values(prefix: str) -> bool:
+    pending = st.session_state.get("_project_item_pending_widget_values", {})
+    values = pending.pop(prefix, None)
+    if values is None:
+        return False
+    _set_widget_values(prefix, values)
+    if not pending:
+        st.session_state.pop("_project_item_pending_widget_values", None)
+    return True
+
+
+def _queue_notice(message: str) -> None:
+    st.session_state["_project_item_notice"] = message
+
+
+def _render_notice() -> None:
+    message = st.session_state.pop("_project_item_notice", None)
+    if message:
+        st.success(message)
+
+
 def _editor_text(prefix: str, name: str) -> str:
     return str(st.session_state.get(f"{prefix}_{name}", "")).strip()
 
@@ -157,15 +183,16 @@ def _load_project_into_widgets(project: dict, prefix: str) -> None:
 
 
 def add_draft_action(draft: dict, *, prefix: str = "draft_action") -> None:
-    _ensure_widget_defaults(
-        prefix,
-        {
-            "title": "",
-            "details": "",
-            "date": None,
-            "active_global": False,
-        },
-    )
+    if not _apply_pending_widget_values(prefix):
+        _ensure_widget_defaults(
+            prefix,
+            {
+                "title": "",
+                "details": "",
+                "date": None,
+                "active_global": False,
+            },
+        )
     st.text_input("Action Title", key=f"{prefix}_title")
     st.date_input("Action Due Date", key=f"{prefix}_date", value=None)
     st.text_area("Action Details", key=f"{prefix}_details")
@@ -185,21 +212,30 @@ def add_draft_action(draft: dict, *, prefix: str = "draft_action") -> None:
                     "is_active_global": bool(st.session_state.get(f"{prefix}_active_global", False)),
                 },
             )
-            _reset_action_editor(prefix)
-            st.success("Draft action added.")
+            _queue_widget_values(
+                prefix,
+                {
+                    "title": "",
+                    "details": "",
+                    "date": None,
+                    "active_global": False,
+                },
+            )
+            _queue_notice("Draft action added.")
             st.rerun()
 
 
 def add_draft_delegation(draft: dict, *, prefix: str = "draft_delegation") -> None:
-    _ensure_widget_defaults(
-        prefix,
-        {
-            "title": "",
-            "details": "",
-            "date": None,
-            "active_global": False,
-        },
-    )
+    if not _apply_pending_widget_values(prefix):
+        _ensure_widget_defaults(
+            prefix,
+            {
+                "title": "",
+                "details": "",
+                "date": None,
+                "active_global": False,
+            },
+        )
     st.text_input("Delegation Title", key=f"{prefix}_title")
     st.date_input("Follow-Up Date", key=f"{prefix}_date", value=None)
     st.text_area("Delegation Details", key=f"{prefix}_details")
@@ -219,8 +255,16 @@ def add_draft_delegation(draft: dict, *, prefix: str = "draft_delegation") -> No
                     "is_active_global": bool(st.session_state.get(f"{prefix}_active_global", False)),
                 },
             )
-            _reset_delegation_editor(prefix)
-            st.success("Draft delegation added.")
+            _queue_widget_values(
+                prefix,
+                {
+                    "title": "",
+                    "details": "",
+                    "date": None,
+                    "active_global": False,
+                },
+            )
+            _queue_notice("Draft delegation added.")
             st.rerun()
 
 
@@ -258,15 +302,16 @@ def create_project_linked_delegation(project: dict, *, prefix: str) -> None:
 
 def add_saved_project_action(project: dict) -> None:
     prefix = f"project_action_{project['id']}"
-    _ensure_widget_defaults(
-        prefix,
-        {
-            "title": "",
-            "details": "",
-            "date": None,
-            "active_global": False,
-        },
-    )
+    if not _apply_pending_widget_values(prefix):
+        _ensure_widget_defaults(
+            prefix,
+            {
+                "title": "",
+                "details": "",
+                "date": None,
+                "active_global": False,
+            },
+        )
     st.text_input("Action Title", key=f"{prefix}_title")
     st.date_input("Action Due Date", key=f"{prefix}_date", value=None)
     st.text_area("Action Details", key=f"{prefix}_details")
@@ -276,22 +321,31 @@ def add_saved_project_action(project: dict) -> None:
             st.error("Action title is required.")
         else:
             create_project_linked_action(project, prefix=prefix)
-            _reset_action_editor(prefix)
-            st.success("Action added to project.")
+            _queue_widget_values(
+                prefix,
+                {
+                    "title": "",
+                    "details": "",
+                    "date": None,
+                    "active_global": False,
+                },
+            )
+            _queue_notice("Action added to project.")
             st.rerun()
 
 
 def add_saved_project_delegation(project: dict) -> None:
     prefix = f"project_delegation_{project['id']}"
-    _ensure_widget_defaults(
-        prefix,
-        {
-            "title": "",
-            "details": "",
-            "date": None,
-            "active_global": False,
-        },
-    )
+    if not _apply_pending_widget_values(prefix):
+        _ensure_widget_defaults(
+            prefix,
+            {
+                "title": "",
+                "details": "",
+                "date": None,
+                "active_global": False,
+            },
+        )
     st.text_input("Delegation Title", key=f"{prefix}_title")
     st.date_input("Follow-Up Date", key=f"{prefix}_date", value=None)
     st.text_area("Delegation Details", key=f"{prefix}_details")
@@ -301,8 +355,16 @@ def add_saved_project_delegation(project: dict) -> None:
             st.error("Delegation title is required.")
         else:
             create_project_linked_delegation(project, prefix=prefix)
-            _reset_delegation_editor(prefix)
-            st.success("Delegation added to project.")
+            _queue_widget_values(
+                prefix,
+                {
+                    "title": "",
+                    "details": "",
+                    "date": None,
+                    "active_global": False,
+                },
+            )
+            _queue_notice("Delegation added to project.")
             st.rerun()
 
 
@@ -380,6 +442,8 @@ def delete_project(project_id: str, choice: str) -> None:
 project_id = st.session_state.project_view_id
 data = st.session_state.data
 is_edit = project_id is not None and project_id in data.get("projects", {})
+
+_render_notice()
 
 if not is_edit:
     draft = st.session_state.get("draft_project") or empty_draft()
