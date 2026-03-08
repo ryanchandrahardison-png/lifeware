@@ -61,10 +61,6 @@ def render_task_rows(items: list[dict], kind: str, *, date_field: str | None = N
         st.markdown("- " + " — ".join([part for part in parts if part]))
 
 
-def _toggle_key(prefix: str, suffix: str) -> str:
-    return f"{prefix}_{suffix}_enabled"
-
-
 def _ensure_widget_defaults(prefix: str, values: dict) -> None:
     for key, value in values.items():
         st.session_state.setdefault(f"{prefix}_{key}", value)
@@ -79,10 +75,9 @@ def _editor_text(prefix: str, name: str) -> str:
     return str(st.session_state.get(f"{prefix}_{name}", "")).strip()
 
 
-def _editor_date_value(prefix: str, name: str, enabled_suffix: str) -> str | None:
-    enabled = bool(st.session_state.get(_toggle_key(prefix, enabled_suffix), False))
+def _editor_date_value(prefix: str, name: str) -> str | None:
     raw_value = st.session_state.get(f"{prefix}_{name}")
-    if not enabled or raw_value in (None, ""):
+    if raw_value in (None, ""):
         return None
     if isinstance(raw_value, date):
         return raw_value.isoformat()
@@ -96,11 +91,10 @@ def _reset_action_editor(prefix: str) -> None:
         {
             "title": "",
             "details": "",
-            "date": date.today(),
+            "date": None,
             "active_global": False,
         },
     )
-    st.session_state[_toggle_key(prefix, "due_date")] = False
 
 
 def _reset_delegation_editor(prefix: str) -> None:
@@ -109,11 +103,10 @@ def _reset_delegation_editor(prefix: str) -> None:
         {
             "title": "",
             "details": "",
-            "date": date.today(),
+            "date": None,
             "active_global": False,
         },
     )
-    st.session_state[_toggle_key(prefix, "follow_up_date")] = False
 
 
 def _append_draft_action(draft: dict, item: dict) -> None:
@@ -128,7 +121,7 @@ def _sync_draft_from_widgets(draft: dict, prefix: str = "draft_project") -> None
     draft["title"] = _editor_text(prefix, "title")
     draft["description"] = str(st.session_state.get(f"{prefix}_description", "")).strip()
     draft["status"] = st.session_state.get(f"{prefix}_status", "Active")
-    draft["due_date"] = _editor_date_value(prefix, "due_date", "due_date")
+    draft["due_date"] = _editor_date_value(prefix, "due_date")
 
 
 def _load_draft_into_widgets(draft: dict, prefix: str = "draft_project") -> None:
@@ -138,10 +131,9 @@ def _load_draft_into_widgets(draft: dict, prefix: str = "draft_project") -> None
             "title": draft.get("title", ""),
             "description": draft.get("description", ""),
             "status": draft.get("status", "Active"),
-            "due_date": parse_date_only(draft.get("due_date")) or date.today(),
+            "due_date": parse_date_only(draft.get("due_date")),
         },
     )
-    st.session_state.setdefault(_toggle_key(prefix, "due_date"), bool(draft.get("due_date")))
 
 
 def _load_project_into_widgets(project: dict, prefix: str) -> None:
@@ -157,11 +149,10 @@ def _load_project_into_widgets(project: dict, prefix: str) -> None:
             {
                 "title": project.get("title", ""),
                 "description": project.get("description", ""),
-                "due_date": parse_date_only(project.get("due_date")) or date.today(),
+                "due_date": parse_date_only(project.get("due_date")),
                 "status": project.get("status", "Active"),
             },
         )
-        st.session_state[_toggle_key(prefix, "due_date")] = bool(project.get("due_date"))
         st.session_state[f"{prefix}_snapshot"] = snapshot
 
 
@@ -171,17 +162,12 @@ def add_draft_action(draft: dict, *, prefix: str = "draft_action") -> None:
         {
             "title": "",
             "details": "",
-            "date": date.today(),
+            "date": None,
             "active_global": False,
         },
     )
-    st.checkbox("Set due date", key=_toggle_key(prefix, "due_date"))
     st.text_input("Action Title", key=f"{prefix}_title")
-    st.date_input(
-        "Action Due Date",
-        key=f"{prefix}_date",
-        disabled=not bool(st.session_state.get(_toggle_key(prefix, "due_date"), False)),
-    )
+    st.date_input("Action Due Date", key=f"{prefix}_date", value=None)
     st.text_area("Action Details", key=f"{prefix}_details")
     st.checkbox("Show in global Actions list now", key=f"{prefix}_active_global")
     if st.button("Add Draft Action", key=f"{prefix}_submit"):
@@ -194,7 +180,7 @@ def add_draft_action(draft: dict, *, prefix: str = "draft_action") -> None:
                 {
                     "title": title,
                     "details": _editor_text(prefix, "details"),
-                    "due_date": _editor_date_value(prefix, "date", "due_date"),
+                    "due_date": _editor_date_value(prefix, "date"),
                     "status": "Open",
                     "is_active_global": bool(st.session_state.get(f"{prefix}_active_global", False)),
                 },
@@ -210,17 +196,12 @@ def add_draft_delegation(draft: dict, *, prefix: str = "draft_delegation") -> No
         {
             "title": "",
             "details": "",
-            "date": date.today(),
+            "date": None,
             "active_global": False,
         },
     )
-    st.checkbox("Set follow-up date", key=_toggle_key(prefix, "follow_up_date"))
     st.text_input("Delegation Title", key=f"{prefix}_title")
-    st.date_input(
-        "Follow-Up Date",
-        key=f"{prefix}_date",
-        disabled=not bool(st.session_state.get(_toggle_key(prefix, "follow_up_date"), False)),
-    )
+    st.date_input("Follow-Up Date", key=f"{prefix}_date", value=None)
     st.text_area("Delegation Details", key=f"{prefix}_details")
     st.checkbox("Show in global Delegations list now", key=f"{prefix}_active_global")
     if st.button("Add Draft Delegation", key=f"{prefix}_submit"):
@@ -233,7 +214,7 @@ def add_draft_delegation(draft: dict, *, prefix: str = "draft_delegation") -> No
                 {
                     "title": title,
                     "details": _editor_text(prefix, "details"),
-                    "follow_up_date": _editor_date_value(prefix, "date", "follow_up_date"),
+                    "follow_up_date": _editor_date_value(prefix, "date"),
                     "status": "Waiting",
                     "is_active_global": bool(st.session_state.get(f"{prefix}_active_global", False)),
                 },
@@ -250,7 +231,7 @@ def create_project_linked_action(project: dict, *, prefix: str) -> None:
         "id": action_id,
         "title": _editor_text(prefix, "title"),
         "details": _editor_text(prefix, "details"),
-        "due_date": _editor_date_value(prefix, "date", "due_date"),
+        "due_date": _editor_date_value(prefix, "date"),
         "status": "Open",
         "project_id": project["id"],
         "is_active_global": bool(st.session_state.get(f"{prefix}_active_global", False)),
@@ -266,7 +247,7 @@ def create_project_linked_delegation(project: dict, *, prefix: str) -> None:
         "id": delegation_id,
         "title": _editor_text(prefix, "title"),
         "details": _editor_text(prefix, "details"),
-        "follow_up_date": _editor_date_value(prefix, "date", "follow_up_date"),
+        "follow_up_date": _editor_date_value(prefix, "date"),
         "status": "Waiting",
         "project_id": project["id"],
         "is_active_global": bool(st.session_state.get(f"{prefix}_active_global", False)),
@@ -282,17 +263,12 @@ def add_saved_project_action(project: dict) -> None:
         {
             "title": "",
             "details": "",
-            "date": date.today(),
+            "date": None,
             "active_global": False,
         },
     )
-    st.checkbox("Set due date", key=_toggle_key(prefix, "due_date"))
     st.text_input("Action Title", key=f"{prefix}_title")
-    st.date_input(
-        "Action Due Date",
-        key=f"{prefix}_date",
-        disabled=not bool(st.session_state.get(_toggle_key(prefix, "due_date"), False)),
-    )
+    st.date_input("Action Due Date", key=f"{prefix}_date", value=None)
     st.text_area("Action Details", key=f"{prefix}_details")
     st.checkbox("Show in global Actions list now", key=f"{prefix}_active_global")
     if st.button("Add Action", key=f"{prefix}_submit"):
@@ -312,17 +288,12 @@ def add_saved_project_delegation(project: dict) -> None:
         {
             "title": "",
             "details": "",
-            "date": date.today(),
+            "date": None,
             "active_global": False,
         },
     )
-    st.checkbox("Set follow-up date", key=_toggle_key(prefix, "follow_up_date"))
     st.text_input("Delegation Title", key=f"{prefix}_title")
-    st.date_input(
-        "Follow-Up Date",
-        key=f"{prefix}_date",
-        disabled=not bool(st.session_state.get(_toggle_key(prefix, "follow_up_date"), False)),
-    )
+    st.date_input("Follow-Up Date", key=f"{prefix}_date", value=None)
     st.text_area("Delegation Details", key=f"{prefix}_details")
     st.checkbox("Show in global Delegations list now", key=f"{prefix}_active_global")
     if st.button("Add Delegation", key=f"{prefix}_submit"):
@@ -419,13 +390,8 @@ if not is_edit:
     st.title("📁 Project Details")
     st.caption("Create a draft project and save it only when it has at least two linked items.")
 
-    st.checkbox("Set due date", key="draft_project_due_date_enabled")
     st.text_input("Title", key="draft_project_title")
-    st.date_input(
-        "Due Date",
-        key="draft_project_due_date",
-        disabled=not bool(st.session_state.get("draft_project_due_date_enabled", False)),
-    )
+    st.date_input("Due Date", key="draft_project_due_date", value=None)
     st.text_area("Description", key="draft_project_description", height=180)
     st.selectbox("Status", ["Active", "Someday"], key="draft_project_status")
     _sync_draft_from_widgets(draft)
@@ -463,13 +429,8 @@ else:
     st.caption(f"Health: {project_health(data, project)}")
 
     status_options = ["Active", "Someday", "Completed"]
-    st.checkbox("Set due date", key=_toggle_key(prefix, "due_date"))
     st.text_input("Title", key=f"{prefix}_title")
-    st.date_input(
-        "Due Date",
-        key=f"{prefix}_due_date",
-        disabled=not bool(st.session_state.get(_toggle_key(prefix, "due_date"), False)),
-    )
+    st.date_input("Due Date", key=f"{prefix}_due_date", value=None)
     st.text_area("Description", key=f"{prefix}_description", height=180)
     st.selectbox("Status", status_options, key=f"{prefix}_status")
 
@@ -535,7 +496,7 @@ else:
         else:
             project["title"] = _editor_text(prefix, "title")
             project["description"] = str(st.session_state.get(f"{prefix}_description", "")).strip()
-            project["due_date"] = _editor_date_value(prefix, "due_date", "due_date")
+            project["due_date"] = _editor_date_value(prefix, "due_date")
             project["status"] = status
             st.session_state[f"{prefix}_snapshot"] = (
                 project.get("title", ""),
