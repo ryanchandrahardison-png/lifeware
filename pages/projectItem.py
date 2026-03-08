@@ -50,58 +50,205 @@ def draft_linked_count(draft: dict) -> int:
     return len(draft.get("draft_actions", [])) + len(draft.get("draft_delegations", []))
 
 
-def render_task_rows(items: list[dict], kind: str) -> None:
+def render_task_rows(items: list[dict], kind: str, *, date_field: str | None = None, date_label: str = "Date") -> None:
     if not items:
         st.caption(f"No {kind.lower()} in this section.")
         return
     for item in items:
-        st.markdown(f"- **{item.get('title', 'Untitled')}** — {item.get('status', '')}")
+        parts = [f"**{item.get('title', 'Untitled')}**", str(item.get("status", ""))]
+        if date_field and item.get(date_field):
+            parts.append(f"{date_label}: {item.get(date_field)}")
+        st.markdown("- " + " — ".join([part for part in parts if part]))
 
 
-def add_draft_action(draft: dict) -> None:
-    with st.expander("Add Draft Action"):
-        with st.form("add_draft_action_form"):
-            title = st.text_input("Action Title")
-            due_date_enabled = st.checkbox("Set due date", key="draft_action_due_enabled")
-            due_date_value = st.date_input("Action Due Date", value=date.today(), disabled=not due_date_enabled)
-            details = st.text_area("Action Details", key="draft_action_details")
-            active_global = st.checkbox("Show in global Actions list now", value=False)
-            submit = st.form_submit_button("Add Draft Action")
-        if submit:
-            if not title.strip():
-                st.error("Draft action title is required.")
-            else:
-                draft.setdefault("draft_actions", []).append({
+def _toggle_key(prefix: str, suffix: str) -> str:
+    return f"{prefix}_{suffix}_enabled"
+
+
+def _set_editor_defaults(prefix: str, values: dict) -> None:
+    for key, value in values.items():
+        st.session_state.setdefault(f"{prefix}_{key}", value)
+
+
+def _reset_editor_state(prefix: str, defaults: dict) -> None:
+    for key, value in defaults.items():
+        st.session_state[f"{prefix}_{key}"] = value
+
+
+def _append_draft_action(draft: dict, item: dict) -> None:
+    draft.setdefault("draft_actions", []).append(item)
+
+
+def _append_draft_delegation(draft: dict, item: dict) -> None:
+    draft.setdefault("draft_delegations", []).append(item)
+
+
+def add_draft_action(draft: dict, *, prefix: str = "draft_action", submit_label: str = "Add Draft Action") -> None:
+    editor_defaults = {
+        "title": "",
+        "details": "",
+        "date": date.today(),
+        "active_global": False,
+    }
+    _set_editor_defaults(prefix, editor_defaults)
+    due_enabled = st.checkbox(
+        "Set due date",
+        value=bool(st.session_state.get(_toggle_key(prefix, "due_date"), False)),
+        key=_toggle_key(prefix, "due_date"),
+    )
+    with st.form(f"{prefix}_form"):
+        title = st.text_input("Action Title", key=f"{prefix}_title")
+        due_date_value = st.date_input("Action Due Date", key=f"{prefix}_date", disabled=not due_enabled)
+        details = st.text_area("Action Details", key=f"{prefix}_details")
+        active_global = st.checkbox("Show in global Actions list now", key=f"{prefix}_active_global")
+        submit = st.form_submit_button(submit_label)
+    if submit:
+        if not title.strip():
+            st.error("Draft action title is required.")
+        else:
+            _append_draft_action(
+                draft,
+                {
                     "title": title.strip(),
                     "details": details.strip(),
-                    "due_date": due_date_value.isoformat() if due_date_enabled else None,
+                    "due_date": due_date_value.isoformat() if due_enabled else None,
                     "status": "Open",
                     "is_active_global": active_global,
-                })
-                st.success("Draft action added.")
+                },
+            )
+            _reset_editor_state(prefix, editor_defaults)
+            st.session_state[_toggle_key(prefix, "due_date")] = False
+            st.success("Draft action added.")
 
 
-def add_draft_delegation(draft: dict) -> None:
-    with st.expander("Add Draft Delegation"):
-        with st.form("add_draft_delegation_form"):
-            title = st.text_input("Delegation Title")
-            follow_up_enabled = st.checkbox("Set follow-up date", key="draft_delegation_follow_up_enabled")
-            follow_up_value = st.date_input("Follow-Up Date", value=date.today(), disabled=not follow_up_enabled)
-            details = st.text_area("Delegation Details", key="draft_delegation_details")
-            active_global = st.checkbox("Show in global Delegations list now", value=False)
-            submit = st.form_submit_button("Add Draft Delegation")
-        if submit:
-            if not title.strip():
-                st.error("Draft delegation title is required.")
-            else:
-                draft.setdefault("draft_delegations", []).append({
+def add_draft_delegation(draft: dict, *, prefix: str = "draft_delegation", submit_label: str = "Add Draft Delegation") -> None:
+    editor_defaults = {
+        "title": "",
+        "details": "",
+        "date": date.today(),
+        "active_global": False,
+    }
+    _set_editor_defaults(prefix, editor_defaults)
+    follow_up_enabled = st.checkbox(
+        "Set follow-up date",
+        value=bool(st.session_state.get(_toggle_key(prefix, "follow_up_date"), False)),
+        key=_toggle_key(prefix, "follow_up_date"),
+    )
+    with st.form(f"{prefix}_form"):
+        title = st.text_input("Delegation Title", key=f"{prefix}_title")
+        follow_up_value = st.date_input("Follow-Up Date", key=f"{prefix}_date", disabled=not follow_up_enabled)
+        details = st.text_area("Delegation Details", key=f"{prefix}_details")
+        active_global = st.checkbox("Show in global Delegations list now", key=f"{prefix}_active_global")
+        submit = st.form_submit_button(submit_label)
+    if submit:
+        if not title.strip():
+            st.error("Draft delegation title is required.")
+        else:
+            _append_draft_delegation(
+                draft,
+                {
                     "title": title.strip(),
                     "details": details.strip(),
                     "follow_up_date": follow_up_value.isoformat() if follow_up_enabled else None,
                     "status": "Waiting",
                     "is_active_global": active_global,
-                })
-                st.success("Draft delegation added.")
+                },
+            )
+            _reset_editor_state(prefix, editor_defaults)
+            st.session_state[_toggle_key(prefix, "follow_up_date")] = False
+            st.success("Draft delegation added.")
+
+
+def create_project_linked_action(project: dict, *, prefix: str) -> None:
+    data = st.session_state.data
+    action_id = new_uuid()
+    payload = {
+        "id": action_id,
+        "title": st.session_state.get(f"{prefix}_title", "").strip(),
+        "details": st.session_state.get(f"{prefix}_details", "").strip(),
+        "due_date": st.session_state.get(f"{prefix}_date").isoformat() if st.session_state.get(_toggle_key(prefix, "due_date")) else None,
+        "status": "Open",
+        "project_id": project["id"],
+        "is_active_global": bool(st.session_state.get(f"{prefix}_active_global", False)),
+    }
+    data["actions"][action_id] = payload
+    project.setdefault("action_ids", []).append(action_id)
+
+
+def create_project_linked_delegation(project: dict, *, prefix: str) -> None:
+    data = st.session_state.data
+    delegation_id = new_uuid()
+    payload = {
+        "id": delegation_id,
+        "title": st.session_state.get(f"{prefix}_title", "").strip(),
+        "details": st.session_state.get(f"{prefix}_details", "").strip(),
+        "follow_up_date": st.session_state.get(f"{prefix}_date").isoformat() if st.session_state.get(_toggle_key(prefix, "follow_up_date")) else None,
+        "status": "Waiting",
+        "project_id": project["id"],
+        "is_active_global": bool(st.session_state.get(f"{prefix}_active_global", False)),
+    }
+    data["delegations"][delegation_id] = payload
+    project.setdefault("delegation_ids", []).append(delegation_id)
+
+
+def add_saved_project_action(project: dict) -> None:
+    prefix = f"project_action_{project['id']}"
+    editor_defaults = {
+        "title": "",
+        "details": "",
+        "date": date.today(),
+        "active_global": False,
+    }
+    _set_editor_defaults(prefix, editor_defaults)
+    due_enabled = st.checkbox(
+        "Set due date",
+        value=bool(st.session_state.get(_toggle_key(prefix, "due_date"), False)),
+        key=_toggle_key(prefix, "due_date"),
+    )
+    with st.form(f"{prefix}_form"):
+        title = st.text_input("Action Title", key=f"{prefix}_title")
+        st.date_input("Action Due Date", key=f"{prefix}_date", disabled=not due_enabled)
+        st.text_area("Action Details", key=f"{prefix}_details")
+        st.checkbox("Show in global Actions list now", key=f"{prefix}_active_global")
+        submit = st.form_submit_button("Add Action")
+    if submit:
+        if not title.strip():
+            st.error("Action title is required.")
+        else:
+            create_project_linked_action(project, prefix=prefix)
+            _reset_editor_state(prefix, editor_defaults)
+            st.session_state[_toggle_key(prefix, "due_date")] = False
+            st.success("Action added to project.")
+
+
+def add_saved_project_delegation(project: dict) -> None:
+    prefix = f"project_delegation_{project['id']}"
+    editor_defaults = {
+        "title": "",
+        "details": "",
+        "date": date.today(),
+        "active_global": False,
+    }
+    _set_editor_defaults(prefix, editor_defaults)
+    follow_up_enabled = st.checkbox(
+        "Set follow-up date",
+        value=bool(st.session_state.get(_toggle_key(prefix, "follow_up_date"), False)),
+        key=_toggle_key(prefix, "follow_up_date"),
+    )
+    with st.form(f"{prefix}_form"):
+        title = st.text_input("Delegation Title", key=f"{prefix}_title")
+        st.date_input("Follow-Up Date", key=f"{prefix}_date", disabled=not follow_up_enabled)
+        st.text_area("Delegation Details", key=f"{prefix}_details")
+        st.checkbox("Show in global Delegations list now", key=f"{prefix}_active_global")
+        submit = st.form_submit_button("Add Delegation")
+    if submit:
+        if not title.strip():
+            st.error("Delegation title is required.")
+        else:
+            create_project_linked_delegation(project, prefix=prefix)
+            _reset_editor_state(prefix, editor_defaults)
+            st.session_state[_toggle_key(prefix, "follow_up_date")] = False
+            st.success("Delegation added to project.")
 
 
 def save_draft_project(draft: dict) -> bool:
@@ -208,11 +355,13 @@ if not is_edit:
 
     st.markdown(f"**Linked items:** {draft_linked_count(draft)}")
     st.markdown("**Draft Actions**")
-    render_task_rows(draft.get("draft_actions", []), "Draft Actions")
+    render_task_rows(draft.get("draft_actions", []), "Draft Actions", date_field="due_date", date_label="Due")
+    with st.expander("Add Draft Action"):
+        add_draft_action(draft)
     st.markdown("**Draft Delegations**")
-    render_task_rows(draft.get("draft_delegations", []), "Draft Delegations")
-    add_draft_action(draft)
-    add_draft_delegation(draft)
+    render_task_rows(draft.get("draft_delegations", []), "Draft Delegations", date_field="follow_up_date", date_label="Follow-Up")
+    with st.expander("Add Draft Delegation"):
+        add_draft_delegation(draft)
 
     if back:
         st.session_state.draft_project = None
@@ -256,6 +405,11 @@ else:
     render_task_rows(next_actions, "Next Actions")
     st.markdown("**Backlog Tasks**")
     render_task_rows(backlog_tasks, "Backlog Tasks")
+
+    with st.expander("Add Action"):
+        add_saved_project_action(project)
+    with st.expander("Add Delegation"):
+        add_saved_project_delegation(project)
 
     if st.session_state.project_delete_mode == project_id:
         st.warning("This project has linked items. Choose how deletion should be handled.")
