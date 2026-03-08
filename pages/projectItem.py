@@ -8,14 +8,21 @@ import streamlit as st
 from core.entities import (
     action_is_active,
     delegation_is_active,
-    is_completed_status,
     linked_actions_for_project,
     linked_delegations_for_project,
-    new_uuid,
     parse_date_only,
     project_health,
 )
 from core.layout import sidebar_file_controls
+from core.project_service import (
+    DELETE_CHOICE_OPTIONS,
+    create_linked_action,
+    create_linked_delegation,
+    delete_project,
+    save_new_project,
+    update_project,
+    validate_project_completion,
+)
 from core.state import init_state
 
 st.set_page_config(page_title="Project Details", layout="wide")
@@ -35,12 +42,6 @@ st.session_state.setdefault("flags", {})
 
 PROJECT_EDITOR_NS = "project_editor"
 DRAFT_PROJECT_NS = "draft_project"
-DELETE_CHOICE_OPTIONS = [
-    "Convert linked items to standalone items",
-    "Delete linked items with the project",
-    "Cancel deletion",
-]
-
 
 def empty_draft() -> dict:
     return {
@@ -52,9 +53,6 @@ def empty_draft() -> dict:
         "draft_delegations": [],
     }
 
-
-def completion_ready(linked_actions: list[dict], linked_delegations: list[dict]) -> bool:
-    return all(is_completed_status(item.get("status")) for item in linked_actions + linked_delegations)
 
 
 def draft_linked_count(draft: dict) -> int:
@@ -317,36 +315,6 @@ def add_draft_delegation(draft: dict) -> None:
         st.rerun()
 
 
-def create_project_linked_action(project: dict, editor: dict) -> None:
-    data = st.session_state.data
-    action_id = new_uuid()
-    payload = {
-        "id": action_id,
-        "title": _editor_text(editor, "title"),
-        "details": _editor_text(editor, "details"),
-        "due_date": _editor_date_value(editor, "date"),
-        "status": "Open",
-        "project_id": project["id"],
-        "is_active_global": bool(editor.get("active_global", False)),
-    }
-    data["actions"][action_id] = payload
-    project.setdefault("action_ids", []).append(action_id)
-
-
-def create_project_linked_delegation(project: dict, editor: dict) -> None:
-    data = st.session_state.data
-    delegation_id = new_uuid()
-    payload = {
-        "id": delegation_id,
-        "title": _editor_text(editor, "title"),
-        "details": _editor_text(editor, "details"),
-        "follow_up_date": _editor_date_value(editor, "date"),
-        "status": "Waiting",
-        "project_id": project["id"],
-        "is_active_global": bool(editor.get("active_global", False)),
-    }
-    data["delegations"][delegation_id] = payload
-    project.setdefault("delegation_ids", []).append(delegation_id)
 
 
 def add_saved_project_action(project: dict) -> None:
@@ -356,7 +324,14 @@ def add_saved_project_action(project: dict) -> None:
         if not _editor_text(editor, "title"):
             st.error("Action title is required.")
             return
-        create_project_linked_action(project, editor)
+        create_linked_action(
+            data=st.session_state.data,
+            project_id=project["id"],
+            title=_editor_text(editor, "title"),
+            details=_editor_text(editor, "details"),
+            due_date=_editor_date_value(editor, "date"),
+            is_active_global=bool(editor.get("active_global", False)),
+        )
         _reset_editor(namespace, ACTION_EDITOR_DEFAULTS)
         _queue_notice("Action added to project.")
         st.rerun()
@@ -369,82 +344,17 @@ def add_saved_project_delegation(project: dict) -> None:
         if not _editor_text(editor, "title"):
             st.error("Delegation title is required.")
             return
-        create_project_linked_delegation(project, editor)
+        create_linked_delegation(
+            data=st.session_state.data,
+            project_id=project["id"],
+            title=_editor_text(editor, "title"),
+            details=_editor_text(editor, "details"),
+            follow_up_date=_editor_date_value(editor, "date"),
+            is_active_global=bool(editor.get("active_global", False)),
+        )
         _reset_editor(namespace, DELEGATION_EDITOR_DEFAULTS)
         _queue_notice("Delegation added to project.")
         st.rerun()
-
-
-def save_draft_project(draft: dict) -> bool:
-    if draft_linked_count(draft) < 2:
-        st.error("A project requires at least 2 linked items total before it can be saved.")
-        return False
-    if not draft.get("title", "").strip():
-        st.error("Project title is required.")
-        return False
-
-    data = st.session_state.data
-    project_id = new_uuid()
-    action_ids = []
-    delegation_ids = []
-
-    for action in draft.get("draft_actions", []):
-        action_id = new_uuid()
-        payload = deepcopy(action)
-        payload.update({"id": action_id, "project_id": project_id})
-        data["actions"][action_id] = payload
-        action_ids.append(action_id)
-
-    for delegation in draft.get("draft_delegations", []):
-        delegation_id = new_uuid()
-        payload = deepcopy(delegation)
-        payload.update({"id": delegation_id, "project_id": project_id})
-        data["delegations"][delegation_id] = payload
-        delegation_ids.append(delegation_id)
-
-    data["projects"][project_id] = {
-        "id": project_id,
-        "title": draft["title"].strip(),
-        "description": draft.get("description", "").strip(),
-        "due_date": draft.get("due_date"),
-        "status": draft.get("status", "Active"),
-        "action_ids": action_ids,
-        "delegation_ids": delegation_ids,
-    }
-    st.session_state.project_view_id = project_id
-    _clear_draft_runtime()
-    _queue_notice("Project saved.")
-    return True
-
-
-def delete_project(project_id: str, choice: str) -> None:
-    data = st.session_state.data
-    project = data["projects"].get(project_id)
-    if not project:
-        return
-
-    if choice == "Convert linked items to standalone items":
-        for action_id in project.get("action_ids", []):
-            if action_id in data["actions"]:
-                data["actions"][action_id]["project_id"] = None
-                data["actions"][action_id]["is_active_global"] = True
-        for delegation_id in project.get("delegation_ids", []):
-            if delegation_id in data["delegations"]:
-                data["delegations"][delegation_id]["project_id"] = None
-                data["delegations"][delegation_id]["is_active_global"] = True
-    elif choice == "Delete linked items with the project":
-        for action_id in project.get("action_ids", []):
-            data["actions"].pop(action_id, None)
-        for delegation_id in project.get("delegation_ids", []):
-            data["delegations"].pop(delegation_id, None)
-    else:
-        return
-
-    data["projects"].pop(project_id, None)
-    st.session_state.project_view_id = None
-    _set_delete_mode(None)
-    _ui_store().pop(PROJECT_EDITOR_NS, None)
-    st.switch_page("pages/projects.py")
 
 
 project_id = st.session_state.project_view_id
@@ -480,7 +390,14 @@ if not is_edit:
         _clear_draft_runtime()
         st.switch_page("pages/projects.py")
     elif save:
-        if save_draft_project(draft):
+        result = save_new_project(data=st.session_state.data, draft=draft)
+        if not result.ok:
+            for error in result.errors or []:
+                st.error(error)
+        else:
+            st.session_state.project_view_id = result.project_id
+            _clear_draft_runtime()
+            _queue_notice(result.message or "Project saved.")
             st.switch_page("pages/projectItem.py")
 else:
     project = data["projects"][project_id]
@@ -488,7 +405,12 @@ else:
 
     linked_actions = linked_actions_for_project(data, project)
     linked_delegations = linked_delegations_for_project(data, project)
-    can_complete = completion_ready(linked_actions, linked_delegations)
+    completion_check = validate_project_completion(
+        status=editor.get("status", project.get("status", "Active")),
+        linked_actions=linked_actions,
+        linked_delegations=linked_delegations,
+    )
+    can_complete = completion_check.ok
 
     st.title("📁 Project Details")
     st.caption(f"Health: {project_health(data, project)}")
@@ -530,7 +452,18 @@ else:
                 _set_delete_mode(None)
                 st.rerun()
             else:
-                delete_project(project_id, choice)
+                result = delete_project(data=data, project_id=project_id, choice=choice)
+                if result.deleted:
+                    st.session_state.project_view_id = None
+                    _set_delete_mode(None)
+                    _ui_store().pop(PROJECT_EDITOR_NS, None)
+                    st.switch_page("pages/projects.py")
+                elif not result.ok:
+                    for error in result.errors or []:
+                        st.error(error)
+                else:
+                    _set_delete_mode(None)
+                    st.rerun()
         if confirm_cols[1].button("Back from Delete"):
             _set_delete_mode(None)
             st.rerun()
@@ -545,20 +478,27 @@ else:
             _set_delete_mode(project_id)
             st.rerun()
         else:
-            data["projects"].pop(project_id, None)
-            st.session_state.project_view_id = None
-            _set_delete_mode(None)
-            _ui_store().pop(PROJECT_EDITOR_NS, None)
-            st.switch_page("pages/projects.py")
+            result = delete_project(data=data, project_id=project_id, choice=DELETE_CHOICE_DELETE)
+            if result.deleted:
+                st.session_state.project_view_id = None
+                _set_delete_mode(None)
+                _ui_store().pop(PROJECT_EDITOR_NS, None)
+                st.switch_page("pages/projects.py")
     elif save:
         status = editor.get("status", "Active")
-        if status == "Completed" and not can_complete:
-            st.error("Project cannot be marked Completed until all linked actions and delegations are completed.")
+        result = update_project(
+            project=project,
+            title=_editor_text(editor, "title"),
+            description=_editor_text(editor, "description"),
+            due_date=_editor_date_value(editor, "due_date"),
+            status=status,
+            linked_actions=linked_actions,
+            linked_delegations=linked_delegations,
+        )
+        if not result.ok:
+            for error in result.errors or []:
+                st.error(error)
         else:
-            project["title"] = _editor_text(editor, "title")
-            project["description"] = _editor_text(editor, "description")
-            project["due_date"] = _editor_date_value(editor, "due_date")
-            project["status"] = status
             editor["source_snapshot"] = (
                 project.get("title", ""),
                 project.get("description", ""),
@@ -566,4 +506,4 @@ else:
                 project.get("status", "Active"),
             )
             editor["loaded_project_id"] = project_id
-            st.success("Project updated.")
+            st.success(result.message or "Project updated.")
