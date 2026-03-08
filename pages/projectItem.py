@@ -30,6 +30,17 @@ st.sidebar.page_link("pages/delegations.py", label="Delegations", icon="🤝")
 st.sidebar.page_link("pages/projects.py", label="Projects", icon="📁")
 st.sidebar.page_link("pages/routines.py", label="Routines", icon="🔁")
 
+st.session_state.setdefault("ui", {})
+st.session_state.setdefault("flags", {})
+
+PROJECT_EDITOR_NS = "project_editor"
+DRAFT_PROJECT_NS = "draft_project"
+DELETE_CHOICE_OPTIONS = [
+    "Convert linked items to standalone items",
+    "Delete linked items with the project",
+    "Cancel deletion",
+]
+
 
 def empty_draft() -> dict:
     return {
@@ -61,48 +72,60 @@ def render_task_rows(items: list[dict], kind: str, *, date_field: str | None = N
         st.markdown("- " + " — ".join([part for part in parts if part]))
 
 
-def _ensure_widget_defaults(prefix: str, values: dict) -> None:
-    for key, value in values.items():
-        st.session_state.setdefault(f"{prefix}_{key}", value)
+def _ui_store() -> dict:
+    return st.session_state.ui
 
 
-def _set_widget_values(prefix: str, values: dict) -> None:
-    for key, value in values.items():
-        st.session_state[f"{prefix}_{key}"] = value
+def _flags_store() -> dict:
+    return st.session_state.flags
 
 
-def _queue_widget_values(prefix: str, values: dict) -> None:
-    pending = st.session_state.setdefault("_project_item_pending_widget_values", {})
-    pending[prefix] = dict(values)
-
-
-def _apply_pending_widget_values(prefix: str) -> bool:
-    pending = st.session_state.get("_project_item_pending_widget_values", {})
-    values = pending.pop(prefix, None)
-    if values is None:
-        return False
-    _set_widget_values(prefix, values)
-    if not pending:
-        st.session_state.pop("_project_item_pending_widget_values", None)
-    return True
+def _widget_key(namespace: str, field: str) -> str:
+    return f"{namespace}__{field}"
 
 
 def _queue_notice(message: str) -> None:
-    st.session_state["_project_item_notice"] = message
+    _flags_store()["project_item_notice"] = message
 
 
 def _render_notice() -> None:
-    message = st.session_state.pop("_project_item_notice", None)
+    message = _flags_store().pop("project_item_notice", None)
     if message:
         st.success(message)
 
 
-def _editor_text(prefix: str, name: str) -> str:
-    return str(st.session_state.get(f"{prefix}_{name}", "")).strip()
+def _get_editor(namespace: str, defaults: dict) -> dict:
+    editor = _ui_store().get(namespace)
+    if not isinstance(editor, dict):
+        editor = deepcopy(defaults)
+        _ui_store()[namespace] = editor
+    return editor
 
 
-def _editor_date_value(prefix: str, name: str) -> str | None:
-    raw_value = st.session_state.get(f"{prefix}_{name}")
+def _coerce_widget_value(field: str, value):
+    if field.endswith("date") or field in {"date", "due_date", "follow_up_date"}:
+        return parse_date_only(value)
+    return value
+
+
+def _prepare_widget_defaults(namespace: str, fields: list[str], editor: dict, *, force: bool = False) -> None:
+    for field in fields:
+        key = _widget_key(namespace, field)
+        if force or key not in st.session_state:
+            st.session_state[key] = _coerce_widget_value(field, editor.get(field))
+
+
+def _sync_editor_from_widgets(namespace: str, fields: list[str], editor: dict) -> None:
+    for field in fields:
+        editor[field] = st.session_state.get(_widget_key(namespace, field))
+
+
+def _editor_text(editor: dict, field: str) -> str:
+    return str(editor.get(field, "") or "").strip()
+
+
+def _editor_date_value(editor: dict, field: str) -> str | None:
+    raw_value = editor.get(field)
     if raw_value in (None, ""):
         return None
     if isinstance(raw_value, date):
@@ -111,28 +134,25 @@ def _editor_date_value(prefix: str, name: str) -> str | None:
     return parsed.isoformat() if parsed else None
 
 
-def _reset_action_editor(prefix: str) -> None:
-    _set_widget_values(
-        prefix,
-        {
-            "title": "",
-            "details": "",
-            "date": None,
-            "active_global": False,
-        },
-    )
+def _reset_editor(namespace: str, defaults: dict) -> None:
+    _ui_store()[namespace] = deepcopy(defaults)
+    _flags_store()[f"reset::{namespace}"] = True
 
 
-def _reset_delegation_editor(prefix: str) -> None:
-    _set_widget_values(
-        prefix,
-        {
-            "title": "",
-            "details": "",
-            "date": None,
-            "active_global": False,
-        },
-    )
+def _pop_reset_flag(namespace: str) -> bool:
+    return bool(_flags_store().pop(f"reset::{namespace}", False))
+
+
+def _set_delete_mode(project_id: str | None) -> None:
+    _flags_store()["project_delete_mode"] = project_id
+    st.session_state.project_delete_mode = project_id
+
+
+def _get_delete_mode() -> str | None:
+    flags = _flags_store()
+    if "project_delete_mode" not in flags:
+        flags["project_delete_mode"] = st.session_state.get("project_delete_mode")
+    return flags.get("project_delete_mode")
 
 
 def _append_draft_action(draft: dict, item: dict) -> None:
@@ -143,229 +163,216 @@ def _append_draft_delegation(draft: dict, item: dict) -> None:
     draft.setdefault("draft_delegations", []).append(item)
 
 
-def _sync_draft_from_widgets(draft: dict, prefix: str = "draft_project") -> None:
-    draft["title"] = _editor_text(prefix, "title")
-    draft["description"] = str(st.session_state.get(f"{prefix}_description", "")).strip()
-    draft["status"] = st.session_state.get(f"{prefix}_status", "Active")
-    draft["due_date"] = _editor_date_value(prefix, "due_date")
+PROJECT_DEFAULTS = {
+    "title": "",
+    "description": "",
+    "due_date": None,
+    "status": "Active",
+}
+ACTION_EDITOR_DEFAULTS = {
+    "title": "",
+    "details": "",
+    "date": None,
+    "active_global": False,
+}
+DELEGATION_EDITOR_DEFAULTS = {
+    "title": "",
+    "details": "",
+    "date": None,
+    "active_global": False,
+}
+PROJECT_FIELDS = ["title", "description", "due_date", "status"]
+ACTION_EDITOR_FIELDS = ["title", "details", "date", "active_global"]
+DELEGATION_EDITOR_FIELDS = ["title", "details", "date", "active_global"]
 
 
-def _load_draft_into_widgets(draft: dict, prefix: str = "draft_project") -> None:
-    _ensure_widget_defaults(
-        prefix,
-        {
-            "title": draft.get("title", ""),
-            "description": draft.get("description", ""),
-            "status": draft.get("status", "Active"),
-            "due_date": parse_date_only(draft.get("due_date")),
-        },
-    )
+def _draft_project_ui() -> dict:
+    editor = _ui_store().get(DRAFT_PROJECT_NS)
+    if not isinstance(editor, dict):
+        source = st.session_state.get("draft_project") or empty_draft()
+        editor = deepcopy(source)
+        editor.setdefault("draft_actions", [])
+        editor.setdefault("draft_delegations", [])
+        _ui_store()[DRAFT_PROJECT_NS] = editor
+        st.session_state.draft_project = deepcopy(editor)
+    return editor
 
 
-def _load_project_into_widgets(project: dict, prefix: str) -> None:
+def _sync_draft_runtime(draft: dict) -> None:
+    st.session_state.draft_project = deepcopy(draft)
+
+
+def _clear_draft_runtime() -> None:
+    _ui_store().pop(DRAFT_PROJECT_NS, None)
+    _ui_store().pop("draft_action_editor", None)
+    _ui_store().pop("draft_delegation_editor", None)
+    _flags_store().pop("reset::draft_action_editor", None)
+    _flags_store().pop("reset::draft_delegation_editor", None)
+    st.session_state.draft_project = None
+
+
+def _load_project_editor(project: dict) -> dict:
+    editor = _get_editor(PROJECT_EDITOR_NS, PROJECT_DEFAULTS)
     snapshot = (
         project.get("title", ""),
         project.get("description", ""),
         project.get("due_date"),
         project.get("status", "Active"),
     )
-    if st.session_state.get(f"{prefix}_snapshot") != snapshot:
-        _set_widget_values(
-            prefix,
+    if (
+        editor.get("loaded_project_id") != project.get("id")
+        or editor.get("source_snapshot") != snapshot
+        or bool(_flags_store().pop("reload_project_editor", False))
+    ):
+        editor.update(
             {
                 "title": project.get("title", ""),
                 "description": project.get("description", ""),
                 "due_date": parse_date_only(project.get("due_date")),
                 "status": project.get("status", "Active"),
-            },
+                "loaded_project_id": project.get("id"),
+                "source_snapshot": snapshot,
+            }
         )
-        st.session_state[f"{prefix}_snapshot"] = snapshot
+        _flags_store()[f"reset::{PROJECT_EDITOR_NS}"] = True
+    return editor
 
 
-def add_draft_action(draft: dict, *, prefix: str = "draft_action") -> None:
-    if not _apply_pending_widget_values(prefix):
-        _ensure_widget_defaults(
-            prefix,
-            {
-                "title": "",
-                "details": "",
-                "date": None,
-                "active_global": False,
-            },
-        )
-    st.text_input("Action Title", key=f"{prefix}_title")
-    st.date_input("Action Due Date", key=f"{prefix}_date", value=None)
-    st.text_area("Action Details", key=f"{prefix}_details")
-    st.checkbox("Show in global Actions list now", key=f"{prefix}_active_global")
-    if st.button("Add Draft Action", key=f"{prefix}_submit"):
-        title = _editor_text(prefix, "title")
+def _render_project_editor(namespace: str, editor: dict, *, status_options: list[str]) -> None:
+    _prepare_widget_defaults(namespace, PROJECT_FIELDS, editor, force=_pop_reset_flag(namespace))
+    st.text_input("Title", key=_widget_key(namespace, "title"))
+    st.date_input("Due Date", key=_widget_key(namespace, "due_date"), value=None)
+    st.text_area("Description", key=_widget_key(namespace, "description"), height=180)
+    st.selectbox("Status", status_options, key=_widget_key(namespace, "status"))
+    _sync_editor_from_widgets(namespace, PROJECT_FIELDS, editor)
+
+
+def _render_action_editor(namespace: str, button_label: str) -> tuple[dict, bool]:
+    editor = _get_editor(namespace, ACTION_EDITOR_DEFAULTS)
+    _prepare_widget_defaults(namespace, ACTION_EDITOR_FIELDS, editor, force=_pop_reset_flag(namespace))
+    st.text_input("Action Title", key=_widget_key(namespace, "title"))
+    st.date_input("Action Due Date", key=_widget_key(namespace, "date"), value=None)
+    st.text_area("Action Details", key=_widget_key(namespace, "details"))
+    st.checkbox("Show in global Actions list now", key=_widget_key(namespace, "active_global"))
+    _sync_editor_from_widgets(namespace, ACTION_EDITOR_FIELDS, editor)
+    return editor, st.button(button_label, key=f"{namespace}__submit")
+
+
+def _render_delegation_editor(namespace: str, button_label: str) -> tuple[dict, bool]:
+    editor = _get_editor(namespace, DELEGATION_EDITOR_DEFAULTS)
+    _prepare_widget_defaults(namespace, DELEGATION_EDITOR_FIELDS, editor, force=_pop_reset_flag(namespace))
+    st.text_input("Delegation Title", key=_widget_key(namespace, "title"))
+    st.date_input("Follow-Up Date", key=_widget_key(namespace, "date"), value=None)
+    st.text_area("Delegation Details", key=_widget_key(namespace, "details"))
+    st.checkbox("Show in global Delegations list now", key=_widget_key(namespace, "active_global"))
+    _sync_editor_from_widgets(namespace, DELEGATION_EDITOR_FIELDS, editor)
+    return editor, st.button(button_label, key=f"{namespace}__submit")
+
+
+def add_draft_action(draft: dict) -> None:
+    namespace = "draft_action_editor"
+    editor, submitted = _render_action_editor(namespace, "Add Draft Action")
+    if submitted:
+        title = _editor_text(editor, "title")
         if not title:
             st.error("Draft action title is required.")
-        else:
-            _append_draft_action(
-                draft,
-                {
-                    "title": title,
-                    "details": _editor_text(prefix, "details"),
-                    "due_date": _editor_date_value(prefix, "date"),
-                    "status": "Open",
-                    "is_active_global": bool(st.session_state.get(f"{prefix}_active_global", False)),
-                },
-            )
-            _queue_widget_values(
-                prefix,
-                {
-                    "title": "",
-                    "details": "",
-                    "date": None,
-                    "active_global": False,
-                },
-            )
-            _queue_notice("Draft action added.")
-            st.rerun()
-
-
-def add_draft_delegation(draft: dict, *, prefix: str = "draft_delegation") -> None:
-    if not _apply_pending_widget_values(prefix):
-        _ensure_widget_defaults(
-            prefix,
+            return
+        _append_draft_action(
+            draft,
             {
-                "title": "",
-                "details": "",
-                "date": None,
-                "active_global": False,
+                "title": title,
+                "details": _editor_text(editor, "details"),
+                "due_date": _editor_date_value(editor, "date"),
+                "status": "Open",
+                "is_active_global": bool(editor.get("active_global", False)),
             },
         )
-    st.text_input("Delegation Title", key=f"{prefix}_title")
-    st.date_input("Follow-Up Date", key=f"{prefix}_date", value=None)
-    st.text_area("Delegation Details", key=f"{prefix}_details")
-    st.checkbox("Show in global Delegations list now", key=f"{prefix}_active_global")
-    if st.button("Add Draft Delegation", key=f"{prefix}_submit"):
-        title = _editor_text(prefix, "title")
+        _sync_draft_runtime(draft)
+        _reset_editor(namespace, ACTION_EDITOR_DEFAULTS)
+        _queue_notice("Draft action added.")
+        st.rerun()
+
+
+def add_draft_delegation(draft: dict) -> None:
+    namespace = "draft_delegation_editor"
+    editor, submitted = _render_delegation_editor(namespace, "Add Draft Delegation")
+    if submitted:
+        title = _editor_text(editor, "title")
         if not title:
             st.error("Draft delegation title is required.")
-        else:
-            _append_draft_delegation(
-                draft,
-                {
-                    "title": title,
-                    "details": _editor_text(prefix, "details"),
-                    "follow_up_date": _editor_date_value(prefix, "date"),
-                    "status": "Waiting",
-                    "is_active_global": bool(st.session_state.get(f"{prefix}_active_global", False)),
-                },
-            )
-            _queue_widget_values(
-                prefix,
-                {
-                    "title": "",
-                    "details": "",
-                    "date": None,
-                    "active_global": False,
-                },
-            )
-            _queue_notice("Draft delegation added.")
-            st.rerun()
+            return
+        _append_draft_delegation(
+            draft,
+            {
+                "title": title,
+                "details": _editor_text(editor, "details"),
+                "follow_up_date": _editor_date_value(editor, "date"),
+                "status": "Waiting",
+                "is_active_global": bool(editor.get("active_global", False)),
+            },
+        )
+        _sync_draft_runtime(draft)
+        _reset_editor(namespace, DELEGATION_EDITOR_DEFAULTS)
+        _queue_notice("Draft delegation added.")
+        st.rerun()
 
 
-def create_project_linked_action(project: dict, *, prefix: str) -> None:
+def create_project_linked_action(project: dict, editor: dict) -> None:
     data = st.session_state.data
     action_id = new_uuid()
     payload = {
         "id": action_id,
-        "title": _editor_text(prefix, "title"),
-        "details": _editor_text(prefix, "details"),
-        "due_date": _editor_date_value(prefix, "date"),
+        "title": _editor_text(editor, "title"),
+        "details": _editor_text(editor, "details"),
+        "due_date": _editor_date_value(editor, "date"),
         "status": "Open",
         "project_id": project["id"],
-        "is_active_global": bool(st.session_state.get(f"{prefix}_active_global", False)),
+        "is_active_global": bool(editor.get("active_global", False)),
     }
     data["actions"][action_id] = payload
     project.setdefault("action_ids", []).append(action_id)
 
 
-def create_project_linked_delegation(project: dict, *, prefix: str) -> None:
+def create_project_linked_delegation(project: dict, editor: dict) -> None:
     data = st.session_state.data
     delegation_id = new_uuid()
     payload = {
         "id": delegation_id,
-        "title": _editor_text(prefix, "title"),
-        "details": _editor_text(prefix, "details"),
-        "follow_up_date": _editor_date_value(prefix, "date"),
+        "title": _editor_text(editor, "title"),
+        "details": _editor_text(editor, "details"),
+        "follow_up_date": _editor_date_value(editor, "date"),
         "status": "Waiting",
         "project_id": project["id"],
-        "is_active_global": bool(st.session_state.get(f"{prefix}_active_global", False)),
+        "is_active_global": bool(editor.get("active_global", False)),
     }
     data["delegations"][delegation_id] = payload
     project.setdefault("delegation_ids", []).append(delegation_id)
 
 
 def add_saved_project_action(project: dict) -> None:
-    prefix = f"project_action_{project['id']}"
-    if not _apply_pending_widget_values(prefix):
-        _ensure_widget_defaults(
-            prefix,
-            {
-                "title": "",
-                "details": "",
-                "date": None,
-                "active_global": False,
-            },
-        )
-    st.text_input("Action Title", key=f"{prefix}_title")
-    st.date_input("Action Due Date", key=f"{prefix}_date", value=None)
-    st.text_area("Action Details", key=f"{prefix}_details")
-    st.checkbox("Show in global Actions list now", key=f"{prefix}_active_global")
-    if st.button("Add Action", key=f"{prefix}_submit"):
-        if not _editor_text(prefix, "title"):
+    namespace = f"project_action_editor::{project['id']}"
+    editor, submitted = _render_action_editor(namespace, "Add Action")
+    if submitted:
+        if not _editor_text(editor, "title"):
             st.error("Action title is required.")
-        else:
-            create_project_linked_action(project, prefix=prefix)
-            _queue_widget_values(
-                prefix,
-                {
-                    "title": "",
-                    "details": "",
-                    "date": None,
-                    "active_global": False,
-                },
-            )
-            _queue_notice("Action added to project.")
-            st.rerun()
+            return
+        create_project_linked_action(project, editor)
+        _reset_editor(namespace, ACTION_EDITOR_DEFAULTS)
+        _queue_notice("Action added to project.")
+        st.rerun()
 
 
 def add_saved_project_delegation(project: dict) -> None:
-    prefix = f"project_delegation_{project['id']}"
-    if not _apply_pending_widget_values(prefix):
-        _ensure_widget_defaults(
-            prefix,
-            {
-                "title": "",
-                "details": "",
-                "date": None,
-                "active_global": False,
-            },
-        )
-    st.text_input("Delegation Title", key=f"{prefix}_title")
-    st.date_input("Follow-Up Date", key=f"{prefix}_date", value=None)
-    st.text_area("Delegation Details", key=f"{prefix}_details")
-    st.checkbox("Show in global Delegations list now", key=f"{prefix}_active_global")
-    if st.button("Add Delegation", key=f"{prefix}_submit"):
-        if not _editor_text(prefix, "title"):
+    namespace = f"project_delegation_editor::{project['id']}"
+    editor, submitted = _render_delegation_editor(namespace, "Add Delegation")
+    if submitted:
+        if not _editor_text(editor, "title"):
             st.error("Delegation title is required.")
-        else:
-            create_project_linked_delegation(project, prefix=prefix)
-            _queue_widget_values(
-                prefix,
-                {
-                    "title": "",
-                    "details": "",
-                    "date": None,
-                    "active_global": False,
-                },
-            )
-            _queue_notice("Delegation added to project.")
-            st.rerun()
+            return
+        create_project_linked_delegation(project, editor)
+        _reset_editor(namespace, DELEGATION_EDITOR_DEFAULTS)
+        _queue_notice("Delegation added to project.")
+        st.rerun()
 
 
 def save_draft_project(draft: dict) -> bool:
@@ -405,8 +412,8 @@ def save_draft_project(draft: dict) -> bool:
         "delegation_ids": delegation_ids,
     }
     st.session_state.project_view_id = project_id
-    st.session_state.draft_project = None
-    st.success("Project saved.")
+    _clear_draft_runtime()
+    _queue_notice("Project saved.")
     return True
 
 
@@ -435,7 +442,8 @@ def delete_project(project_id: str, choice: str) -> None:
 
     data["projects"].pop(project_id, None)
     st.session_state.project_view_id = None
-    st.session_state.project_delete_mode = None
+    _set_delete_mode(None)
+    _ui_store().pop(PROJECT_EDITOR_NS, None)
     st.switch_page("pages/projects.py")
 
 
@@ -446,19 +454,13 @@ is_edit = project_id is not None and project_id in data.get("projects", {})
 _render_notice()
 
 if not is_edit:
-    draft = st.session_state.get("draft_project") or empty_draft()
-    st.session_state.draft_project = draft
-    _load_draft_into_widgets(draft)
-    _sync_draft_from_widgets(draft)
+    draft = _draft_project_ui()
+    _render_project_editor(DRAFT_PROJECT_NS, draft, status_options=["Active", "Someday"])
+    draft["due_date"] = _editor_date_value(draft, "due_date")
+    _sync_draft_runtime(draft)
 
     st.title("📁 Project Details")
     st.caption("Create a draft project and save it only when it has at least two linked items.")
-
-    st.text_input("Title", key="draft_project_title")
-    st.date_input("Due Date", key="draft_project_due_date", value=None)
-    st.text_area("Description", key="draft_project_description", height=180)
-    st.selectbox("Status", ["Active", "Someday"], key="draft_project_status")
-    _sync_draft_from_widgets(draft)
 
     action_cols = st.columns(2)
     save = action_cols[0].button("Save")
@@ -475,30 +477,25 @@ if not is_edit:
         add_draft_delegation(draft)
 
     if back:
-        st.session_state.draft_project = None
+        _clear_draft_runtime()
         st.switch_page("pages/projects.py")
     elif save:
-        _sync_draft_from_widgets(draft)
         if save_draft_project(draft):
             st.switch_page("pages/projectItem.py")
 else:
     project = data["projects"][project_id]
-    prefix = f"project_edit_{project_id}"
-    _load_project_into_widgets(project, prefix)
+    editor = _load_project_editor(project)
 
     linked_actions = linked_actions_for_project(data, project)
     linked_delegations = linked_delegations_for_project(data, project)
     can_complete = completion_ready(linked_actions, linked_delegations)
+
     st.title("📁 Project Details")
     st.caption(f"Health: {project_health(data, project)}")
 
-    status_options = ["Active", "Someday", "Completed"]
-    st.text_input("Title", key=f"{prefix}_title")
-    st.date_input("Due Date", key=f"{prefix}_due_date", value=None)
-    st.text_area("Description", key=f"{prefix}_description", height=180)
-    st.selectbox("Status", status_options, key=f"{prefix}_status")
+    _render_project_editor(PROJECT_EDITOR_NS, editor, status_options=["Active", "Someday", "Completed"])
 
-    if st.session_state.get(f"{prefix}_status") == "Completed" and not can_complete:
+    if editor.get("status") == "Completed" and not can_complete:
         st.caption("Complete Project is disabled until all linked actions and delegations are completed.")
 
     command_cols = st.columns(3)
@@ -519,53 +516,54 @@ else:
     with st.expander("Add Delegation"):
         add_saved_project_delegation(project)
 
-    if st.session_state.project_delete_mode == project_id:
+    if _get_delete_mode() == project_id:
         st.warning("This project has linked items. Choose how deletion should be handled.")
-        choice = st.radio(
+        st.radio(
             "Deletion behavior",
-            [
-                "Convert linked items to standalone items",
-                "Delete linked items with the project",
-                "Cancel deletion",
-            ],
+            DELETE_CHOICE_OPTIONS,
             key="project_delete_choice",
         )
         confirm_cols = st.columns(2)
         if confirm_cols[0].button("Confirm Project Delete"):
+            choice = st.session_state.get("project_delete_choice", DELETE_CHOICE_OPTIONS[0])
             if choice == "Cancel deletion":
-                st.session_state.project_delete_mode = None
+                _set_delete_mode(None)
                 st.rerun()
             else:
                 delete_project(project_id, choice)
         if confirm_cols[1].button("Back from Delete"):
-            st.session_state.project_delete_mode = None
+            _set_delete_mode(None)
             st.rerun()
 
     if back:
         st.session_state.project_view_id = None
-        st.session_state.project_delete_mode = None
+        _set_delete_mode(None)
+        _ui_store().pop(PROJECT_EDITOR_NS, None)
         st.switch_page("pages/projects.py")
     elif delete:
         if project.get("action_ids") or project.get("delegation_ids"):
-            st.session_state.project_delete_mode = project_id
+            _set_delete_mode(project_id)
             st.rerun()
         else:
             data["projects"].pop(project_id, None)
             st.session_state.project_view_id = None
+            _set_delete_mode(None)
+            _ui_store().pop(PROJECT_EDITOR_NS, None)
             st.switch_page("pages/projects.py")
     elif save:
-        status = st.session_state.get(f"{prefix}_status", "Active")
+        status = editor.get("status", "Active")
         if status == "Completed" and not can_complete:
             st.error("Project cannot be marked Completed until all linked actions and delegations are completed.")
         else:
-            project["title"] = _editor_text(prefix, "title")
-            project["description"] = str(st.session_state.get(f"{prefix}_description", "")).strip()
-            project["due_date"] = _editor_date_value(prefix, "due_date")
+            project["title"] = _editor_text(editor, "title")
+            project["description"] = _editor_text(editor, "description")
+            project["due_date"] = _editor_date_value(editor, "due_date")
             project["status"] = status
-            st.session_state[f"{prefix}_snapshot"] = (
+            editor["source_snapshot"] = (
                 project.get("title", ""),
                 project.get("description", ""),
                 project.get("due_date"),
                 project.get("status", "Active"),
             )
+            editor["loaded_project_id"] = project_id
             st.success("Project updated.")
