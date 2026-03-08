@@ -22,6 +22,7 @@ from core.project_service import (
     save_new_project,
     update_project,
     validate_project_completion,
+    validate_project_save,
 )
 from core.state import init_state
 
@@ -390,15 +391,24 @@ if not is_edit:
         _clear_draft_runtime()
         st.switch_page("pages/projects.py")
     elif save:
-        result = save_new_project(data=st.session_state.data, draft=draft)
-        if not result.ok:
-            for error in result.errors or []:
+        validation = validate_project_save(
+            title=draft.get("title", ""),
+            action_ids=[f"draft-action-{i}" for i in range(len(draft.get("draft_actions", [])))],
+            delegation_ids=[f"draft-delegation-{i}" for i in range(len(draft.get("draft_delegations", [])))],
+        )
+        if not validation.ok:
+            for error in validation.errors or []:
                 st.error(error)
         else:
-            st.session_state.project_view_id = result.project_id
-            _clear_draft_runtime()
-            _queue_notice(result.message or "Project saved.")
-            st.switch_page("pages/projectItem.py")
+            result = save_new_project(data=st.session_state.data, draft=draft)
+            if not result.ok:
+                for error in result.errors or []:
+                    st.error(error)
+            else:
+                st.session_state.project_view_id = result.project_id
+                _clear_draft_runtime()
+                _queue_notice(result.message or "Project saved.")
+                st.switch_page("pages/projectItem.py")
 else:
     project = data["projects"][project_id]
     editor = _load_project_editor(project)
