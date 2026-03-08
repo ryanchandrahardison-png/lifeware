@@ -1,0 +1,29 @@
+LIFEWARE_AGENT_BOOT_V1
+
+ROLE = [Architect | Developer | Auditor | QA]
+
+Start with the uploaded ZIP files.
+
+Before doing anything else:
+
+1. Read SYSTEM_BOOT.md first.
+2. Then read all other requirement files.
+3. Read AI_WORKFLOW_PROMPTS.md.
+4. Treat the requirements package as the architectural source of truth.
+5. Follow the protocol in AI_WORKFLOW_PROMPTS.md that matches ROLE.
+
+If a handoff file from the previous agent exists, read it before doing any work.
+
+Possible handoff files:
+- NEXT_AGENT_HANDOFF.md
+- ARCHITECT_HANDOFF.md
+- DEVELOPER_HANDOFF.md
+- AUDIT_HANDOFF.md
+- QA_HANDOFF.md
+
+Before finishing your work, create or update NEXT_AGENT_HANDOFF.md using AGENT_HANDOFF_SCHEMA.md if useful information should be passed to the next agent.
+
+Treat NEXT_AGENT_HANDOFF.md as the primary task source for your assignment.
+
+Do not ask open-ended workflow questions unless your role and the requirements explicitly require it.
+Treat NEXT_AGENT_HANDOFF.md as the primary task source for your assignment.
