@@ -1,100 +1,72 @@
 # NEXT AGENT HANDOFF
 
 ## Agent Role
-Architect
+Developer
 
 ## Timestamp
-2026-03-08T23:32:33Z
+2026-03-09T00:00:00Z
 
 ## Build / Package Reviewed
-execution_state_qa_pass_v1_7.zip
+working tree (post-architect decision freeze in execution_state_qa_pass_v1_7.zip)
 
 ## Summary
-Architect governance pass completed. Product Owner confirmed there are no inline comments, no additional instructions, and no new backlog or requirement changes for this correction pass.
+Implemented the bounded Phase 1 Project service-extraction task by moving additional project mutation orchestration decisions from `pages/projectItem.py` into `core/project_service.py`, while preserving existing UI behavior and frozen architecture constraints.
 
 ## Current Development Phase
 PHASE 1 — Projects MVP Foundation
 
 ## Requirements Confirmed
-- Controlled requirements package remains the architectural source of truth.
-- Canonical persisted state must remain in `st.session_state.data`.
-- Frozen areas remain unchanged (Calendar behavior, Event detail structure, UUID collection behavior, existing Actions/Delegations list behavior).
-- Option A UI State Architecture for `pages/projectItem.py` remains complete and frozen.
-- Option B UI State Architecture rollout remains backlog-only unless explicitly approved.
-- Architect Product Owner Backlog Check must precede selecting any next implementation task.
+- Canonical persisted state remains in `st.session_state.data`.
+- Frozen behavior areas were preserved (Calendar/Event structure/UUID collections/Actions+Delegations list behavior).
+- Option A UI state architecture in `pages/projectItem.py` remains intact and was not reworked.
+- No Option B rollout work was performed.
+- Project save/completion/delete guardrails remain enforced.
 
 ## Files Reviewed
 - specifications/requirements/SYSTEM_BOOT.md
-- specifications/requirements/README_BASELINE.md
-- specifications/requirements/REQUIREMENTS_VERSION.md
-- specifications/requirements/lifeware_requirements/AGENT_HANDOFF_SCHEMA.md
-- specifications/requirements/lifeware_requirements/AI_DEVELOPER_PROTOCOL.md
 - specifications/requirements/lifeware_requirements/AI_WORKFLOW_PROMPTS.md
-- specifications/requirements/lifeware_requirements/ARCHITECTURE.md
-- specifications/requirements/lifeware_requirements/DATA_MODEL.md
-- specifications/requirements/lifeware_requirements/DERIVED_VIEW_RULES.md
-- specifications/requirements/lifeware_requirements/FEATURE_ACTIONS.md
-- specifications/requirements/lifeware_requirements/FEATURE_CALENDAR.md
-- specifications/requirements/lifeware_requirements/FEATURE_DELEGATIONS.md
-- specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
-- specifications/requirements/lifeware_requirements/FEATURE_ROUTINES.md
-- specifications/requirements/lifeware_requirements/IMPLEMENTATION_PHASES.md
-- specifications/requirements/lifeware_requirements/MUTATION_RULES.md
-- specifications/requirements/lifeware_requirements/PRODUCT_BACKLOG.md
-- specifications/requirements/lifeware_requirements/REFERENCE_INTEGRITY_RULES.md
-- specifications/requirements/lifeware_requirements/REQUIREMENTS_TRACKER.md
-- specifications/requirements/lifeware_requirements/STATE_SCHEMA.md
-- specifications/requirements/lifeware_requirements/UI_PATTERNS.md
+- specifications/requirements/lifeware_requirements/AI_DEVELOPER_PROTOCOL.md
 - specifications/requirements/lifeware_requirements/UI_STATE_ARCHITECTURE.md
-- specifications/requirements/lifeware_requirements/UNIVERSAL_PROMPT.txt
-- specifications/executionState/NEXT_AGENT_HANDOFF.md (previous)
+- specifications/executionState/NEXT_AGENT_HANDOFF.md (input)
+- pages/projectItem.py
+- core/project_service.py
 
 ## Files Modified
+- core/project_service.py
+- pages/projectItem.py
 - specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 ## Key Decisions
-1. Product Owner Backlog Check is complete for this pass and confirmed no additional backlog items or requirement changes.
-2. The next work item should proceed immediately in the same pipeline pass (no extra Architect-only waiting step).
-3. Selected next bounded Phase 1 task: complete project business-rule/mutation orchestration extraction into the shared project service layer while preserving current UI behavior.
+1. Added service-level wrappers to centralize project update/delete request orchestration without changing underlying validation behavior.
+2. Kept existing `delete_project`, `save_new_project`, and `update_project` logic in place to avoid behavioral drift; page now calls wrapper APIs for orchestration boundaries.
+3. Used a `requires_choice` flag in `DeleteResult` so the page can continue existing confirmation UI while the service owns the linked-item precheck decision.
 
 ## Risks / Watch Areas
-- Regression risk in project save/delete/update behavior if service extraction changes validation or mutation order.
-- Risk of scope drift if the Developer touches Option B pages (`pages/actionItem.py`, `pages/delegationItem.py`, `pages/eventItem.py`) or future-phase backlog features.
+- Wrapper methods currently delegate to legacy service functions; future refactors should avoid duplicating or diverging validation paths.
+- Deletion flow depends on `requires_choice` handling in UI; auditor should verify no path bypasses existing delete-confirm behavior.
 
 ## Validation Performed
-- Re-read system boot and requirement package to confirm phase and frozen constraints.
-- Verified no runtime/source code files were changed.
-- Verified only execution-state handoff file was updated.
+- `python -m py_compile pages/projectItem.py core/project_service.py`
+- Manual code review of updated delete/save/update call paths in `pages/projectItem.py`.
 
 ## Expected Behavior After This Pass
-No application behavior change in this Architect pass. The next pass is now unblocked with a concrete Developer task and DECISION FREEZE.
+- New project save path still enforces title + minimum linked-item requirements.
+- Existing project save path still enforces completion gating and update validation.
+- Delete button behavior is unchanged: linked projects prompt for handling choice; unlinked projects delete immediately.
 
 ## Recommended Next Agent Role
-Developer
+Auditor
 
 ## Recommended Next Action
-Implement the selected Phase 1 follow-on requirement: move remaining Project business-rule/mutation orchestration out of `pages/projectItem.py` into `core/project_service.py` (or tightly related project service helpers) without changing user-visible behavior, frozen architecture, or phase scope.
+Audit the updated Project service boundary for requirements compliance and verify no frozen behavior, phase scope, or UI-state lifecycle rules were violated.
 
 ## Smoke Test Focus (If Code Changed)
-Not applicable (no code changes).
+1. Create/save project with 2+ draft linked items.
+2. Reopen and save project while attempting completion with incomplete linked items.
+3. Delete project with linked items and validate choice prompt behavior.
+4. Delete project with no linked items and validate immediate delete path.
 
 ## Additional Notes
-Product Owner Backlog Check (explicit, completed this pass):
-- Question: "Are there any new backlog items or requirement changes to consider before selecting the next task?"
-- Response: No (no inline comments, no additional instructions, no new backlog/requirements changes).
-- Classification: no change requested (proceed with planned immediate-scope Architect task selection).
-
-DECISION FREEZE:
-- current phase: PHASE 1 — Projects MVP Foundation
-- active scope for next pass: implement the selected Phase 1 project-service extraction task with no behavior drift
-- explicitly out-of-scope items: Option B UI State Architecture rollout, calendar redesign, routines implementation, and any future-phase backlog feature
-- next agent role: Developer
-- exact next task: extract remaining Project validation/mutation orchestration from `pages/projectItem.py` into `core/project_service.py`, keep page focused on UI orchestration, and preserve all existing save/completion/delete behavior
-- files allowed to change: `pages/projectItem.py`, `core/project_service.py`, and directly related helper/module imports only if strictly necessary
-- files forbidden to change: controlled requirements documents; `pages/actionItem.py`; `pages/delegationItem.py`; `pages/eventItem.py`; calendar pages and unrelated runtime modules
-- whether backlog changed this pass: No
-- required delivery format for next pass: code patch + concise validation notes + updated `specifications/executionState/NEXT_AGENT_HANDOFF.md` mirroring implementation outcomes
-
-All non-listed work is out of scope for the next pass.
+Implementation stayed within Architect DECISION FREEZE boundaries (`pages/projectItem.py`, `core/project_service.py` only for runtime code changes).
 
 End of handoff

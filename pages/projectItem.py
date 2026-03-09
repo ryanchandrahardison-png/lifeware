@@ -19,8 +19,9 @@ from core.project_service import (
     create_linked_action,
     create_linked_delegation,
     delete_project,
-    save_new_project,
-    update_project,
+    request_project_delete,
+    save_project_from_draft,
+    update_project_from_editor,
     validate_project_completion,
     validate_project_save,
 )
@@ -400,7 +401,7 @@ if not is_edit:
             for error in validation.errors or []:
                 st.error(error)
         else:
-            result = save_new_project(data=st.session_state.data, draft=draft)
+            result = save_project_from_draft(data=st.session_state.data, draft=draft)
             if not result.ok:
                 for error in result.errors or []:
                     st.error(error)
@@ -484,26 +485,27 @@ else:
         _ui_store().pop(PROJECT_EDITOR_NS, None)
         st.switch_page("pages/projects.py")
     elif delete:
-        if project.get("action_ids") or project.get("delegation_ids"):
+        delete_request = request_project_delete(data=data, project_id=project_id)
+        if not delete_request.ok:
+            for error in delete_request.errors or []:
+                st.error(error)
+        elif delete_request.requires_choice:
             _set_delete_mode(project_id)
             st.rerun()
-        else:
-            result = delete_project(data=data, project_id=project_id, choice=DELETE_CHOICE_DELETE)
-            if result.deleted:
-                st.session_state.project_view_id = None
-                _set_delete_mode(None)
-                _ui_store().pop(PROJECT_EDITOR_NS, None)
-                st.switch_page("pages/projects.py")
+        elif delete_request.deleted:
+            st.session_state.project_view_id = None
+            _set_delete_mode(None)
+            _ui_store().pop(PROJECT_EDITOR_NS, None)
+            st.switch_page("pages/projects.py")
     elif save:
         status = editor.get("status", "Active")
-        result = update_project(
-            project=project,
+        result = update_project_from_editor(
+            data=data,
+            project_id=project_id,
             title=_editor_text(editor, "title"),
             description=_editor_text(editor, "description"),
             due_date=_editor_date_value(editor, "due_date"),
             status=status,
-            linked_actions=linked_actions,
-            linked_delegations=linked_delegations,
         )
         if not result.ok:
             for error in result.errors or []:

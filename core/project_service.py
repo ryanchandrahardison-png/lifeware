@@ -27,6 +27,7 @@ class ServiceResult:
 @dataclass
 class DeleteResult(ServiceResult):
     deleted: bool = False
+    requires_choice: bool = False
 
 
 def _linked_count(action_ids: list[str], delegation_ids: list[str]) -> int:
@@ -176,3 +177,45 @@ def delete_project(*, data: dict[str, Any], project_id: str, choice: str) -> Del
 
     data["projects"].pop(project_id, None)
     return DeleteResult(ok=True, deleted=True, message="Project deleted.")
+
+
+def request_project_delete(*, data: dict[str, Any], project_id: str) -> DeleteResult:
+    project = data.get("projects", {}).get(project_id)
+    if not project:
+        return DeleteResult(ok=False, deleted=False, errors=["Project not found."])
+    has_linked = bool(project.get("action_ids") or project.get("delegation_ids"))
+    if has_linked:
+        return DeleteResult(ok=True, deleted=False, requires_choice=True)
+    return delete_project(data=data, project_id=project_id, choice=DELETE_CHOICE_DELETE)
+
+
+def save_project_from_draft(*, data: dict[str, Any], draft: dict[str, Any]) -> ServiceResult:
+    return save_new_project(data=data, draft=draft)
+
+
+def update_project_from_editor(
+    *,
+    data: dict[str, Any],
+    project_id: str,
+    title: str,
+    description: str,
+    due_date: str | None,
+    status: str,
+) -> ServiceResult:
+    project = data.get("projects", {}).get(project_id)
+    if not project:
+        return ServiceResult(ok=False, errors=["Project not found."])
+
+    linked_actions = [data["actions"][aid] for aid in project.get("action_ids", []) if aid in data.get("actions", {})]
+    linked_delegations = [
+        data["delegations"][did] for did in project.get("delegation_ids", []) if did in data.get("delegations", {})
+    ]
+    return update_project(
+        project=project,
+        title=title,
+        description=description,
+        due_date=due_date,
+        status=status,
+        linked_actions=linked_actions,
+        linked_delegations=linked_delegations,
+    )
