@@ -1,18 +1,18 @@
 # NEXT AGENT HANDOFF
 
 ## Agent Role
-QA
+Architect
 
 ## Timestamp
-2026-03-09T01:05:00Z
+2026-03-09T08:05:00Z
 
 ## Build / Package Reviewed
-working tree at commit `7a59f0b` (includes service-wrapper refactor rooted in commit `2a08a99`)
+working tree at commit `01b9856` with Product Owner clarifications integrated in this Architect pass
 
 --------------------------------------------------
 
 ## Summary
-Completed QA validation for the bounded Project mutation/service wrapper flow. Verified that Phase 1 Project expectations remain intact (save minimum linked-item rule, append behavior, completion gating, and delete choice handling) with no code modifications required.
+Integrated Product Owner clarifications for the Project Detail linked-items layout/table request and selected that backlog item into immediate bounded Phase 1 implementation scope. Defined exact Developer execution boundaries and QA acceptance expectations to avoid interpretation drift.
 
 --------------------------------------------------
 
@@ -23,12 +23,9 @@ PHASE 1 — Projects MVP Foundation
 
 ## Requirements Confirmed
 - Canonical persisted state remains `st.session_state.data`.
-- Canonical UUID-keyed collections remain `events`, `actions`, `delegations`, and `projects`.
-- Project save still enforces at least 2 linked items.
-- Project completion gating still blocks completion when linked items are not completed.
-- Project deletion behavior still follows convert/delete/cancel choice model for linked projects.
-- Date input pattern remains directly editable (no checkbox-gated date enablement introduced).
-- Option A UI state architecture remains isolated to `pages/projectItem.py`; no Option B spillover.
+- Frozen areas remain unchanged (Calendar behavior, Event detail structure, UUID-backed collections).
+- Existing project completion gating and deletion prompt behavior remain required.
+- Project detail layout change is scoped to `pages/projectItem.py` only.
 
 --------------------------------------------------
 
@@ -36,76 +33,106 @@ PHASE 1 — Projects MVP Foundation
 - specifications/requirements/SYSTEM_BOOT.md
 - specifications/requirements/lifeware_requirements/AI_WORKFLOW_PROMPTS.md
 - specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
-- specifications/requirements/lifeware_requirements/MUTATION_RULES.md
-- specifications/requirements/lifeware_requirements/UI_STATE_ARCHITECTURE.md
+- specifications/requirements/lifeware_requirements/PRODUCT_BACKLOG.md
+- specifications/requirements/lifeware_requirements/REQUIREMENTS_TRACKER.md
 - specifications/executionState/NEXT_AGENT_HANDOFF.md (input)
-- core/project_service.py
-- pages/projectItem.py
 
 --------------------------------------------------
 
 ## Files Modified
+- specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
+- specifications/requirements/lifeware_requirements/PRODUCT_BACKLOG.md
+- specifications/requirements/lifeware_requirements/REQUIREMENTS_TRACKER.md
 - specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-1. Per QA protocol, performed runtime-adjacent logic validation via Python harness against `core/project_service.py` rather than making implementation changes.
-2. Classified readiness as **DEPLOY WITH LOW RISK** because direct interactive Streamlit UI smoke execution was not performed in this pass.
+1. Product Owner clarification set is accepted as authoritative for this work item.
+2. Classified request as a bounded Phase 1 feature implementation (UI layout/interaction only).
+3. Selected next role as Developer with a surgical file boundary centered on `pages/projectItem.py`.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Delete choice UX relies on UI orchestration path that calls `request_project_delete()` before `delete_project()`; direct function misuse can still produce an invalid-choice error.
-- Full confidence on rerun/lifecycle behavior still depends on an interactive browser smoke pass (especially deletion choice and editor reset flows).
+- Modal introduction must remain lifecycle-safe with Streamlit rerun/reset behavior.
+- Row-click navigation must correctly route by linked item type (Action vs Delegation).
+- Grouping/sorting logic must avoid mutating canonical collections.
+
+--------------------------------------------------
+
+## Escalation Needed
+No
 
 --------------------------------------------------
 
 ## Validation Performed
-- `python -m py_compile pages/projectItem.py core/project_service.py app.py core/*.py pages/*.py`
-- `python - <<'PY' ... PY` harness covering:
-  - new project save minimum-linked-item validation
-  - append behavior for added linked actions/delegations
-  - completion gating before/after linked item completion
-  - delete choice path via `request_project_delete()` and `delete_project()`
+- Requirements consistency review across updated controlled documents.
+- Handoff DECISION FREEZE alignment with Product Owner clarification answers.
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- Draft project save still requires 2+ linked items.
-- Adding linked items to saved projects still appends and preserves prior links.
-- Completion status transition still blocks until all linked actions/delegations are completed.
-- Delete flow still requires explicit convert/delete/cancel handling for projects with linked items.
+- Developer has unambiguous implementation requirements for Project Detail linked-items table/layout/modal behavior.
+- QA can validate exactly against the accepted 11-item clarification list.
 
 --------------------------------------------------
 
 ## Recommended Next Agent Role
-Deployment
+Developer
 
 --------------------------------------------------
 
 ## Recommended Next Action
-Proceed to deployment gate with a final lightweight manual UI smoke (if environment available) focused on project detail add/append and delete-choice interactions.
+Implement the bounded `pages/projectItem.py` UI update per DECISION FREEZE, compile-check modified Python files, and provide updated handoff for Auditor.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-1. Create draft project, add two linked items, and save.
-2. Reopen saved project and append one action and one delegation; verify previous linked items remain.
-3. Attempt to mark Completed while linked items are open; verify gating message.
-4. Trigger delete on project with linked items; verify convert/delete/cancel outcomes.
+1. Confirm visual order: fields → linked-items table → add controls → Save/Delete/Back.
+2. Confirm linked-items table columns: Task Name, Type, Date.
+3. Confirm table includes all linked items and groups by Completed/Past Due/Upcoming/Floating.
+4. Confirm date sort ascending within non-completed date groups.
+5. Confirm row click opens correct detail page by item type.
+6. Confirm Add Task/Add Delegation use modals.
+7. Confirm narrow-width stacked-row presentation.
+8. Confirm Save/Delete/Back visual treatment matches Actions/Delegations detail.
+
+--------------------------------------------------
+
+## DECISION FREEZE
+- current phase: PHASE 1 — Projects MVP Foundation
+- active scope for the next pass: Implement Project Detail linked-items table/layout/modal behavior in `pages/projectItem.py` only
+- explicitly out-of-scope items:
+  - Option B UI State Architecture rollout (`pages/actionItem.py`, `pages/delegationItem.py`, `pages/eventItem.py`)
+  - calendar/event structural changes
+  - canonical state schema changes
+  - mutation-rule behavior changes (completion gating, delete prompt model)
+- next agent role: Developer
+- exact next task: Update Project Detail UI in `pages/projectItem.py` to implement the accepted Product Owner clarification set (order, table columns, grouping/sorting, row-click navigation, modal add controls, responsive stacked rows, button treatment parity).
+- files allowed to change:
+  - pages/projectItem.py
+  - specifications/executionState/NEXT_AGENT_HANDOFF.md
+- files forbidden to change:
+  - core/project_service.py (unless blocked by a true defect in existing APIs)
+  - pages/actionItem.py
+  - pages/delegationItem.py
+  - pages/eventItem.py
+  - controlled requirement documents under `specifications/requirements/`
+- whether backlog changed this pass: Yes (Project Detail backlog item selected into immediate implementation scope)
+- required delivery format for the next pass:
+  - minimal diff patch
+  - compile-check results for modified Python files
+  - pre-deployment verification gate summary
+  - updated `specifications/executionState/NEXT_AGENT_HANDOFF.md`
+
+All non-listed work is out of scope for the next pass.
 
 --------------------------------------------------
 
 ## Additional Notes
-### QA Release Readiness Verdict
-DEPLOY WITH LOW RISK
-
-Rationale:
-- Requirement alignment confirmed for Project-phase critical mutation behavior.
-- Static compile checks passed.
-- Logic-level smoke checks passed.
-- Remaining risk is limited to unexecuted browser-level interaction smoke in this pass.
+No application code was changed in this Architect pass.
+No requirements ZIP artifact is maintained in-repo; `specifications/requirements/lifeware_requirements_baseline_v1_3.zip` was removed per Product Owner direction now that agents write directly to the repository.
 
 --------------------------------------------------
 

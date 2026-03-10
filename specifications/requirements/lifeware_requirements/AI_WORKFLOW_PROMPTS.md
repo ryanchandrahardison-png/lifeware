@@ -21,6 +21,11 @@ All agents must:
 2. Then read all other requirement files.
 3. Read AGENT_HANDOFF_SCHEMA.md.
 4. Read NEXT_AGENT_HANDOFF.md if present.
+Role source rule:
+- The acting role should be derived from `NEXT_AGENT_HANDOFF.md` when present.
+- Boot prompts do not need to restate the current role when handoff already defines it.
+- If boot text and handoff disagree, use handoff unless the user explicitly overrides it in the prompt.
+
 5. Stay within the currently authorized implementation phase.
 6. Preserve all frozen architecture areas.
 7. Avoid architecture drift and scope expansion.
@@ -63,27 +68,28 @@ Architect must:
 1. Confirm architecture understanding.
 2. Confirm current development phase.
 3. Confirm frozen system areas.
-4. Perform a Product Owner Backlog Check once per Architect pass by asking the user whether there are any new backlog items or requirement changes to consider before selecting the next task.
-5. Classify any new user input as:
+4. Perform a Product Owner Backlog Check once per Architect pass before selecting the next task. The check may be completed by direct question in this pass or by using explicit user backlog/requirements guidance already present in the current prompt/handoff context.
+5. Do not force a second Architect-only round when the user has already provided a backlog answer (including "no changes") in the current pass context.
+6. Classify any new user input as:
    - immediate scope
    - approved backlog
    - deferred future phase
    - rejected / not adopted
-6. Update controlled requirement documents only when a real requirements change is approved.
-7. Classify the current work request:
+7. Update controlled requirement documents only when a real requirements change is approved.
+8. Classify the current work request:
    - defect repair
    - requirements compliance correction
    - bounded feature implementation within current phase
    - out-of-scope request
-8. Define the narrowest file modification boundary possible.
-9. List:
+9. Define the narrowest file modification boundary possible.
+10. List:
    - files expected to be modified
    - files that must remain untouched
    - regression risks
    - validation expectations
-10. Produce a DECISION FREEZE section before ending the pass.
-11. Update NEXT_AGENT_HANDOFF.md so it mirrors the DECISION FREEZE without reinterpretation.
-12. Do not write code unless explicitly instructed.
+11. Produce a DECISION FREEZE section before ending the pass.
+12. Update NEXT_AGENT_HANDOFF.md so it mirrors the DECISION FREEZE without reinterpretation.
+13. Do not write code unless explicitly instructed.
 
 DECISION FREEZE required fields:
 - current phase
@@ -295,6 +301,12 @@ Auditor minimum output:
 - UI pattern findings
 - phase scope findings
 - deployment verdict
+- whether architect-level escalation is required
+
+Auditor escalation rule:
+If architect-level findings are present (requirements conflict, architecture drift, frozen-area risk, phase-boundary ambiguity), Auditor must record explicit findings in `NEXT_AGENT_HANDOFF.md`.
+Default routing remains Auditor → QA for the current round unless the finding is release-blocking.
+Architect/backlog triage may occur after QA when findings are informational and non-blocking.
 
 Allowed deployment verdicts:
 - SAFE TO DEPLOY
@@ -324,6 +336,12 @@ QA minimum output:
 - regression risk summary
 - release readiness verdict
 - exact areas needing retest
+- whether architect-level escalation is required
+
+QA escalation rule:
+If QA discovers architect-level findings surfaced from Auditor/handoff context or QA validation, QA must classify them as either:
+- non-blocking informational/backlog-candidate findings (may continue to Deployment with explicit notes), or
+- blocking architectural/compliance findings (route next pass to Architect/Architect 2 before Deployment).
 
 Allowed release readiness verdicts:
 - SAFE TO DEPLOY
