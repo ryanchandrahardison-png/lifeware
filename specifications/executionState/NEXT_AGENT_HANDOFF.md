@@ -1,18 +1,18 @@
 # NEXT AGENT HANDOFF
 
 ## Agent Role
-QA
+Developer
 
 ## Timestamp
-2026-03-10T19:49:59Z
+2026-03-10T20:10:00Z
 
 ## Build / Package Reviewed
-working tree at commit `eb2b308`
+working tree at commit `dd23cc3`
 
 --------------------------------------------------
 
 ## Summary
-Executed a deployment verification refresh pass. No application code changes were required; validation focused on syntax/import integrity and test discovery status.
+Implemented the missing `pages/projectItem.py` layout/order change so Project Detail draft view now follows the same visual sequencing as the selected backlog requirement (project fields → linked-items section → add controls → save/back controls).
 
 --------------------------------------------------
 
@@ -22,34 +22,38 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Canonical persisted state location remains `st.session_state.data`.
-- Frozen areas (Calendar behavior, Event detail structure, UUID collection conventions, completion/deletion guardrails) were not modified.
-- No controlled requirements documents were changed in this pass.
+- Canonical persisted state remains only in `st.session_state.data`.
+- Frozen areas remain preserved (Calendar behavior, Event detail structure, UUID collection behavior, completion/delete guardrails, directly editable dates).
+- Change was kept to `pages/projectItem.py` presentation flow only.
 
 --------------------------------------------------
 
 ## Files Reviewed
 - specifications/requirements/SYSTEM_BOOT.md
 - specifications/requirements/lifeware_requirements/AI_WORKFLOW_PROMPTS.md
-- specifications/requirements/lifeware_requirements/AGENT_HANDOFF_SCHEMA.md
+- specifications/requirements/lifeware_requirements/PRODUCT_BACKLOG.md
+- specifications/requirements/lifeware_requirements/REQUIREMENTS_TRACKER.md
 - specifications/executionState/NEXT_AGENT_HANDOFF.md (previous)
+- pages/projectItem.py
 
 --------------------------------------------------
 
 ## Files Modified
+- pages/projectItem.py
 - specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-1. Kept scope constrained to deployment readiness checks because no new implementation task was authorized by handoff.
-2. Recorded test-suite discovery status (`pytest` reports no tests collected) as a watch item rather than a release blocker.
+1. Addressed the user-reported no-op by applying an actual UI order change in Project Detail draft mode.
+2. Reused existing linked-item grouping/table renderer to make linked-item presentation consistent in draft and edit flows.
+3. Removed now-unused `render_task_rows` helper after switching draft linked-item display to the grouped table section.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Runtime UI behaviors (Streamlit rerun timing/dialog interactions) still need environment-level smoke validation after deployment.
-- Automated regression coverage is currently minimal (`pytest` discovered no tests).
+- This pass changes draft-mode layout flow; Auditor/QA should verify save/back logic still works after adding draft linked items.
+- Streamlit multipage route/session behavior can vary by launch path; smoke test should run from `app.py` entrypoint.
 
 --------------------------------------------------
 
@@ -59,34 +63,37 @@ No
 --------------------------------------------------
 
 ## Validation Performed
-- `python -m compileall app.py core pages`
-- `pytest -q` (no tests discovered)
+- `python -m compileall pages/projectItem.py`
+- Manual browser check via Streamlit run + Playwright screenshot capture.
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- Application modules in `app.py`, `core/`, and `pages/` compile and import cleanly.
-- Existing Phase 1 behavior should remain unchanged from previous QA-approved state.
+- In draft Project Detail, users now see project fields first, then linked items, then add controls, then save/back controls.
+- Existing saved-project detail flow remains intact.
 
 --------------------------------------------------
 
 ## Recommended Next Agent Role
-Architect
+Auditor
 
 --------------------------------------------------
 
 ## Recommended Next Action
-Route to Architect for pipeline control and next-task selection because a Deployment agent is not configured; Architect should issue the next DECISION FREEZE and assignment.
+Audit `pages/projectItem.py` for requirement alignment with Project Detail Backlog Table Layout and verify no frozen-area regressions.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-No code changes in this pass.
+- Create a new project draft and confirm control order is fields → linked items → add controls → save/back.
+- Add one draft action and one draft delegation and verify both appear in the grouped linked-items section.
+- Save draft project and ensure post-save navigation and messages still behave correctly.
 
 --------------------------------------------------
 
 ## Additional Notes
-Static readiness is acceptable; routing is intentionally returned to Architect per configured workflow constraints (no Deployment agent configured).
+Screenshot artifact captured for this UI change:
+`browser:/tmp/codex_browser_invocations/ef1d4140e19468ce/artifacts/artifacts/projectitem-order-update.png`
 
 --------------------------------------------------
 

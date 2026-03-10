@@ -59,16 +59,6 @@ def draft_linked_count(draft: dict) -> int:
     return len(draft.get("draft_actions", [])) + len(draft.get("draft_delegations", []))
 
 
-def render_task_rows(items: list[dict], kind: str, *, date_field: str | None = None, date_label: str = "Date") -> None:
-    if not items:
-        st.caption(f"No {kind.lower()} in this section.")
-        return
-    for item in items:
-        parts = [f"**{item.get('title', 'Untitled')}**", str(item.get("status", ""))]
-        if date_field and item.get(date_field):
-            parts.append(f"{date_label}: {item.get(date_field)}")
-        st.markdown("- " + " — ".join([part for part in parts if part]))
-
 
 def _linked_item_date(item: dict) -> date | None:
     return parse_date_only(item.get("due_date") or item.get("follow_up_date"))
@@ -471,26 +461,31 @@ _render_notice()
 
 if not is_edit:
     draft = _draft_project_ui()
-    _render_project_editor(DRAFT_PROJECT_NS, draft, status_options=["Active", "Someday"])
-    draft["due_date"] = _editor_date_value(draft, "due_date")
-    _sync_draft_runtime(draft)
 
     st.title("📁 Project Details")
     st.caption("Create a draft project and save it only when it has at least two linked items.")
 
-    action_cols = st.columns(2)
-    save = action_cols[0].button("Save")
-    back = action_cols[1].button("Back")
+    _render_project_editor(DRAFT_PROJECT_NS, draft, status_options=["Active", "Someday"])
+    draft["due_date"] = _editor_date_value(draft, "due_date")
+    _sync_draft_runtime(draft)
 
     st.markdown(f"**Linked items:** {draft_linked_count(draft)}")
-    st.markdown("**Draft Actions**")
-    render_task_rows(draft.get("draft_actions", []), "Draft Actions", date_field="due_date", date_label="Due")
+    draft_grouped_items = _grouped_linked_items(
+        draft.get("draft_actions", []),
+        draft.get("draft_delegations", []),
+    )
+    st.markdown("**Linked Items**")
+    _render_linked_items(draft_grouped_items)
+
+    st.markdown("**Add linked items**")
     with st.expander("Add Draft Action"):
         add_draft_action(draft)
-    st.markdown("**Draft Delegations**")
-    render_task_rows(draft.get("draft_delegations", []), "Draft Delegations", date_field="follow_up_date", date_label="Follow-Up")
     with st.expander("Add Draft Delegation"):
         add_draft_delegation(draft)
+
+    action_cols = st.columns(2)
+    save = action_cols[0].button("Save", use_container_width=True)
+    back = action_cols[1].button("Back", use_container_width=True)
 
     if back:
         _clear_draft_runtime()
