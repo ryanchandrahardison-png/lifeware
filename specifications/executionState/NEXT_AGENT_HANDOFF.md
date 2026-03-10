@@ -32,6 +32,7 @@ PHASE 1 — Projects MVP Foundation
 - core/item_detail_form.py
 - pages/projectItem.py
 - specifications/executionState/NEXT_AGENT_HANDOFF.md (previous)
+- pages/projectItem.py
 
 --------------------------------------------------
 
