@@ -114,6 +114,28 @@ The Project Detail screen must display:
 
 Next Actions must appear above Backlog Tasks.
 
+## Project Detail Linked Items Layout (Selected Scope)
+For Project Detail in `pages/projectItem.py`:
+- The linked-item table and Add Task / Add Delegation controls appear above Save/Delete/Back controls.
+- The linked-item table includes all linked actions and delegations.
+- Required table columns:
+  - Task Name
+  - Type
+  - Date
+- Date source:
+  - Action rows use due date
+  - Delegation rows use follow-up date
+- Group rows as:
+  - Completed
+  - Past Due
+  - Upcoming
+  - Floating
+- Within non-completed date-based groups, sort by date ascending.
+- Row click opens linked item detail view by entity type.
+- Add Task and Add Delegation entry must use modal UI.
+- On narrow screens, switch from table to stacked row presentation.
+- Save/Delete/Back controls should match Actions/Delegations detail button treatment.
+
 ## Business Rule Placement
 Project validation and mutation rules are business logic and must not live primarily inside `pages/projectItem.py`.
 

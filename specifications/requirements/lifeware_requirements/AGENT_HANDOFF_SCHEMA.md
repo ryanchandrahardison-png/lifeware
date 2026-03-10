@@ -18,7 +18,7 @@ If multiple handoff files exist, agents should read the most role-relevant file 
 # NEXT AGENT HANDOFF
 
 ## Agent Role
-Architect | Developer | Auditor | QA
+Architect | Architect 2 | Developer | Auditor | QA | Deployment
 
 ## Timestamp
 [ISO timestamp if available]
@@ -64,6 +64,20 @@ List areas the next agent should pay attention to.
 
 --------------------------------------------------
 
+## Escalation Needed
+Yes | No
+
+If Yes, include:
+- escalation target role (Architect or Architect 2)
+- escalation reason
+- severity: blocking or non-blocking
+- exact decision needed
+
+Note:
+- non-blocking escalation notes may continue to the next pipeline role (for example Auditor → QA) while preserving the request for Architect triage.
+
+--------------------------------------------------
+
 ## Validation Performed
 List the checks that were performed.
 
@@ -75,7 +89,7 @@ Explain the expected system behavior.
 --------------------------------------------------
 
 ## Recommended Next Agent Role
-Architect | Developer | Auditor | QA
+Architect | Architect 2 | Developer | Auditor | QA | Deployment
 
 --------------------------------------------------
 

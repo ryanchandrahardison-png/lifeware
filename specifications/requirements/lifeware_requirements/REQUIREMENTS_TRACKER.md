@@ -57,7 +57,10 @@ Projects serve as organizational and planning containers, not the primary interf
 - `AGENT_HANDOFF_SCHEMA.md` defines the required handoff file structure.
 - Any agent performing meaningful analysis, implementation, audit, or QA must create `NEXT_AGENT_HANDOFF.md` when that information would materially help the next agent avoid drift, rework, or misdiagnosis.
 - The required pipeline is Architect → Developer → Auditor → QA → Deployment.
+- Product Owner backlog check must occur once per Architect pass, and may be satisfied from explicit user guidance already present in the current prompt/handoff context (no forced extra Architect round when user already answered).
 - Architect 2 is an escalation review role for difficult or high-risk changes.
+- Auditor should pass architect-level informational findings forward to QA in handoff notes; these findings do not automatically block Auditor → QA progression.
+- QA classifies architect-level findings as blocking vs non-blocking and decides whether to continue to Deployment or route to Architect/Architect 2 for decisioning.
 - Developer builds must pass the Pre-Deployment Verification Gate before packaging.
 - Every modified Streamlit page must be audited for widget lifecycle safety.
 - Defects should be classified before repair to reduce misdiagnosis loops.
@@ -93,6 +96,7 @@ Agents must not expand Option A into Option B during the current pass unless exp
 
 ## Task Source Rule
 - `NEXT_AGENT_HANDOFF.md` is the primary task source for the next agent in the workflow.
+- The current acting role should be derived from `NEXT_AGENT_HANDOFF.md` when present; boot prompts do not need to restate the role.
 - Prompts should normally specify only the role and boot behavior.
 - The handoff should specify the recommended next role and recommended next step.
 - Direct prompt tasks should be used only when starting a new chain or intentionally overriding the normal workflow.
@@ -107,7 +111,7 @@ Agents must not expand Option A into Option B during the current pass unless exp
 - Option A for `pages/projectItem.py` has completed Architect → Developer → Auditor → QA in the current build stream.
 - Option B remains backlog only and must not start without an explicit new Architect decision freeze.
 - Newly approved backlog item: Routines / Cadenced Checklists.
-- No additional implementation work is authorized until the Architect selects the next bounded task.
+- Active selected bounded task: Project Detail linked-items table/layout/modal update in `pages/projectItem.py` per Product Owner clarifications.
 
 
 ## Developer Artifact Rule
@@ -140,3 +144,5 @@ Full-file replacement is allowed only when explicitly required by the handoff or
 - Routine execution uses task-level responses of Yes, No, or Postpone, with postponed items accepting a target time.
 - Routine reset behavior is defined as midnight reset based on cadence.
 - Routine implementation requires a future bounded architecture pass and is not authorized during Phase 1 Projects MVP work.
+
+- Project Detail Backlog Table Layout has been selected into active scoped planning for the next Developer pass via Architect DECISION FREEZE.

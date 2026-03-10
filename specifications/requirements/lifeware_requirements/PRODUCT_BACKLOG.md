@@ -161,3 +161,46 @@ Deferred Future Phase: Routines / Personal Operating Cadence
 
 ### Status
 Approved backlog item
+
+
+## Backlog Item: Project Detail Backlog Table Layout
+### Description
+In Project Detail (`pages/projectItem.py` only), place the linked-item review section and Add Task / Add Delegation controls above Save, Delete, and Back.
+
+Render linked items as a table with columns:
+- Task Name
+- Type
+- Date
+
+Date mapping by linked-item type:
+- Action → due date
+- Delegation → follow-up date
+
+### Product Owner Clarifications (Accepted)
+- Applies only to `pages/projectItem.py`.
+- Use the order:
+  1. Project fields
+  2. Linked Items table
+  3. Add Task / Add Delegation controls
+  4. Save / Delete / Back controls
+- Include all linked items in the table.
+- Group rows by: Completed, Past Due, Upcoming, Floating.
+- Sort by date ascending within each non-completed date group.
+- Clicking a linked item row opens its detail view.
+- Add Task and Add Delegation use modal entry.
+- Save/Delete/Back controls should visually match Actions/Delegations detail-page button treatment.
+- On narrow/mobile widths, switch the table presentation to stacked rows.
+
+### Purpose
+Improve project-review ergonomics by keeping linked-item context and add controls adjacent, and by standardizing linked-item scanability.
+
+### Scope Notes
+- This is a presentation/layout backlog item and interaction refinement.
+- This does not change canonical data storage or mutation rules.
+- Existing completion gating, delete prompt behavior, and date editability rules remain unchanged.
+
+### QA Acceptance Intent
+QA should verify each Product Owner clarification item above is implemented.
+
+### Phase
+Selected for immediate Phase 1 Architect DECISION FREEZE implementation planning

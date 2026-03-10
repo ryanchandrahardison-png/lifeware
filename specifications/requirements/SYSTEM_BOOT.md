@@ -107,7 +107,8 @@ Completion state rule:
 
 Agents should treat `NEXT_AGENT_HANDOFF.md` as the primary task source for the next agent in the workflow.
 
-Prompts normally only define the ROLE and boot behavior.
+Prompts normally only boot the agent; the current role and next task should come from `NEXT_AGENT_HANDOFF.md`.
+If a boot prompt includes ROLE text, treat it as a convenience echo of the handoff, not a separate requirement.
 The handoff file should define the recommended next role and next step.
 
 Only include a task directly in the prompt when:
@@ -125,11 +126,22 @@ Prompts should normally only boot the agent.
 Only the Architect should normally ask open-ended workflow or design questions.
 Developer, Auditor, and QA should continue using the requirements and handoff unless a true architectural conflict or frozen-area violation requires escalation.
 
+Escalation routing rule:
+- If Auditor identifies architect-level findings (requirements conflict, architecture drift, frozen-area risk, or phase-boundary ambiguity), Auditor should record them in `NEXT_AGENT_HANDOFF.md` and still route the current build to QA unless the finding is explicitly release-blocking.
+- QA must review any carried architect-level findings and determine release readiness. QA may route next to Deployment or to Architect/Architect 2 based on severity and unresolved risk.
+- Architect-level findings that are informational or backlog-candidate items must flow forward in handoff notes for Architect triage; they do not automatically block Auditor → QA progression.
+
 If an agent changes requirements, workflow, handoff schema, or boot behavior, the agent must return a regenerated requirements ZIP.
 
 
 ## Product Owner Checkpoint Rule
-Before the Architect selects the next work item, the Architect must ask the user whether there are any new backlog items or requirement changes to consider. This check should occur once per Architect pass.
+Before the Architect selects the next work item, the Architect must complete a Product Owner backlog check once per Architect pass.
+
+The check may be satisfied in the current pass by either:
+- asking the user directly in this pass, or
+- using explicit user-provided backlog/requirements guidance already present in the current prompt or handoff context.
+
+This rule is intended to avoid unnecessary Architect-only rounds; when the prompt already includes the user backlog answer (including "no changes"), the Architect should proceed in the same pass.
 
 If the user provides new backlog items or requirement changes, the Architect must classify each item as one of:
 - immediate scope
