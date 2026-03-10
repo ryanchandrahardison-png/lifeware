@@ -1,18 +1,18 @@
 # NEXT AGENT HANDOFF
 
 ## Agent Role
-QA
+Developer
 
 ## Timestamp
-2026-03-10T19:49:59Z
+2026-03-10T20:24:00Z
 
 ## Build / Package Reviewed
-working tree at commit `eb2b308`
+working tree at commit `892d01d`
 
 --------------------------------------------------
 
 ## Summary
-Executed a deployment verification refresh pass. No application code changes were required; validation focused on syntax/import integrity and test discovery status.
+Implemented follow-up Project Detail UX corrections: replaced pipe-delimited pseudo-header with actual table headers, switched linked-item row interaction to list-like row selection, added linked-item detail modal, and added project-return navigation context so opening full Action/Delegation details from Project returns back to Project.
 
 --------------------------------------------------
 
@@ -22,34 +22,42 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Canonical persisted state location remains `st.session_state.data`.
-- Frozen areas (Calendar behavior, Event detail structure, UUID collection conventions, completion/deletion guardrails) were not modified.
-- No controlled requirements documents were changed in this pass.
+- Canonical persisted state remains only in `st.session_state.data`.
+- Frozen areas preserved (Calendar behavior, Event detail structure, UUID collection identity, completion/delete gating, direct date editing).
+- Scope remained UI behavior/navigation in project-linked item presentation and back-routing.
 
 --------------------------------------------------
 
 ## Files Reviewed
-- specifications/requirements/SYSTEM_BOOT.md
-- specifications/requirements/lifeware_requirements/AI_WORKFLOW_PROMPTS.md
-- specifications/requirements/lifeware_requirements/AGENT_HANDOFF_SCHEMA.md
+- pages/projectItem.py
+- pages/actionItem.py
+- pages/delegationItem.py
+- pages/actions.py
+- pages/delegations.py
 - specifications/executionState/NEXT_AGENT_HANDOFF.md (previous)
 
 --------------------------------------------------
 
 ## Files Modified
+- pages/projectItem.py
+- pages/actionItem.py
+- pages/delegationItem.py
+- pages/actions.py
+- pages/delegations.py
 - specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-1. Kept scope constrained to deployment readiness checks because no new implementation task was authorized by handoff.
-2. Recorded test-suite discovery status (`pytest` reports no tests collected) as a watch item rather than a release blocker.
+1. Replaced linked-item custom pseudo-table rows with `st.dataframe` row selection to match Actions/Delegations list feel and provide real column headers.
+2. Added `Linked Item Details` modal in Project Detail so selecting a linked row opens details in-place before optional full-page navigation.
+3. Added `return_to_project_on_back` routing context for action/delegation detail pages when launched from Project and reset that context when entering detail from global lists.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Runtime UI behaviors (Streamlit rerun timing/dialog interactions) still need environment-level smoke validation after deployment.
-- Automated regression coverage is currently minimal (`pytest` discovered no tests).
+- Streamlit dataframe selection state can persist during reruns; Auditor/QA should verify repeated row selections behave consistently.
+- Full-page navigation from modal relies on session-state routing flags and should be tested through both Action and Delegation paths.
 
 --------------------------------------------------
 
@@ -59,34 +67,38 @@ No
 --------------------------------------------------
 
 ## Validation Performed
-- `python -m compileall app.py core pages`
-- `pytest -q` (no tests discovered)
+- `python -m compileall pages/projectItem.py pages/actionItem.py pages/delegationItem.py pages/actions.py pages/delegations.py`
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- Application modules in `app.py`, `core/`, and `pages/` compile and import cleanly.
-- Existing Phase 1 behavior should remain unchanged from previous QA-approved state.
+- Linked Items shows actual table headers (Task Name / Type / Date) with list-style row selection.
+- Selecting a linked row opens a details modal (including details text) instead of immediate page-switch.
+- From modal, opening full Action/Delegation detail routes back to Project when Back is pressed.
+- Opening Action/Delegation from global lists still routes Back to their respective list pages.
 
 --------------------------------------------------
 
 ## Recommended Next Agent Role
-Architect
+Auditor
 
 --------------------------------------------------
 
 ## Recommended Next Action
-Route to Architect for pipeline control and next-task selection because a Deployment agent is not configured; Architect should issue the next DECISION FREEZE and assignment.
+Audit linked-item table/modal/back-navigation behavior in `pages/projectItem.py`, `pages/actionItem.py`, and `pages/delegationItem.py` against user-reported issues and frozen-area constraints.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-No code changes in this pass.
+- In Project Detail, verify linked-item table headers render as real columns.
+- Select a linked action/delegation row and confirm detail modal opens with details content.
+- Click “Open Full Details” from modal, then press Back in Action/Delegation detail and confirm return to Project.
+- Open Action/Delegation from global lists and confirm Back still returns to lists.
 
 --------------------------------------------------
 
 ## Additional Notes
-Static readiness is acceptable; routing is intentionally returned to Architect per configured workflow constraints (no Deployment agent configured).
+No controlled requirement files were modified.
 
 --------------------------------------------------
 
