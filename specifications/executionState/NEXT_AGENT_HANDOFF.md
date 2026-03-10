@@ -4,15 +4,15 @@
 Developer
 
 ## Timestamp
-2026-03-10T20:10:00Z
+2026-03-10T20:42:00Z
 
 ## Build / Package Reviewed
-working tree at commit `dd23cc3`
+working tree at commit `d14964f`
 
 --------------------------------------------------
 
 ## Summary
-Implemented the missing `pages/projectItem.py` layout/order change so Project Detail draft view now follows the same visual sequencing as the selected backlog requirement (project fields → linked-items section → add controls → save/back controls).
+Applied follow-up fixes to make the Project linked-item updates visibly effective and navigation-safe: preserved row-select linked-item preview behavior while tightening project-return routing and adding clearer project-view interaction affordance.
 
 --------------------------------------------------
 
@@ -22,38 +22,37 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Canonical persisted state remains only in `st.session_state.data`.
-- Frozen areas remain preserved (Calendar behavior, Event detail structure, UUID collection behavior, completion/delete guardrails, directly editable dates).
-- Change was kept to `pages/projectItem.py` presentation flow only.
+- Canonical state remains in `st.session_state.data`.
+- No calendar/event architecture changes.
+- UUID-backed entity behavior and project completion/delete rules were not changed.
 
 --------------------------------------------------
 
 ## Files Reviewed
-- specifications/requirements/SYSTEM_BOOT.md
-- specifications/requirements/lifeware_requirements/AI_WORKFLOW_PROMPTS.md
-- specifications/requirements/lifeware_requirements/PRODUCT_BACKLOG.md
-- specifications/requirements/lifeware_requirements/REQUIREMENTS_TRACKER.md
+- core/item_detail_form.py
+- pages/projectItem.py
 - specifications/executionState/NEXT_AGENT_HANDOFF.md (previous)
 - pages/projectItem.py
 
 --------------------------------------------------
 
 ## Files Modified
+- core/item_detail_form.py
 - pages/projectItem.py
 - specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-1. Addressed the user-reported no-op by applying an actual UI order change in Project Detail draft mode.
-2. Reused existing linked-item grouping/table renderer to make linked-item presentation consistent in draft and edit flows.
-3. Removed now-unused `render_task_rows` helper after switching draft linked-item display to the grouped table section.
+1. Restored explicit project return context in shared detail-form flow so Back/Save/Delete from Action/Delegation detail can safely return to the originating project page when launched from Project.
+2. Added explicit in-view linked-items row-selection instruction in Project Detail so users can discover modal behavior immediately.
+3. Kept implementation surgical to preserve prior feature intent while addressing user report that project-view changes were not apparent.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- This pass changes draft-mode layout flow; Auditor/QA should verify save/back logic still works after adding draft linked items.
-- Streamlit multipage route/session behavior can vary by launch path; smoke test should run from `app.py` entrypoint.
+- Back navigation now conditionally restores `project_view_id`; QA should verify this for both actions and delegations launched from Project.
+- Ensure global Action/Delegation list navigation still returns to list pages (non-project context).
 
 --------------------------------------------------
 
@@ -63,14 +62,13 @@ No
 --------------------------------------------------
 
 ## Validation Performed
-- `python -m compileall pages/projectItem.py`
-- Manual browser check via Streamlit run + Playwright screenshot capture.
+- `python -m compileall core/item_detail_form.py pages/projectItem.py pages/actionItem.py pages/delegationItem.py pages/actions.py pages/delegations.py`
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- In draft Project Detail, users now see project fields first, then linked items, then add controls, then save/back controls.
-- Existing saved-project detail flow remains intact.
+- In Project Detail, linked-items area clearly instructs row selection and opens linked-item modal from row selection.
+- When user opens full Action/Delegation detail from Project context, Back returns to the same Project view.
 
 --------------------------------------------------
 
@@ -80,20 +78,19 @@ Auditor
 --------------------------------------------------
 
 ## Recommended Next Action
-Audit `pages/projectItem.py` for requirement alignment with Project Detail Backlog Table Layout and verify no frozen-area regressions.
+Audit project-linked detail routing (`core/item_detail_form.py` + `pages/projectItem.py`) and verify user-reported issues are resolved without regressions.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-- Create a new project draft and confirm control order is fields → linked items → add controls → save/back.
-- Add one draft action and one draft delegation and verify both appear in the grouped linked-items section.
-- Save draft project and ensure post-save navigation and messages still behave correctly.
+- From Project linked-item modal -> Open Full Details -> Back: confirm return to Project.
+- From global Actions/Delegations list -> open detail -> Back: confirm return to list page.
+- Confirm linked-item row-selection guidance is visible in Project Detail.
 
 --------------------------------------------------
 
 ## Additional Notes
-Screenshot artifact captured for this UI change:
-`browser:/tmp/codex_browser_invocations/ef1d4140e19468ce/artifacts/artifacts/projectitem-order-update.png`
+No controlled requirement files were modified.
 
 --------------------------------------------------
 

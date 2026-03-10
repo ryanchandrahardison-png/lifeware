@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import date
 
+import pandas as pd
 import streamlit as st
 
 from core.entities import (
@@ -102,6 +103,12 @@ def _linked_item_date_text(item: dict) -> str:
 
 
 def _open_linked_item(item: dict) -> None:
+    _flags_store()["project_linked_item_modal"] = deepcopy(item)
+
+
+def _open_linked_item_full_page(item: dict) -> None:
+    st.session_state.return_to_project_on_back = True
+    st.session_state.return_project_view_id = st.session_state.get("project_view_id")
     if item.get("kind") == "delegation":
         st.session_state.delegation_view_id = item.get("id")
         st.switch_page("pages/delegationItem.py")
@@ -110,22 +117,40 @@ def _open_linked_item(item: dict) -> None:
         st.switch_page("pages/actionItem.py")
 
 
+@st.dialog("Linked Item Details")
+def _linked_item_detail_dialog() -> None:
+    item = _flags_store().get("project_linked_item_modal")
+    if not isinstance(item, dict):
+        st.info("No linked item selected.")
+        return
+
+    st.markdown(f"**Task Name:** {item.get('title', 'Untitled')}")
+    st.markdown(f"**Type:** {_linked_item_type(item)}")
+    st.markdown(f"**Date:** {_linked_item_date_text(item)}")
+    details_text = str(item.get("details", "") or "").strip() or "(No details)"
+    st.markdown("**Details**")
+    st.write(details_text)
+
+    controls = st.columns(2)
+    can_open_full_page = bool(item.get("id"))
+    if controls[0].button("Open Full Details", disabled=not can_open_full_page, use_container_width=True):
+        _flags_store().pop("project_linked_item_modal", None)
+        _open_linked_item_full_page(item)
+    if controls[1].button("Close", use_container_width=True):
+        _flags_store().pop("project_linked_item_modal", None)
+        st.rerun()
+
+
 def _render_linked_items(grouped_items: dict[str, list[dict]]) -> None:
     st.markdown(
         """
         <style>
-        .linked-table-header { font-weight: 600; margin-top: .5rem; }
-        .linked-mobile-card { border: 1px solid rgba(250,250,250,.15); border-radius: .5rem; padding: .6rem; margin-bottom: .5rem; }
-        @media (max-width: 860px) {
-            .linked-desktop-only { display: none; }
-        }
-        @media (min-width: 861px) {
-            .linked-mobile-only { display: none; }
-        }
+        .linked-section-note { margin-bottom: .4rem; opacity: .8; }
         </style>
         """,
         unsafe_allow_html=True,
     )
+    st.markdown('<div class="linked-section-note">Select a row to preview linked-item details.</div>', unsafe_allow_html=True)
 
     for group in ["Completed", "Past Due", "Upcoming", "Floating"]:
         items = grouped_items.get(group, [])
@@ -134,26 +159,28 @@ def _render_linked_items(grouped_items: dict[str, list[dict]]) -> None:
             st.caption("No linked items.")
             continue
 
-        st.markdown('<div class="linked-desktop-only linked-table-header">Task Name | Type | Date</div>', unsafe_allow_html=True)
-        for item in items:
-            row_cols = st.columns([4, 1.4, 1.2], vertical_alignment="center")
-            if row_cols[0].button(item.get("title", "Untitled"), key=f"row-open::{group}::{item.get('kind')}::{item.get('id')}", use_container_width=True):
-                _open_linked_item(item)
-            row_cols[1].markdown(_linked_item_type(item))
-            row_cols[2].markdown(_linked_item_date_text(item))
+        rows = [
+            {
+                "Task Name": item.get("title", "Untitled"),
+                "Type": _linked_item_type(item),
+                "Date": _linked_item_date_text(item),
+            }
+            for item in items
+        ]
+        selection = st.dataframe(
+            pd.DataFrame(rows),
+            use_container_width=True,
+            hide_index=True,
+            on_select="rerun",
+            selection_mode="single-row",
+            key=f"project_linked_items_{group}",
+        )
+        selected_rows = selection.selection.get("rows", []) if selection else []
+        if selected_rows:
+            _open_linked_item(items[selected_rows[0]])
 
-            st.markdown(
-                f"""
-                <div class="linked-mobile-only linked-mobile-card">
-                  <div><strong>Task Name:</strong> {item.get('title', 'Untitled')}</div>
-                  <div><strong>Type:</strong> {_linked_item_type(item)}</div>
-                  <div><strong>Date:</strong> {_linked_item_date_text(item)}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            if st.button("Open", key=f"row-open-mobile::{group}::{item.get('kind')}::{item.get('id')}"):
-                _open_linked_item(item)
+    if _flags_store().get("project_linked_item_modal"):
+        _linked_item_detail_dialog()
 
 
 def _ui_store() -> dict:

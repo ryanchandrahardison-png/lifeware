@@ -22,6 +22,7 @@ st.title("✅ Actions")
 st.caption("Select a row to view or edit action details.")
 
 if st.button("New Action"):
+    st.session_state.return_to_project_on_back = False
     st.session_state.action_view_id = None
     st.switch_page("pages/actionItem.py")
 
@@ -56,6 +57,7 @@ def render_action_table(rows, row_ids, key_suffix):
     )
     selected_rows = selection.selection.get("rows", []) if selection else []
     if selected_rows:
+        st.session_state.return_to_project_on_back = False
         st.session_state.action_view_id = row_ids[selected_rows[0]]
         st.switch_page("pages/actionItem.py")
 
