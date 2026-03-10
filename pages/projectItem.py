@@ -119,25 +119,93 @@ def _open_linked_item_full_page(item: dict) -> None:
 
 @st.dialog("Linked Item Details")
 def _linked_item_detail_dialog() -> None:
-    item = _flags_store().get("project_linked_item_modal")
-    if not isinstance(item, dict):
+    modal_item = _flags_store().get("project_linked_item_modal")
+    if not isinstance(modal_item, dict):
         st.info("No linked item selected.")
         return
 
-    st.markdown(f"**Task Name:** {item.get('title', 'Untitled')}")
-    st.markdown(f"**Type:** {_linked_item_type(item)}")
-    st.markdown(f"**Date:** {_linked_item_date_text(item)}")
-    details_text = str(item.get("details", "") or "").strip() or "(No details)"
-    st.markdown("**Details**")
-    st.write(details_text)
+    kind = "delegation" if modal_item.get("kind") == "delegation" else "action"
+    item_id = modal_item.get("id")
+    collection_key = "delegations" if kind == "delegation" else "actions"
+    date_field = "follow_up_date" if kind == "delegation" else "due_date"
+    date_label = "Follow Up Date" if kind == "delegation" else "Due Date"
+    status_options = ["Waiting", "Completed"] if kind == "delegation" else ["Open", "Completed"]
 
-    controls = st.columns(2)
-    can_open_full_page = bool(item.get("id"))
-    if controls[0].button("Open Full Details", disabled=not can_open_full_page, use_container_width=True):
+    record = None
+    if item_id:
+        record = deepcopy(st.session_state.data.get(collection_key, {}).get(item_id))
+
+    if record is None:
+        st.markdown(f"**Task Name:** {modal_item.get('title', 'Untitled')}")
+        st.markdown(f"**Type:** {_linked_item_type(modal_item)}")
+        st.markdown(f"**Date:** {_linked_item_date_text(modal_item)}")
+        details_text = str(modal_item.get("details", "") or "").strip() or "(No details)"
+        st.markdown("**Details**")
+        st.write(details_text)
+        st.caption("This linked item is not yet persisted; edit it from the draft controls.")
+        if st.button("Close", use_container_width=True):
+            _flags_store().pop("project_linked_item_modal", None)
+            st.rerun()
+        return
+
+    title_value = str(record.get("title", "") or "")
+    details_value = str(record.get("details", "") or "")
+    date_value = parse_date_only(record.get(date_field))
+    status_value = record.get("status", status_options[0])
+    status_index = status_options.index(status_value) if status_value in status_options else 0
+
+    with st.form(f"project_linked_modal_form::{kind}::{item_id}"):
+        title = st.text_input("Title", value=title_value)
+        selected_date = st.date_input(date_label, value=date_value if date_value is not None else date.today())
+        details = st.text_area("Details", value=details_value, height=180)
+        status = st.selectbox("Status", status_options, index=status_index)
+
+        controls = st.columns(3)
+        save = controls[0].form_submit_button("Save Changes")
+        delete = controls[1].form_submit_button("Delete")
+        back = controls[2].form_submit_button("Back")
+
+    if back:
         _flags_store().pop("project_linked_item_modal", None)
-        _open_linked_item_full_page(item)
-    if controls[1].button("Close", use_container_width=True):
+        st.rerun()
+        return
+
+    if delete:
+        if item_id in st.session_state.data.get(collection_key, {}):
+            del st.session_state.data[collection_key][item_id]
+        project_id = st.session_state.get("project_view_id")
+        if project_id and project_id in st.session_state.data.get("projects", {}):
+            project = st.session_state.data["projects"][project_id]
+            if kind == "delegation":
+                project["delegation_ids"] = [d for d in project.get("delegation_ids", []) if d != item_id]
+            else:
+                project["action_ids"] = [a for a in project.get("action_ids", []) if a != item_id]
         _flags_store().pop("project_linked_item_modal", None)
+        _queue_notice("Linked item deleted.")
+        st.rerun()
+        return
+
+    if save:
+        clean_title = title.strip()
+        if not clean_title:
+            st.error("Title is required.")
+            return
+
+        updated = deepcopy(record)
+        updated["title"] = clean_title
+        updated[date_field] = selected_date.isoformat() if selected_date else None
+        updated["details"] = details.strip()
+        updated["status"] = status
+        if kind == "delegation":
+            updated.setdefault("project_id", st.session_state.get("project_view_id"))
+            updated.setdefault("is_active_global", True)
+        else:
+            updated.setdefault("project_id", st.session_state.get("project_view_id"))
+            updated.setdefault("is_active_global", True)
+
+        st.session_state.data[collection_key][item_id] = updated
+        _flags_store()["project_linked_item_modal"] = {**updated, "kind": kind}
+        _queue_notice("Linked item updated.")
         st.rerun()
 
 
