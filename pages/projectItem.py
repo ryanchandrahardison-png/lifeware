@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import date
 
+import pandas as pd
 import streamlit as st
 
 from core.entities import (
@@ -59,16 +60,6 @@ def draft_linked_count(draft: dict) -> int:
     return len(draft.get("draft_actions", [])) + len(draft.get("draft_delegations", []))
 
 
-def render_task_rows(items: list[dict], kind: str, *, date_field: str | None = None, date_label: str = "Date") -> None:
-    if not items:
-        st.caption(f"No {kind.lower()} in this section.")
-        return
-    for item in items:
-        parts = [f"**{item.get('title', 'Untitled')}**", str(item.get("status", ""))]
-        if date_field and item.get(date_field):
-            parts.append(f"{date_label}: {item.get(date_field)}")
-        st.markdown("- " + " — ".join([part for part in parts if part]))
-
 
 def _linked_item_date(item: dict) -> date | None:
     return parse_date_only(item.get("due_date") or item.get("follow_up_date"))
@@ -112,6 +103,12 @@ def _linked_item_date_text(item: dict) -> str:
 
 
 def _open_linked_item(item: dict) -> None:
+    _flags_store()["project_linked_item_modal"] = deepcopy(item)
+
+
+def _open_linked_item_full_page(item: dict) -> None:
+    st.session_state.return_to_project_on_back = True
+    st.session_state.return_project_view_id = st.session_state.get("project_view_id")
     if item.get("kind") == "delegation":
         st.session_state.delegation_view_id = item.get("id")
         st.switch_page("pages/delegationItem.py")
@@ -120,22 +117,108 @@ def _open_linked_item(item: dict) -> None:
         st.switch_page("pages/actionItem.py")
 
 
+@st.dialog("Linked Item Details")
+def _linked_item_detail_dialog() -> None:
+    modal_item = _flags_store().get("project_linked_item_modal")
+    if not isinstance(modal_item, dict):
+        st.info("No linked item selected.")
+        return
+
+    kind = "delegation" if modal_item.get("kind") == "delegation" else "action"
+    item_id = modal_item.get("id")
+    collection_key = "delegations" if kind == "delegation" else "actions"
+    date_field = "follow_up_date" if kind == "delegation" else "due_date"
+    date_label = "Follow Up Date" if kind == "delegation" else "Due Date"
+    status_options = ["Waiting", "Completed"] if kind == "delegation" else ["Open", "Completed"]
+
+    record = None
+    if item_id:
+        record = deepcopy(st.session_state.data.get(collection_key, {}).get(item_id))
+
+    if record is None:
+        st.markdown(f"**Task Name:** {modal_item.get('title', 'Untitled')}")
+        st.markdown(f"**Type:** {_linked_item_type(modal_item)}")
+        st.markdown(f"**Date:** {_linked_item_date_text(modal_item)}")
+        details_text = str(modal_item.get("details", "") or "").strip() or "(No details)"
+        st.markdown("**Details**")
+        st.write(details_text)
+        st.caption("This linked item is not yet persisted; edit it from the draft controls.")
+        if st.button("Close", use_container_width=True):
+            _flags_store().pop("project_linked_item_modal", None)
+            st.rerun()
+        return
+
+    title_value = str(record.get("title", "") or "")
+    details_value = str(record.get("details", "") or "")
+    date_value = parse_date_only(record.get(date_field))
+    status_value = record.get("status", status_options[0])
+    status_index = status_options.index(status_value) if status_value in status_options else 0
+
+    with st.form(f"project_linked_modal_form::{kind}::{item_id}"):
+        title = st.text_input("Title", value=title_value)
+        selected_date = st.date_input(date_label, value=date_value if date_value is not None else date.today())
+        details = st.text_area("Details", value=details_value, height=180)
+        status = st.selectbox("Status", status_options, index=status_index)
+
+        controls = st.columns(3)
+        save = controls[0].form_submit_button("Save Changes")
+        delete = controls[1].form_submit_button("Delete")
+        back = controls[2].form_submit_button("Back")
+
+    if back:
+        _flags_store().pop("project_linked_item_modal", None)
+        st.rerun()
+        return
+
+    if delete:
+        if item_id in st.session_state.data.get(collection_key, {}):
+            del st.session_state.data[collection_key][item_id]
+        project_id = st.session_state.get("project_view_id")
+        if project_id and project_id in st.session_state.data.get("projects", {}):
+            project = st.session_state.data["projects"][project_id]
+            if kind == "delegation":
+                project["delegation_ids"] = [d for d in project.get("delegation_ids", []) if d != item_id]
+            else:
+                project["action_ids"] = [a for a in project.get("action_ids", []) if a != item_id]
+        _flags_store().pop("project_linked_item_modal", None)
+        _queue_notice("Linked item deleted.")
+        st.rerun()
+        return
+
+    if save:
+        clean_title = title.strip()
+        if not clean_title:
+            st.error("Title is required.")
+            return
+
+        updated = deepcopy(record)
+        updated["title"] = clean_title
+        updated[date_field] = selected_date.isoformat() if selected_date else None
+        updated["details"] = details.strip()
+        updated["status"] = status
+        if kind == "delegation":
+            updated.setdefault("project_id", st.session_state.get("project_view_id"))
+            updated.setdefault("is_active_global", True)
+        else:
+            updated.setdefault("project_id", st.session_state.get("project_view_id"))
+            updated.setdefault("is_active_global", True)
+
+        st.session_state.data[collection_key][item_id] = updated
+        _flags_store()["project_linked_item_modal"] = {**updated, "kind": kind}
+        _queue_notice("Linked item updated.")
+        st.rerun()
+
+
 def _render_linked_items(grouped_items: dict[str, list[dict]]) -> None:
     st.markdown(
         """
         <style>
-        .linked-table-header { font-weight: 600; margin-top: .5rem; }
-        .linked-mobile-card { border: 1px solid rgba(250,250,250,.15); border-radius: .5rem; padding: .6rem; margin-bottom: .5rem; }
-        @media (max-width: 860px) {
-            .linked-desktop-only { display: none; }
-        }
-        @media (min-width: 861px) {
-            .linked-mobile-only { display: none; }
-        }
+        .linked-section-note { margin-bottom: .4rem; opacity: .8; }
         </style>
         """,
         unsafe_allow_html=True,
     )
+    st.markdown('<div class="linked-section-note">Select a row to preview linked-item details.</div>', unsafe_allow_html=True)
 
     for group in ["Completed", "Past Due", "Upcoming", "Floating"]:
         items = grouped_items.get(group, [])
@@ -144,26 +227,28 @@ def _render_linked_items(grouped_items: dict[str, list[dict]]) -> None:
             st.caption("No linked items.")
             continue
 
-        st.markdown('<div class="linked-desktop-only linked-table-header">Task Name | Type | Date</div>', unsafe_allow_html=True)
-        for item in items:
-            row_cols = st.columns([4, 1.4, 1.2], vertical_alignment="center")
-            if row_cols[0].button(item.get("title", "Untitled"), key=f"row-open::{group}::{item.get('kind')}::{item.get('id')}", use_container_width=True):
-                _open_linked_item(item)
-            row_cols[1].markdown(_linked_item_type(item))
-            row_cols[2].markdown(_linked_item_date_text(item))
+        rows = [
+            {
+                "Task Name": item.get("title", "Untitled"),
+                "Type": _linked_item_type(item),
+                "Date": _linked_item_date_text(item),
+            }
+            for item in items
+        ]
+        selection = st.dataframe(
+            pd.DataFrame(rows),
+            use_container_width=True,
+            hide_index=True,
+            on_select="rerun",
+            selection_mode="single-row",
+            key=f"project_linked_items_{group}",
+        )
+        selected_rows = selection.selection.get("rows", []) if selection else []
+        if selected_rows:
+            _open_linked_item(items[selected_rows[0]])
 
-            st.markdown(
-                f"""
-                <div class="linked-mobile-only linked-mobile-card">
-                  <div><strong>Task Name:</strong> {item.get('title', 'Untitled')}</div>
-                  <div><strong>Type:</strong> {_linked_item_type(item)}</div>
-                  <div><strong>Date:</strong> {_linked_item_date_text(item)}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            if st.button("Open", key=f"row-open-mobile::{group}::{item.get('kind')}::{item.get('id')}"):
-                _open_linked_item(item)
+    if _flags_store().get("project_linked_item_modal"):
+        _linked_item_detail_dialog()
 
 
 def _ui_store() -> dict:
@@ -471,26 +556,31 @@ _render_notice()
 
 if not is_edit:
     draft = _draft_project_ui()
-    _render_project_editor(DRAFT_PROJECT_NS, draft, status_options=["Active", "Someday"])
-    draft["due_date"] = _editor_date_value(draft, "due_date")
-    _sync_draft_runtime(draft)
 
     st.title("📁 Project Details")
     st.caption("Create a draft project and save it only when it has at least two linked items.")
 
-    action_cols = st.columns(2)
-    save = action_cols[0].button("Save")
-    back = action_cols[1].button("Back")
+    _render_project_editor(DRAFT_PROJECT_NS, draft, status_options=["Active", "Someday"])
+    draft["due_date"] = _editor_date_value(draft, "due_date")
+    _sync_draft_runtime(draft)
 
     st.markdown(f"**Linked items:** {draft_linked_count(draft)}")
-    st.markdown("**Draft Actions**")
-    render_task_rows(draft.get("draft_actions", []), "Draft Actions", date_field="due_date", date_label="Due")
+    draft_grouped_items = _grouped_linked_items(
+        draft.get("draft_actions", []),
+        draft.get("draft_delegations", []),
+    )
+    st.markdown("**Linked Items**")
+    _render_linked_items(draft_grouped_items)
+
+    st.markdown("**Add linked items**")
     with st.expander("Add Draft Action"):
         add_draft_action(draft)
-    st.markdown("**Draft Delegations**")
-    render_task_rows(draft.get("draft_delegations", []), "Draft Delegations", date_field="follow_up_date", date_label="Follow-Up")
     with st.expander("Add Draft Delegation"):
         add_draft_delegation(draft)
+
+    action_cols = st.columns(2)
+    save = action_cols[0].button("Save", use_container_width=True)
+    back = action_cols[1].button("Back", use_container_width=True)
 
     if back:
         _clear_draft_runtime()

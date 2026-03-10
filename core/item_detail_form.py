@@ -60,6 +60,15 @@ def _sanitize_source_keys(record: dict) -> dict:
     return {k: v for k, v in record.items() if k not in SOURCE_FIELD_NAMES}
 
 
+def _restore_project_return_context_if_needed(back_page: str) -> None:
+    if back_page != "pages/projectItem.py":
+        return
+    if st.session_state.get("return_to_project_on_back"):
+        st.session_state.project_view_id = st.session_state.get("return_project_view_id")
+        st.session_state.return_to_project_on_back = False
+        st.session_state.return_project_view_id = None
+
+
 def render_item_detail_form(
     *,
     data: dict,
@@ -118,6 +127,7 @@ def render_item_detail_form(
 
     if back:
         st.session_state[index_key] = None
+        _restore_project_return_context_if_needed(back_page)
         st.switch_page(back_page)
         return
 
@@ -130,6 +140,7 @@ def render_item_detail_form(
                 project["delegation_ids"] = [delegation_id for delegation_id in project.get("delegation_ids", []) if delegation_id != item_id]
         del items[item_id]
         st.session_state[index_key] = None
+        _restore_project_return_context_if_needed(back_page)
         st.switch_page(back_page)
         return
 
@@ -161,4 +172,5 @@ def render_item_detail_form(
         items[target_id] = updated
 
         st.session_state[index_key] = None
+        _restore_project_return_context_if_needed(back_page)
         st.switch_page(back_page)

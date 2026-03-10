@@ -1,18 +1,18 @@
 # NEXT AGENT HANDOFF
 
 ## Agent Role
-QA
+Developer
 
 ## Timestamp
-2026-03-10T19:49:59Z
+2026-03-10T21:00:00Z
 
 ## Build / Package Reviewed
-working tree at commit `eb2b308`
+working tree at commit `d0f2ce9`
 
 --------------------------------------------------
 
 ## Summary
-Executed a deployment verification refresh pass. No application code changes were required; validation focused on syntax/import integrity and test discovery status.
+Upgraded the Project linked-item modal to use editable Action/Delegation detail-form behavior (title/date/details/status with Save/Delete/Back semantics) so modal editing follows the same rules as detail screens.
 
 --------------------------------------------------
 
@@ -22,34 +22,34 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Canonical persisted state location remains `st.session_state.data`.
-- Frozen areas (Calendar behavior, Event detail structure, UUID collection conventions, completion/deletion guardrails) were not modified.
-- No controlled requirements documents were changed in this pass.
+- Canonical state remains in `st.session_state.data`.
+- No calendar/event architecture changes.
+- Project linked-item completion/deletion expectations remain enforced.
 
 --------------------------------------------------
 
 ## Files Reviewed
-- specifications/requirements/SYSTEM_BOOT.md
-- specifications/requirements/lifeware_requirements/AI_WORKFLOW_PROMPTS.md
-- specifications/requirements/lifeware_requirements/AGENT_HANDOFF_SCHEMA.md
+- pages/projectItem.py
 - specifications/executionState/NEXT_AGENT_HANDOFF.md (previous)
 
 --------------------------------------------------
 
 ## Files Modified
+- pages/projectItem.py
 - specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-1. Kept scope constrained to deployment readiness checks because no new implementation task was authorized by handoff.
-2. Recorded test-suite discovery status (`pytest` reports no tests collected) as a watch item rather than a release blocker.
+1. Replaced read-only modal preview with editable modal form aligned to Action/Delegation detail fields and statuses.
+2. Preserved modal save/delete/back control semantics matching detail behavior.
+3. Kept fallback read-only behavior for non-persisted draft linked items.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Runtime UI behaviors (Streamlit rerun timing/dialog interactions) still need environment-level smoke validation after deployment.
-- Automated regression coverage is currently minimal (`pytest` discovered no tests).
+- Modal date-input defaults use today when stored date is empty, matching existing detail-form behavior.
+- Deleting from modal mutates both canonical collection and project linked-id arrays; QA should verify both action and delegation paths.
 
 --------------------------------------------------
 
@@ -59,34 +59,36 @@ No
 --------------------------------------------------
 
 ## Validation Performed
-- `python -m compileall app.py core pages`
+- `python -m compileall pages/projectItem.py`
 - `pytest -q` (no tests discovered)
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- Application modules in `app.py`, `core/`, and `pages/` compile and import cleanly.
-- Existing Phase 1 behavior should remain unchanged from previous QA-approved state.
+- Selecting a linked action/delegation row in Project detail opens an editable modal with Title, Date, Details, Status, and Save/Delete/Back controls.
+- Save/Delete behavior updates canonical data and project linkage consistently.
 
 --------------------------------------------------
 
 ## Recommended Next Agent Role
-Architect
+Auditor
 
 --------------------------------------------------
 
 ## Recommended Next Action
-Route to Architect for pipeline control and next-task selection because a Deployment agent is not configured; Architect should issue the next DECISION FREEZE and assignment.
+Audit modal edit parity against action/delegation detail rules and verify no regressions in linked-item navigation.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-No code changes in this pass.
+- Open linked action from project modal; edit title/status/date/details; save and verify persistence.
+- Open linked delegation from project modal; edit and save; verify follow-up date mapping.
+- Delete linked item from modal; verify it is removed from both collection and project link arrays.
 
 --------------------------------------------------
 
 ## Additional Notes
-Static readiness is acceptable; routing is intentionally returned to Architect per configured workflow constraints (no Deployment agent configured).
+No controlled requirement files were modified.
 
 --------------------------------------------------
 
