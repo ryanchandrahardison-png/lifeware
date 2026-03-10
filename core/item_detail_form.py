@@ -7,6 +7,7 @@ from typing import Any
 import streamlit as st
 
 from core.entities import new_uuid
+from core.project_service import validate_project_save
 
 DEFAULT_STATUS_OPTIONS = ["Open", "Completed"]
 DELEGATION_STATUS_OPTIONS = ["Waiting", "Completed"]
@@ -67,6 +68,51 @@ def _restore_project_return_context_if_needed(back_page: str) -> None:
         st.session_state.project_view_id = st.session_state.get("return_project_view_id")
         st.session_state.return_to_project_on_back = False
         st.session_state.return_project_view_id = None
+
+
+def _project_delete_guard_errors(*, data: dict, list_key: str, item_id: str) -> list[str]:
+    guarded_projects: list[tuple[str, dict, list[str], list[str]]] = []
+    if list_key == "actions":
+        for project_id, project in data.setdefault("projects", {}).items():
+            action_ids = list(project.get("action_ids", []))
+            if item_id not in action_ids:
+                continue
+            guarded_projects.append(
+                (
+                    project_id,
+                    project,
+                    [action_id for action_id in action_ids if action_id != item_id],
+                    list(project.get("delegation_ids", [])),
+                )
+            )
+    elif list_key == "delegations":
+        for project_id, project in data.setdefault("projects", {}).items():
+            delegation_ids = list(project.get("delegation_ids", []))
+            if item_id not in delegation_ids:
+                continue
+            guarded_projects.append(
+                (
+                    project_id,
+                    project,
+                    list(project.get("action_ids", [])),
+                    [delegation_id for delegation_id in delegation_ids if delegation_id != item_id],
+                )
+            )
+
+    errors: list[str] = []
+    for project_id, project, action_ids, delegation_ids in guarded_projects:
+        validation = validate_project_save(
+            title=str(project.get("title", "") or ""),
+            action_ids=action_ids,
+            delegation_ids=delegation_ids,
+        )
+        if validation.ok:
+            continue
+        project_title = str(project.get("title", "") or "Untitled Project")
+        errors.append(
+            f"Cannot delete this item because it would violate project save rules for '{project_title}' ({project_id})."
+        )
+    return errors
 
 
 def render_item_detail_form(
@@ -132,6 +178,12 @@ def render_item_detail_form(
         return
 
     if delete and is_edit:
+        delete_guard_errors = _project_delete_guard_errors(data=data, list_key=list_key, item_id=item_id)
+        if delete_guard_errors:
+            for error in delete_guard_errors:
+                st.error(error)
+            return
+
         if list_key == "actions":
             for project in data.setdefault("projects", {}).values():
                 project["action_ids"] = [action_id for action_id in project.get("action_ids", []) if action_id != item_id]
