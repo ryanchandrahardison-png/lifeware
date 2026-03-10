@@ -4,15 +4,15 @@
 Developer
 
 ## Timestamp
-2026-03-10T20:24:00Z
+2026-03-10T20:42:00Z
 
 ## Build / Package Reviewed
-working tree at commit `892d01d`
+working tree at commit `d14964f`
 
 --------------------------------------------------
 
 ## Summary
-Implemented follow-up Project Detail UX corrections: replaced pipe-delimited pseudo-header with actual table headers, switched linked-item row interaction to list-like row selection, added linked-item detail modal, and added project-return navigation context so opening full Action/Delegation details from Project returns back to Project.
+Applied follow-up fixes to make the Project linked-item updates visibly effective and navigation-safe: preserved row-select linked-item preview behavior while tightening project-return routing and adding clearer project-view interaction affordance.
 
 --------------------------------------------------
 
@@ -22,42 +22,36 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Canonical persisted state remains only in `st.session_state.data`.
-- Frozen areas preserved (Calendar behavior, Event detail structure, UUID collection identity, completion/delete gating, direct date editing).
-- Scope remained UI behavior/navigation in project-linked item presentation and back-routing.
+- Canonical state remains in `st.session_state.data`.
+- No calendar/event architecture changes.
+- UUID-backed entity behavior and project completion/delete rules were not changed.
 
 --------------------------------------------------
 
 ## Files Reviewed
+- core/item_detail_form.py
 - pages/projectItem.py
-- pages/actionItem.py
-- pages/delegationItem.py
-- pages/actions.py
-- pages/delegations.py
 - specifications/executionState/NEXT_AGENT_HANDOFF.md (previous)
 
 --------------------------------------------------
 
 ## Files Modified
+- core/item_detail_form.py
 - pages/projectItem.py
-- pages/actionItem.py
-- pages/delegationItem.py
-- pages/actions.py
-- pages/delegations.py
 - specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-1. Replaced linked-item custom pseudo-table rows with `st.dataframe` row selection to match Actions/Delegations list feel and provide real column headers.
-2. Added `Linked Item Details` modal in Project Detail so selecting a linked row opens details in-place before optional full-page navigation.
-3. Added `return_to_project_on_back` routing context for action/delegation detail pages when launched from Project and reset that context when entering detail from global lists.
+1. Restored explicit project return context in shared detail-form flow so Back/Save/Delete from Action/Delegation detail can safely return to the originating project page when launched from Project.
+2. Added explicit in-view linked-items row-selection instruction in Project Detail so users can discover modal behavior immediately.
+3. Kept implementation surgical to preserve prior feature intent while addressing user report that project-view changes were not apparent.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Streamlit dataframe selection state can persist during reruns; Auditor/QA should verify repeated row selections behave consistently.
-- Full-page navigation from modal relies on session-state routing flags and should be tested through both Action and Delegation paths.
+- Back navigation now conditionally restores `project_view_id`; QA should verify this for both actions and delegations launched from Project.
+- Ensure global Action/Delegation list navigation still returns to list pages (non-project context).
 
 --------------------------------------------------
 
@@ -67,15 +61,13 @@ No
 --------------------------------------------------
 
 ## Validation Performed
-- `python -m compileall pages/projectItem.py pages/actionItem.py pages/delegationItem.py pages/actions.py pages/delegations.py`
+- `python -m compileall core/item_detail_form.py pages/projectItem.py pages/actionItem.py pages/delegationItem.py pages/actions.py pages/delegations.py`
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- Linked Items shows actual table headers (Task Name / Type / Date) with list-style row selection.
-- Selecting a linked row opens a details modal (including details text) instead of immediate page-switch.
-- From modal, opening full Action/Delegation detail routes back to Project when Back is pressed.
-- Opening Action/Delegation from global lists still routes Back to their respective list pages.
+- In Project Detail, linked-items area clearly instructs row selection and opens linked-item modal from row selection.
+- When user opens full Action/Delegation detail from Project context, Back returns to the same Project view.
 
 --------------------------------------------------
 
@@ -85,15 +77,14 @@ Auditor
 --------------------------------------------------
 
 ## Recommended Next Action
-Audit linked-item table/modal/back-navigation behavior in `pages/projectItem.py`, `pages/actionItem.py`, and `pages/delegationItem.py` against user-reported issues and frozen-area constraints.
+Audit project-linked detail routing (`core/item_detail_form.py` + `pages/projectItem.py`) and verify user-reported issues are resolved without regressions.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-- In Project Detail, verify linked-item table headers render as real columns.
-- Select a linked action/delegation row and confirm detail modal opens with details content.
-- Click “Open Full Details” from modal, then press Back in Action/Delegation detail and confirm return to Project.
-- Open Action/Delegation from global lists and confirm Back still returns to lists.
+- From Project linked-item modal -> Open Full Details -> Back: confirm return to Project.
+- From global Actions/Delegations list -> open detail -> Back: confirm return to list page.
+- Confirm linked-item row-selection guidance is visible in Project Detail.
 
 --------------------------------------------------
 

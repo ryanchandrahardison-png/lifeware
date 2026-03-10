@@ -145,18 +145,12 @@ def _render_linked_items(grouped_items: dict[str, list[dict]]) -> None:
     st.markdown(
         """
         <style>
-        .linked-table-header { font-weight: 600; margin-top: .5rem; }
-        .linked-mobile-card { border: 1px solid rgba(250,250,250,.15); border-radius: .5rem; padding: .6rem; margin-bottom: .5rem; }
-        @media (max-width: 860px) {
-            .linked-desktop-only { display: none; }
-        }
-        @media (min-width: 861px) {
-            .linked-mobile-only { display: none; }
-        }
+        .linked-section-note { margin-bottom: .4rem; opacity: .8; }
         </style>
         """,
         unsafe_allow_html=True,
     )
+    st.markdown('<div class="linked-section-note">Select a row to preview linked-item details.</div>', unsafe_allow_html=True)
 
     for group in ["Completed", "Past Due", "Upcoming", "Floating"]:
         items = grouped_items.get(group, [])
