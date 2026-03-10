@@ -6,8 +6,6 @@ from datetime import date
 import streamlit as st
 
 from core.entities import (
-    action_is_active,
-    delegation_is_active,
     linked_actions_for_project,
     linked_delegations_for_project,
     parse_date_only,
@@ -70,6 +68,102 @@ def render_task_rows(items: list[dict], kind: str, *, date_field: str | None = N
         if date_field and item.get(date_field):
             parts.append(f"{date_label}: {item.get(date_field)}")
         st.markdown("- " + " — ".join([part for part in parts if part]))
+
+
+def _linked_item_date(item: dict) -> date | None:
+    return parse_date_only(item.get("due_date") or item.get("follow_up_date"))
+
+
+def _linked_item_group(item: dict) -> str:
+    status = str(item.get("status", "")).strip().lower()
+    if status == "completed":
+        return "Completed"
+
+    linked_date = _linked_item_date(item)
+    if linked_date is None:
+        return "Floating"
+    if linked_date < date.today():
+        return "Past Due"
+    return "Upcoming"
+
+
+def _linked_item_type(item: dict) -> str:
+    return "Delegation" if item.get("kind") == "delegation" else "Action"
+
+
+def _linked_item_sort_key(item: dict):
+    linked_date = _linked_item_date(item)
+    return (linked_date is None, linked_date or date.max, str(item.get("title", "")).lower())
+
+
+def _grouped_linked_items(linked_actions: list[dict], linked_delegations: list[dict]) -> dict[str, list[dict]]:
+    grouped = {"Completed": [], "Past Due": [], "Upcoming": [], "Floating": []}
+    merged = [{**item, "kind": "action"} for item in linked_actions] + [{**item, "kind": "delegation"} for item in linked_delegations]
+    for item in merged:
+        grouped[_linked_item_group(item)].append(item)
+    for key in ["Past Due", "Upcoming", "Floating"]:
+        grouped[key] = sorted(grouped[key], key=_linked_item_sort_key)
+    return grouped
+
+
+def _linked_item_date_text(item: dict) -> str:
+    linked_date = _linked_item_date(item)
+    return linked_date.isoformat() if linked_date else "—"
+
+
+def _open_linked_item(item: dict) -> None:
+    if item.get("kind") == "delegation":
+        st.session_state.delegation_view_id = item.get("id")
+        st.switch_page("pages/delegationItem.py")
+    else:
+        st.session_state.action_view_id = item.get("id")
+        st.switch_page("pages/actionItem.py")
+
+
+def _render_linked_items(grouped_items: dict[str, list[dict]]) -> None:
+    st.markdown(
+        """
+        <style>
+        .linked-table-header { font-weight: 600; margin-top: .5rem; }
+        .linked-mobile-card { border: 1px solid rgba(250,250,250,.15); border-radius: .5rem; padding: .6rem; margin-bottom: .5rem; }
+        @media (max-width: 860px) {
+            .linked-desktop-only { display: none; }
+        }
+        @media (min-width: 861px) {
+            .linked-mobile-only { display: none; }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    for group in ["Completed", "Past Due", "Upcoming", "Floating"]:
+        items = grouped_items.get(group, [])
+        st.markdown(f"**{group}**")
+        if not items:
+            st.caption("No linked items.")
+            continue
+
+        st.markdown('<div class="linked-desktop-only linked-table-header">Task Name | Type | Date</div>', unsafe_allow_html=True)
+        for item in items:
+            row_cols = st.columns([4, 1.4, 1.2], vertical_alignment="center")
+            if row_cols[0].button(item.get("title", "Untitled"), key=f"row-open::{group}::{item.get('kind')}::{item.get('id')}", use_container_width=True):
+                _open_linked_item(item)
+            row_cols[1].markdown(_linked_item_type(item))
+            row_cols[2].markdown(_linked_item_date_text(item))
+
+            st.markdown(
+                f"""
+                <div class="linked-mobile-only linked-mobile-card">
+                  <div><strong>Task Name:</strong> {item.get('title', 'Untitled')}</div>
+                  <div><strong>Type:</strong> {_linked_item_type(item)}</div>
+                  <div><strong>Date:</strong> {_linked_item_date_text(item)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            if st.button("Open", key=f"row-open-mobile::{group}::{item.get('kind')}::{item.get('id')}"):
+                _open_linked_item(item)
 
 
 def _ui_store() -> dict:
@@ -359,6 +453,16 @@ def add_saved_project_delegation(project: dict) -> None:
         st.rerun()
 
 
+@st.dialog("Add Action")
+def _saved_action_dialog(project: dict) -> None:
+    add_saved_project_action(project)
+
+
+@st.dialog("Add Delegation")
+def _saved_delegation_dialog(project: dict) -> None:
+    add_saved_project_delegation(project)
+
+
 project_id = st.session_state.project_view_id
 data = st.session_state.data
 is_edit = project_id is not None and project_id in data.get("projects", {})
@@ -431,23 +535,20 @@ else:
     if editor.get("status") == "Completed" and not can_complete:
         st.caption("Complete Project is disabled until all linked actions and delegations are completed.")
 
+    grouped_items = _grouped_linked_items(linked_actions, linked_delegations)
+    st.markdown("**Linked Items**")
+    _render_linked_items(grouped_items)
+
+    add_cols = st.columns(2)
+    if add_cols[0].button("Add Task", use_container_width=True):
+        _saved_action_dialog(project)
+    if add_cols[1].button("Add Delegation", use_container_width=True):
+        _saved_delegation_dialog(project)
+
     command_cols = st.columns(3)
-    save = command_cols[0].button("Save")
-    delete = command_cols[1].button("Delete")
-    back = command_cols[2].button("Back")
-
-    next_actions = [item for item in linked_actions if action_is_active(item)] + [item for item in linked_delegations if delegation_is_active(item)]
-    backlog_tasks = [item for item in linked_actions + linked_delegations if item not in next_actions]
-
-    st.markdown("**Next Actions**")
-    render_task_rows(next_actions, "Next Actions")
-    st.markdown("**Backlog Tasks**")
-    render_task_rows(backlog_tasks, "Backlog Tasks")
-
-    with st.expander("Add Action"):
-        add_saved_project_action(project)
-    with st.expander("Add Delegation"):
-        add_saved_project_delegation(project)
+    save = command_cols[0].button("Save Changes", use_container_width=True)
+    delete = command_cols[1].button("Delete", use_container_width=True)
+    back = command_cols[2].button("Back", use_container_width=True)
 
     if _get_delete_mode() == project_id:
         st.warning("This project has linked items. Choose how deletion should be handled.")
