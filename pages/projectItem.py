@@ -104,6 +104,7 @@ def _linked_item_date_text(item: dict) -> str:
 
 def _open_linked_item(item: dict) -> None:
     _flags_store()["project_linked_item_modal"] = deepcopy(item)
+    _flags_store().pop("project_linked_item_modal_editor_key", None)
 
 
 def _open_linked_item_full_page(item: dict) -> None:
@@ -145,20 +146,29 @@ def _linked_item_detail_dialog() -> None:
         st.caption("This linked item is not yet persisted; edit it from the draft controls.")
         if st.button("Close", use_container_width=True):
             _flags_store().pop("project_linked_item_modal", None)
+            _flags_store().pop("project_linked_item_modal_editor_key", None)
             st.rerun()
         return
 
-    title_value = str(record.get("title", "") or "")
-    details_value = str(record.get("details", "") or "")
-    date_value = parse_date_only(record.get(date_field))
-    status_value = record.get("status", status_options[0])
-    status_index = status_options.index(status_value) if status_value in status_options else 0
+    editor_key = f"project_linked_modal_editor::{kind}::{item_id}"
+    title_key = f"{editor_key}::title"
+    date_key = f"{editor_key}::date"
+    details_key = f"{editor_key}::details"
+    status_key = f"{editor_key}::status"
+
+    if _flags_store().get("project_linked_item_modal_editor_key") != editor_key:
+        st.session_state[title_key] = str(record.get("title", "") or "")
+        st.session_state[details_key] = str(record.get("details", "") or "")
+        st.session_state[date_key] = parse_date_only(record.get(date_field)) or date.today()
+        status_value = record.get("status", status_options[0])
+        st.session_state[status_key] = status_value if status_value in status_options else status_options[0]
+        _flags_store()["project_linked_item_modal_editor_key"] = editor_key
 
     with st.form(f"project_linked_modal_form::{kind}::{item_id}"):
-        title = st.text_input("Title", value=title_value)
-        selected_date = st.date_input(date_label, value=date_value if date_value is not None else date.today())
-        details = st.text_area("Details", value=details_value, height=180)
-        status = st.selectbox("Status", status_options, index=status_index)
+        st.text_input("Title", key=title_key)
+        st.date_input(date_label, key=date_key)
+        st.text_area("Details", key=details_key, height=180)
+        st.selectbox("Status", status_options, key=status_key)
 
         controls = st.columns(3)
         save = controls[0].form_submit_button("Save Changes")
@@ -167,6 +177,7 @@ def _linked_item_detail_dialog() -> None:
 
     if back:
         _flags_store().pop("project_linked_item_modal", None)
+        _flags_store().pop("project_linked_item_modal_editor_key", None)
         st.rerun()
         return
 
@@ -181,11 +192,17 @@ def _linked_item_detail_dialog() -> None:
             else:
                 project["action_ids"] = [a for a in project.get("action_ids", []) if a != item_id]
         _flags_store().pop("project_linked_item_modal", None)
+        _flags_store().pop("project_linked_item_modal_editor_key", None)
         _queue_notice("Linked item deleted.")
         st.rerun()
         return
 
     if save:
+        title = str(st.session_state.get(title_key, "") or "")
+        selected_date = parse_date_only(st.session_state.get(date_key)) or date.today()
+        details = str(st.session_state.get(details_key, "") or "")
+        status = str(st.session_state.get(status_key, status_options[0]) or status_options[0])
+
         clean_title = title.strip()
         if not clean_title:
             st.error("Title is required.")
@@ -205,6 +222,7 @@ def _linked_item_detail_dialog() -> None:
 
         st.session_state.data[collection_key][item_id] = updated
         _flags_store()["project_linked_item_modal"] = {**updated, "kind": kind}
+        _flags_store().pop("project_linked_item_modal_editor_key", None)
         _queue_notice("Linked item updated.")
         st.rerun()
 
