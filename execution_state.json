@@ -1,11 +1,12 @@
 {
   "agent_role": "Developer",
   "phase": "PHASE 1 \u2014 Projects MVP Foundation",
-  "task": "Fix project detail multi-dialog Streamlit exception",
+  "task": "Persist Projects UX constraints in requirements tracker",
   "input_build": "lifeware_codebase_developer_pass_v1_4.zip",
   "requirements_build": "lifeware_requirements_baseline_v1_3.zip",
   "status": "completed",
   "modified_files": [
+    "LIFEWARE_REQUIREMENTS_TRACKER.md",
     "NEXT_AGENT_HANDOFF.md",
     "execution_state.json"
   ],
@@ -17,14 +18,9 @@
     "No project completion gating changes"
   ],
   "validation": {
-    "python_compile_check": true,
-    "files_checked": [
-      "pages/projectItem.py",
-      "core/project_service.py",
-      "pages/projects.py",
-      "core/item_detail_form.py"
-    ]
+    "python_compile_check": false,
+    "files_checked": []
   },
-  "next_recommended_role": "QA",
-  "next_action": "Re-run the provided Projects > Add Task reproduction and confirm no Streamlit dialog-open exception occurs."
+  "next_recommended_role": "Developer",
+  "next_action": "Use the new Projects View Requirements section as frozen behavior unless explicitly overridden by the user."
 }
