@@ -1,18 +1,18 @@
 # NEXT AGENT HANDOFF
 
 ## Agent Role
-Developer
+Auditor
 
 ## Timestamp
-2026-03-11T02:24:00Z
+2026-03-11T06:40:00Z
 
 ## Build / Package Reviewed
-workspace/lifeware working tree (post-QA handoff)
+workspace/lifeware working tree @ HEAD (post-commit `46768d4`)
 
 --------------------------------------------------
 
 ## Summary
-Implemented the scoped Project Detail linked-items table click behavior so persisted linked rows now navigate directly to Action/Delegation detail pages, while draft-only rows still open the existing modal preview.
+Audited the Project Detail linked-items row-click behavior change. Confirmed persisted linked items now route to full-page Action/Delegation detail views while draft-only rows still route through modal preview flow.
 
 --------------------------------------------------
 
@@ -23,10 +23,10 @@ PHASE 1 — Projects MVP Foundation
 
 ## Requirements Confirmed
 - Canonical persisted state remains only in `st.session_state.data`.
-- Frozen areas preserved: Calendar behavior, Event detail structure, UUID-keyed canonical collections, and Actions/Delegations list behavior.
-- Date fields remain directly editable.
-- Project save validation, completion gating, and deletion prompt behavior were not changed.
-- Option A UI state architecture for `pages/projectItem.py` remains intact.
+- Frozen areas preserved: Calendar behavior, Event detail structure, UUID-keyed canonical collections, Actions/Delegations list behavior.
+- Project completion gating, save validation, and deletion prompt behavior unchanged.
+- Date-edit UX remains directly editable and does not introduce checkbox-gated date entry.
+- Option A UI state architecture on `pages/projectItem.py` remains intact.
 
 --------------------------------------------------
 
@@ -34,27 +34,25 @@ PHASE 1 — Projects MVP Foundation
 - specifications/requirements/SYSTEM_BOOT.md
 - specifications/requirements/lifeware_requirements/AI_WORKFLOW_PROMPTS.md
 - specifications/requirements/lifeware_requirements/AGENT_HANDOFF_SCHEMA.md
-- specifications/executionState/NEXT_AGENT_HANDOFF.md
+- specifications/executionState/NEXT_AGENT_HANDOFF.md (prior pass)
 - pages/projectItem.py
 
 --------------------------------------------------
 
 ## Files Modified
-- pages/projectItem.py
 - specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-- Kept the existing modal path for draft linked items (which have no persisted ID).
-- Routed persisted linked-item row clicks to full-page detail navigation via existing `_open_linked_item_full_page` helper.
-- Avoided touching helper modules because existing page-local behavior supported the requirement.
+- Accepted the row-click routing split (`id`-present → full-page navigation, draft/no-id → modal preview) as architecture-safe and phase-safe.
+- Kept auditor scope non-invasive (no code edits).
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Verify row-click navigation consistently switches to the correct detail page for both actions and delegations.
-- Verify unsaved draft rows continue to open modal preview and do not attempt page navigation.
+- `st.dataframe(... on_select="rerun")` row index mapping should be smoke-tested in UI to confirm selected row consistently resolves against the same grouped `items` list.
+- Ensure persisted linked rows with stale/removed IDs fail gracefully in downstream detail pages.
 
 --------------------------------------------------
 
@@ -64,37 +62,48 @@ No
 --------------------------------------------------
 
 ## Validation Performed
-- Python compile check for modified page module.
-- Streamlit app launch sanity check and screenshot capture.
+- Static code inspection of `pages/projectItem.py` row-selection path and navigation branching.
+- Python compile check for touched runtime file:
+  - `python -m py_compile pages/projectItem.py`
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- In Project Detail linked-items tables, selecting a persisted row opens the corresponding Action/Delegation detail page.
-- Selecting a draft-only linked row continues to show the modal preview.
+- Clicking a persisted linked Action/Delegation row in Project Detail navigates to the corresponding full-page detail screen.
+- Clicking a draft-only linked row still opens the modal preview/editor path.
+- No changes to frozen architecture or out-of-scope modules.
 
 --------------------------------------------------
 
 ## Recommended Next Agent Role
-Auditor
+QA
 
 --------------------------------------------------
 
 ## Recommended Next Action
-Audit this pass for phase/frozen-area compliance and confirm linked-item row-click navigation behavior plus regression safety.
+Execute QA flow validation for linked-item navigation and modal-preview fallback, plus regression checks for Project Detail save/delete/back flows.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-- Open a saved project and click a linked Action row → navigates to `pages/actionItem.py` for that item.
-- Open a saved project and click a linked Delegation row → navigates to `pages/delegationItem.py` for that item.
-- In draft project flow, clicking linked rows without IDs opens modal preview (no navigation crash).
-- Save/Delete/Back controls and completion/delete rules unchanged.
+- Saved project: click linked Action row → opens `pages/actionItem.py` for selected ID.
+- Saved project: click linked Delegation row → opens `pages/delegationItem.py` for selected ID.
+- Draft linked row (no persisted ID) → opens modal preview (no navigation crash).
+- Project save/delete/back controls and completion gating unchanged.
 
 --------------------------------------------------
 
 ## Additional Notes
-No controlled requirement docs were modified.
+### Auditor findings (required protocol fields)
+- Files inspected: `pages/projectItem.py` and relevant workflow/requirements docs.
+- Suspected changed files: `pages/projectItem.py` (implementation), `specifications/executionState/NEXT_AGENT_HANDOFF.md` (handoff updates).
+- Architecture compliance findings: No violations found.
+- Streamlit lifecycle findings: No new widget-key mutation-after-render pattern introduced by this change.
+- Data integrity findings: No canonical state relocation or schema drift found.
+- UI pattern findings: List → Detail behavior improved without altering required controls.
+- Phase scope findings: Change remains within Phase 1 Project Detail behavior; no future-phase expansion.
+- Deployment verdict: DEPLOY WITH LOW RISK.
+- Architect-level escalation required: No.
 
 --------------------------------------------------
 
