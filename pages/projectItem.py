@@ -390,10 +390,6 @@ def _render_linked_items(grouped_items: dict[str, list[dict]], *, draft: dict | 
     if _flags_store().pop("suppress_linked_item_selection_once", False):
         pass
 
-    if _flags_store().get("project_linked_item_modal"):
-        _linked_item_detail_dialog()
-
-
 def _ui_store() -> dict:
     return st.session_state.ui
 
@@ -795,12 +791,14 @@ else:
     _render_linked_items(grouped_items, project_id=project_id)
 
     add_cols = st.columns(2)
-    if add_cols[0].button("Add Task", use_container_width=True):
+    open_add_task_dialog = add_cols[0].button("Add Task", use_container_width=True)
+    open_add_delegation_dialog = add_cols[1].button("Add Delegation", use_container_width=True)
+    if open_add_task_dialog:
+        _clear_linked_item_modal_state()
         _reset_editor(f"project_action_editor::{project['id']}", ACTION_EDITOR_DEFAULTS)
-        _saved_action_dialog(project)
-    if add_cols[1].button("Add Delegation", use_container_width=True):
+    if open_add_delegation_dialog:
+        _clear_linked_item_modal_state()
         _reset_editor(f"project_delegation_editor::{project['id']}", DELEGATION_EDITOR_DEFAULTS)
-        _saved_delegation_dialog(project)
 
     if _get_delete_mode() == project_id:
         st.warning("This project has linked items. Choose how deletion should be handled.")
@@ -882,3 +880,10 @@ else:
                 )
                 editor["loaded_project_id"] = project_id
                 st.success(result.message or "Project updated.")
+
+    if open_add_task_dialog:
+        _saved_action_dialog(project)
+    elif open_add_delegation_dialog:
+        _saved_delegation_dialog(project)
+    elif _flags_store().get("project_linked_item_modal"):
+        _linked_item_detail_dialog()
