@@ -1,18 +1,18 @@
 # NEXT AGENT HANDOFF
 
 ## Agent Role
-Auditor
+Architect
 
 ## Timestamp
-2026-03-11T06:40:00Z
+2026-03-11T09:00:00Z
 
 ## Build / Package Reviewed
-workspace/lifeware working tree @ HEAD (post-commit `46768d4`)
+workspace/lifeware working tree @ HEAD (post-architect-clarity-governance update)
 
 --------------------------------------------------
 
 ## Summary
-Audited the Project Detail linked-items row-click behavior change. Confirmed persisted linked items now route to full-page Action/Delegation detail views while draft-only rows still route through modal preview flow.
+Architect pass codified an explicit Requirements Clarity Gate so new/changed requirements must be made unambiguous before Developer assignment. The Architect must ask focused clarifying questions when ambiguity cannot be safely resolved from controlled docs and handoff context.
 
 --------------------------------------------------
 
@@ -22,40 +22,37 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Canonical persisted state remains only in `st.session_state.data`.
-- Frozen areas preserved: Calendar behavior, Event detail structure, UUID-keyed canonical collections, Actions/Delegations list behavior.
-- Project completion gating, save validation, and deletion prompt behavior unchanged.
-- Date-edit UX remains directly editable and does not introduce checkbox-gated date entry.
-- Option A UI state architecture on `pages/projectItem.py` remains intact.
+- Requirements baseline remains architectural source of truth.
+- Frozen areas remain unchanged: Calendar behavior, Event detail structure, canonical state location, UUID identity, and existing Actions/Delegations list behavior.
+- Non-ZIP workflow governance remains active (commit + handoff updates).
+- Modal parity/constraint ownership requirements remain active for the bounded Developer implementation task.
 
 --------------------------------------------------
 
 ## Files Reviewed
 - specifications/requirements/SYSTEM_BOOT.md
 - specifications/requirements/lifeware_requirements/AI_WORKFLOW_PROMPTS.md
-- specifications/requirements/lifeware_requirements/AGENT_HANDOFF_SCHEMA.md
 - specifications/executionState/NEXT_AGENT_HANDOFF.md (prior pass)
-- pages/projectItem.py
-- core/item_detail_form.py
-- specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
-- specifications/requirements/lifeware_requirements/MUTATION_RULES.md
 
 --------------------------------------------------
 
 ## Files Modified
+- specifications/requirements/SYSTEM_BOOT.md
+- specifications/requirements/lifeware_requirements/AI_WORKFLOW_PROMPTS.md
 - specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-- Accepted the row-click routing split (`id`-present → full-page navigation, draft/no-id → modal preview) as architecture-safe and phase-safe.
-- Kept auditor scope non-invasive (no code edits).
+- Product Owner instruction accepted as immediate workflow-governance correction for Architect behavior.
+- Added an explicit Architect Requirement Clarity Rule to prevent assumption-driven Developer tasks.
+- Added Architect protocol Requirements Clarity Gate and minimum-output requirement in workflow prompts.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- `st.dataframe(... on_select="rerun")` row index mapping should be smoke-tested in UI to confirm selected row consistently resolves against the same grouped `items` list.
-- Ensure persisted linked rows with stale/removed IDs fail gracefully in downstream detail pages.
+- Architect agents must apply the clarity gate consistently; failure to do so can reintroduce multi-round rework.
+- Clarifying questions should remain focused and bounded to ambiguity resolution (not open-ended scope expansion).
 
 --------------------------------------------------
 
@@ -65,48 +62,52 @@ No
 --------------------------------------------------
 
 ## Validation Performed
-- Static code inspection of `pages/projectItem.py` row-selection path and navigation branching.
-- Python compile check for touched runtime file:
-  - `python -m py_compile pages/projectItem.py`
+- Reviewed and updated controlled workflow docs to include explicit non-assumption and clarifying-question requirements.
+- Checked consistency between SYSTEM_BOOT and AI_WORKFLOW_PROMPTS for Architect protocol expectations.
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- Clicking a persisted linked Action/Delegation row in Project Detail navigates to the corresponding full-page detail screen.
-- Clicking a draft-only linked row still opens the modal preview/editor path.
-- No changes to frozen architecture or out-of-scope modules.
+When new requirements are provided, Architect will explicitly clear ambiguity (or ask focused clarifying questions if needed) before issuing Developer work. Developer handoff instructions should be specific enough to reduce first-pass implementation misses.
 
 --------------------------------------------------
 
 ## Recommended Next Agent Role
-QA
+Developer
 
 --------------------------------------------------
 
 ## Recommended Next Action
-Execute QA flow validation for linked-item navigation and modal-preview fallback, plus regression checks for Project Detail save/delete/back flows.
+Continue with the bounded Project Detail modal parity implementation task from the active DECISION FREEZE, using the clarified architect-governance rules.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-- Saved project: click linked Action row → opens `pages/actionItem.py` for selected ID.
-- Saved project: click linked Delegation row → opens `pages/delegationItem.py` for selected ID.
-- Draft linked row (no persisted ID) → opens modal preview (no navigation crash).
-- Project save/delete/back controls and completion gating unchanged.
+- N/A for this pass (requirements/workflow documentation only).
 
 --------------------------------------------------
 
 ## Additional Notes
-### Auditor findings (required protocol fields)
-- Files inspected: `pages/projectItem.py` and relevant workflow/requirements docs.
-- Suspected changed files: `pages/projectItem.py` (implementation), `specifications/executionState/NEXT_AGENT_HANDOFF.md` (handoff updates).
-- Architecture compliance findings: No violations found.
-- Streamlit lifecycle findings: No new widget-key mutation-after-render pattern introduced by this change.
-- Data integrity findings: No canonical state relocation or schema drift found.
-- UI pattern findings: List → Detail behavior improved without altering required controls.
-- Phase scope findings: Change remains within Phase 1 Project Detail behavior; no future-phase expansion.
-- Deployment verdict: DEPLOY WITH LOW RISK.
-- Architect-level escalation required: No.
+### DECISION FREEZE
+- current phase: PHASE 1 — Projects MVP Foundation
+- active scope for the next pass: implement Project Detail linked-item modal parity + shared-helper constraint-enforcement compliance fix
+- explicitly out-of-scope items: Calendar changes, Event layout changes, Option B rollout to other pages, schema redesign, new feature backlog work
+- next agent role: Developer
+- exact next task: patch modal editing paths so Action/Delegation field sets and constraints match object detail editors and remain helper-owned outside `pages/projectItem.py`
+- files allowed to change:
+  - pages/projectItem.py
+  - core/project_service.py
+  - core/item_detail_form.py
+  - other shared mutation/service helper files strictly required for constraint centralization
+  - specifications/executionState/NEXT_AGENT_HANDOFF.md
+- files forbidden to change:
+  - Calendar pages/behavior
+  - Event detail structure files unless strictly required for a blocking defect (not expected)
+  - requirements docs (Developer role should treat controlled docs as read-only)
+- whether backlog changed this pass: No
+- required delivery format for the next pass: minimal diff for code changes, compile checks on modified Python files, explicit Acceptance Harness PASS/FAIL, updated `specifications/executionState/NEXT_AGENT_HANDOFF.md`, and committed repository changes
+
+All non-listed work is out of scope for the next pass.
 
 --------------------------------------------------
 

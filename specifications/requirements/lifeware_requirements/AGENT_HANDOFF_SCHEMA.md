@@ -24,7 +24,7 @@ Architect | Architect 2 | Developer | Auditor | QA | Deployment
 [ISO timestamp if available]
 
 ## Build / Package Reviewed
-[name of ZIP file or build version]
+[build version, commit, or workspace identifier]
 
 --------------------------------------------------
 

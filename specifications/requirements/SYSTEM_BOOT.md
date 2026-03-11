@@ -131,7 +131,7 @@ Escalation routing rule:
 - QA must review any carried architect-level findings and determine release readiness. QA may route next to Deployment or to Architect/Architect 2 based on severity and unresolved risk.
 - Architect-level findings that are informational or backlog-candidate items must flow forward in handoff notes for Architect triage; they do not automatically block Auditor → QA progression.
 
-If an agent changes requirements, workflow, handoff schema, or boot behavior, the agent must return a regenerated requirements ZIP.
+If an agent changes requirements, workflow, handoff schema, or boot behavior, the agent must commit those requirement updates and record them in NEXT_AGENT_HANDOFF.md.
 
 
 ## Product Owner Checkpoint Rule
@@ -150,6 +150,14 @@ If the user provides new backlog items or requirement changes, the Architect mus
 - rejected / not adopted
 
 Only the Architect may merge approved requirement changes into controlled requirement documents.
+
+## Architect Requirement Clarity Rule
+When the user provides new or changed requirements, the Architect must ensure the Developer task is unambiguous before assignment.
+
+Required behavior:
+- The Architect must not assume unclear intent.
+- If requirements are ambiguous and cannot be resolved safely from existing controlled docs/handoff/current user text, the Architect must ask focused clarifying questions before issuing a Developer task.
+- Developer-facing handoff instructions must reflect clarified intent as concrete acceptance expectations.
 
 ## Decision Freeze Rule
 After the Product Owner Checkpoint, the Architect must produce a `DECISION FREEZE` section and mirror it into `NEXT_AGENT_HANDOFF.md`.

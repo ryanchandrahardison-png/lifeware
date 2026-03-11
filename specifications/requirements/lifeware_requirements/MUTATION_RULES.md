@@ -82,3 +82,23 @@ When editing or deleting linked Actions/Delegations from Project Detail modal UI
 - Mutation constraints must match Action/Delegation detail-page constraints (title required, schema field preservation, status/date persistence).
 - Delete operations must execute the same project save-rule guard checks used elsewhere before removal.
 - ProjectDetail page code may orchestrate UI events, but constraint logic must remain outside `pages/projectItem.py`.
+
+Required parity rules:
+- Action modal must expose and validate the same editable fields as Action detail editing (Title, Due Date, Details, Status).
+- Delegation modal must expose and validate the same editable fields as Delegation detail editing (Title, Follow Up Date, Details, Status).
+- Constraints must be implemented once in shared helpers and reused by both modal and non-modal object editors.
+- A modal-specific relaxation or bypass of object constraints is non-compliant.
+
+
+### Verification Intent for Modal Constraint Parity
+For any compliance fix touching project-linked item modals, verification must include:
+- Action modal save/delete paths call shared helpers (not page-local business logic).
+- Delegation modal save/delete paths call shared helpers (not page-local business logic).
+- Failure cases (for example missing title) return equivalent error outcomes in modal and full-page editors.
+- Date/status writes preserve canonical schema fields and do not introduce modal-only fields.
+
+
+Current implementation anchor (for developer clarity):
+- Reuse the shared save constraint path in `core/item_detail_form.py` (`save_item_with_constraints`).
+- Reuse the shared delete guard path in `core/item_detail_form.py` (`delete_item_with_project_guard`).
+- If helper extraction/refactor is required, preserve single-source constraint ownership and keep all callers (modal + full-page editors) on the same helper path.

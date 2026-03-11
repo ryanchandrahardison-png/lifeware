@@ -2,7 +2,7 @@ LIFEWARE_AGENT_BOOT_V1
 
 ROLE = [Architect | Developer | Auditor | QA]
 
-Start with the uploaded ZIP files.
+Start with the repository files in the working directory.
 
 Before doing anything else:
 

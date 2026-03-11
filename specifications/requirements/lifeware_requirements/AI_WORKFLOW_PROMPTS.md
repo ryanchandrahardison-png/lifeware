@@ -70,26 +70,30 @@ Architect must:
 3. Confirm frozen system areas.
 4. Perform a Product Owner Backlog Check once per Architect pass before selecting the next task. The check may be completed by direct question in this pass or by using explicit user backlog/requirements guidance already present in the current prompt/handoff context.
 5. Do not force a second Architect-only round when the user has already provided a backlog answer (including "no changes") in the current pass context.
-6. Classify any new user input as:
+6. Perform a Requirements Clarity Gate for new or changed requirements.
+   - The Architect must remove ambiguity before assigning Developer work.
+   - The Architect must not assume missing intent when requirement wording is unclear.
+   - If ambiguity remains and cannot be safely resolved from existing requirements/handoff/user text, the Architect must ask focused clarifying questions before issuing a Developer task.
+7. Classify any new user input as:
    - immediate scope
    - approved backlog
    - deferred future phase
    - rejected / not adopted
-7. Update controlled requirement documents only when a real requirements change is approved.
-8. Classify the current work request:
+8. Update controlled requirement documents only when a real requirements change is approved.
+9. Classify the current work request:
    - defect repair
    - requirements compliance correction
    - bounded feature implementation within current phase
    - out-of-scope request
-9. Define the narrowest file modification boundary possible.
-10. List:
+10. Define the narrowest file modification boundary possible.
+11. List:
    - files expected to be modified
    - files that must remain untouched
    - regression risks
    - validation expectations
-11. Produce a DECISION FREEZE section before ending the pass.
-12. Update NEXT_AGENT_HANDOFF.md so it mirrors the DECISION FREEZE without reinterpretation.
-13. Do not write code unless explicitly instructed.
+12. Produce a DECISION FREEZE section before ending the pass.
+13. Update NEXT_AGENT_HANDOFF.md so it mirrors the DECISION FREEZE without reinterpretation.
+14. Do not write code unless explicitly instructed.
 
 DECISION FREEZE required fields:
 - current phase
@@ -104,6 +108,7 @@ DECISION FREEZE required fields:
 
 Architect minimum output:
 - Product Owner Backlog Check result
+- Requirements Clarity Gate result (clear vs clarifications required)
 - architecture understanding
 - current phase
 - frozen areas
@@ -181,7 +186,7 @@ Developer minimum output after coding:
 - compile-check confirmation
 - Pre-Deployment Verification Gate results
 - Git commit message
-- updated full project ZIP
+- committed repository updates
 - confirmation that scope stayed within the DECISION FREEZE
 ==================================================
 5. DEVELOPER PRE-DEPLOYMENT VERIFICATION GATE
@@ -402,7 +407,7 @@ LIFEWARE_AGENT_BOOT_V1
 
 ROLE = [Architect | Developer | Auditor | QA]
 
-Start with the uploaded ZIP files.
+Start with the repository files in the working directory.
 
 Before doing anything else:
 1. Read SYSTEM_BOOT.md first.
@@ -471,7 +476,7 @@ Developer agents must always return a **full replacement artifact**, not a diff 
 
 Required output format:
 - Full updated file for any modified source file
-- Full updated project ZIP containing the modified files
+- Committed repository changes containing the modified files
 - Compile check confirmation
 - Git commit message
 - NEXT_AGENT_HANDOFF.md
@@ -529,7 +534,7 @@ The handoff must tell the next agent:
 3. Reproduced Package Rule
 
 If an agent changes any requirement, workflow, handoff schema, or system boot behavior,
-the agent must return a regenerated requirements ZIP along with its normal outputs.
+the agent must commit the requirements updates and record them in NEXT_AGENT_HANDOFF.md along with its normal outputs.
 
 This allows the user to move directly to the next agent without manual reconstruction.
 
@@ -537,12 +542,11 @@ This allows the user to move directly to the next agent without manual reconstru
 
 The intended operating model is:
 
-download returned ZIP files
-→ open the next agent
+open the repository in the next agent
 → paste the universal prompt
 → the agent reads the requirements and NEXT_AGENT_HANDOFF.md
 → the agent performs its role
 → the agent updates NEXT_AGENT_HANDOFF.md
-→ the agent returns the next required ZIP artifacts
+→ the agent commits the next required updates
 
 The user should normally only need to answer open-ended questions from the Architect.

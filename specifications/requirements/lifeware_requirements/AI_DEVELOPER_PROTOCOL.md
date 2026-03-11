@@ -4,7 +4,7 @@
 AI developers work from requirements packages, not from ad hoc conversation memory.
 
 ## Source of Truth
-The requirements ZIP is the architectural source of truth.
+The requirements baseline is the architectural source of truth.
 Developers must read all requirements files before coding.
 
 ## Mandatory Workflow Rules
@@ -63,7 +63,7 @@ After coding, the developer must:
 2. report Acceptance Harness PASS / FAIL results
 3. compile-check all modified Python files
 4. provide a Git commit message
-5. return a full updated project ZIP
+5. return the committed code changes in the repository
 
 ## Governance Rule
 Architect updates requirements.
@@ -79,7 +79,7 @@ Developer agents must always return a **full replacement artifact**, not a diff 
 
 Required output format:
 - Full updated file for any modified source file
-- Full updated project ZIP containing the modified files
+- Committed repository changes containing the modified files
 - Compile check confirmation
 - Git commit message
 - NEXT_AGENT_HANDOFF.md
@@ -103,7 +103,7 @@ Diff patches are only allowed if explicitly requested by the user.
 ## Pipeline Behavior
 - Do not ask open-ended workflow or process questions when the answer is derivable from the requirements or NEXT_AGENT_HANDOFF.md.
 - Follow the handoff, implement the bounded task, update NEXT_AGENT_HANDOFF.md, and return full replacement artifacts.
-- Return a regenerated requirements ZIP if requirements-side files were changed.
+- If requirements-side files were changed, commit those requirement updates and document them in NEXT_AGENT_HANDOFF.md.
 
 ## Decision Freeze Rule
 If `NEXT_AGENT_HANDOFF.md` contains a `DECISION FREEZE`, treat it as the binding execution contract for the pass.
