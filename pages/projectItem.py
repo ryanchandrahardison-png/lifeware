@@ -199,7 +199,12 @@ def _linked_item_detail_dialog() -> None:
 
     with st.form(f"project_linked_modal_form::{kind}::{item_id}"):
         st.text_input("Title", key=title_key)
-        st.date_input(date_label, key=date_key)
+        original_item_date = parse_date_only(record.get(date_field))
+        current_item_date = parse_date_only(st.session_state.get(date_key))
+        min_item_date = date.today()
+        if original_item_date and original_item_date < date.today() and current_item_date == original_item_date:
+            min_item_date = original_item_date
+        st.date_input(date_label, key=date_key, min_value=min_item_date)
         st.text_area("Details", key=details_key, height=180)
         st.selectbox("Status", status_options, key=status_key)
 
@@ -234,6 +239,10 @@ def _linked_item_detail_dialog() -> None:
         selected_date = parse_date_only(st.session_state.get(date_key)) or date.today()
         details = str(st.session_state.get(details_key, "") or "")
         status = str(st.session_state.get(status_key, status_options[0]) or status_options[0])
+        original_item_date = parse_date_only(record.get(date_field))
+        if selected_date < date.today() and selected_date != original_item_date:
+            st.error(f"{date_label} cannot be in the past unless it is unchanged.")
+            return
 
         ok, errors, updated = save_item_with_constraints(
             data=st.session_state.data,
@@ -507,10 +516,15 @@ def _load_project_editor(project: dict) -> dict:
     return editor
 
 
-def _render_project_editor(namespace: str, editor: dict, *, status_options: list[str]) -> None:
+def _render_project_editor(namespace: str, editor: dict, *, status_options: list[str], original_due_date: date | None = None) -> None:
     _prepare_widget_defaults(namespace, PROJECT_FIELDS, editor, force=_pop_reset_flag(namespace))
     st.text_input("Title", key=_widget_key(namespace, "title"))
-    st.date_input("Due Date", key=_widget_key(namespace, "due_date"), value=None)
+    today = date.today()
+    current_due = parse_date_only(editor.get("due_date"))
+    min_due = today
+    if original_due_date and original_due_date < today and current_due == original_due_date:
+        min_due = original_due_date
+    st.date_input("Due Date", key=_widget_key(namespace, "due_date"), value=None, min_value=min_due)
     st.text_area("Description", key=_widget_key(namespace, "description"), height=180)
     st.selectbox("Status", status_options, key=_widget_key(namespace, "status"))
     _sync_editor_from_widgets(namespace, PROJECT_FIELDS, editor)
@@ -520,7 +534,7 @@ def _render_action_editor(namespace: str, button_label: str) -> tuple[dict, bool
     editor = _get_editor(namespace, ACTION_EDITOR_DEFAULTS)
     _prepare_widget_defaults(namespace, ACTION_EDITOR_FIELDS, editor, force=_pop_reset_flag(namespace))
     st.text_input("Action Title", key=_widget_key(namespace, "title"))
-    st.date_input("Action Due Date", key=_widget_key(namespace, "date"), value=None)
+    st.date_input("Action Due Date", key=_widget_key(namespace, "date"), value=None, min_value=date.today())
     st.text_area("Action Details", key=_widget_key(namespace, "details"))
     st.checkbox("Show in global Actions list now", key=_widget_key(namespace, "active_global"))
     _sync_editor_from_widgets(namespace, ACTION_EDITOR_FIELDS, editor)
@@ -720,7 +734,12 @@ else:
     st.title("📁 Project Details")
     st.caption(f"Health: {project_health(data, project)}")
 
-    _render_project_editor(PROJECT_EDITOR_NS, editor, status_options=["Active", "Someday", "Completed"])
+    _render_project_editor(
+        PROJECT_EDITOR_NS,
+        editor,
+        status_options=["Active", "Someday", "Completed"],
+        original_due_date=parse_date_only(project.get("due_date")),
+    )
 
     if editor.get("status") == "Completed" and not can_complete:
         st.caption("Complete Project is disabled until all linked actions and delegations are completed.")
@@ -791,23 +810,28 @@ else:
             st.switch_page("pages/projects.py")
     elif save:
         status = editor.get("status", "Active")
-        result = update_project_from_editor(
-            data=data,
-            project_id=project_id,
-            title=_editor_text(editor, "title"),
-            description=_editor_text(editor, "description"),
-            due_date=_editor_date_value(editor, "due_date"),
-            status=status,
-        )
-        if not result.ok:
-            for error in result.errors or []:
-                st.error(error)
+        selected_due_date = parse_date_only(editor.get("due_date"))
+        original_due_date = parse_date_only(project.get("due_date"))
+        if selected_due_date and selected_due_date < date.today() and selected_due_date != original_due_date:
+            st.error("Project Due Date cannot be in the past unless it is unchanged.")
         else:
-            editor["source_snapshot"] = (
-                project.get("title", ""),
-                project.get("description", ""),
-                project.get("due_date"),
-                project.get("status", "Active"),
+            result = update_project_from_editor(
+                data=data,
+                project_id=project_id,
+                title=_editor_text(editor, "title"),
+                description=_editor_text(editor, "description"),
+                due_date=_editor_date_value(editor, "due_date"),
+                status=status,
             )
-            editor["loaded_project_id"] = project_id
-            st.success(result.message or "Project updated.")
+            if not result.ok:
+                for error in result.errors or []:
+                    st.error(error)
+            else:
+                editor["source_snapshot"] = (
+                    project.get("title", ""),
+                    project.get("description", ""),
+                    project.get("due_date"),
+                    project.get("status", "Active"),
+                )
+                editor["loaded_project_id"] = project_id
+                st.success(result.message or "Project updated.")
