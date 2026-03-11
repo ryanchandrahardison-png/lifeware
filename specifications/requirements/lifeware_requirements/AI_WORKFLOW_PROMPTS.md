@@ -156,6 +156,11 @@ Architect 2 minimum output:
 
 Architect 2 is a review role, not a coding role.
 
+Auditor and QA execution boundary:
+- Auditor and QA are verification/reporting roles.
+- Auditor and QA must not modify application/runtime source files unless the user explicitly overrides this rule.
+- Auditor and QA may update mutable execution-state handoff/report files to record findings and routing decisions.
+
 ==================================================
 4. DEVELOPER PROTOCOL
 ==================================================
