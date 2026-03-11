@@ -1,18 +1,18 @@
 # NEXT AGENT HANDOFF
 
 ## Agent Role
-QA
+Developer
 
 ## Timestamp
-2026-03-11T12:46:34Z
+2026-03-11T13:55:00Z
 
 ## Build / Package Reviewed
-workspace/lifeware working tree @ HEAD (commit 33fe0ea)
+workspace/lifeware working tree @ HEAD
 
 --------------------------------------------------
 
 ## Summary
-Executed QA validation pass for the Phase 1 project linked-item rollback build. Verified compile integrity and performed targeted flow-oriented static checks for modal add/edit/delete behavior, append-preserving linked items, unresolved-link handling, completion gating, and delete-choice flow. No release-blocking issues identified.
+Implemented Project Detail date-guardrail updates and requirement lock-in. Project due-date and linked-action due-date pickers now block new past-date selection while still allowing unchanged already-past stored dates.
 
 --------------------------------------------------
 
@@ -22,61 +22,37 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Canonical persisted state remains in `st.session_state.data` and canonical collections remain UUID-keyed (`events`, `actions`, `delegations`, `projects`).
-- Frozen Calendar behavior and Event detail/view structure were not modified in this pass.
-- Project completion gating remains enforced through linked-item completion validation.
-- Project deletion prompt behavior with explicit linked-item handling choices remains present.
-- Linked-item interactions continue to use Add Task/Add Delegation dialog entry points and modal detail editing.
-- Date entry remains directly editable; no checkbox-gated date-entry pattern introduced.
+- Project Detail layout remains preserved (Save/Delete/Back above linked-item sections).
+- Add Action/Add Delegation flows remain button-triggered modal dialogs.
+- Project completion gating and project deletion choice flow remain preserved.
+- Canonical persisted state remains in `st.session_state.data`.
 
 --------------------------------------------------
 
 ## Files Reviewed
-- specifications/requirements/SYSTEM_BOOT.md
-- specifications/requirements/README_BASELINE.md
-- specifications/requirements/REQUIREMENTS_VERSION.md
-- specifications/requirements/lifeware_requirements/AI_WORKFLOW_PROMPTS.md
-- specifications/requirements/lifeware_requirements/AI_DEVELOPER_PROTOCOL.md
-- specifications/requirements/lifeware_requirements/ARCHITECTURE.md
-- specifications/requirements/lifeware_requirements/DATA_MODEL.md
-- specifications/requirements/lifeware_requirements/DERIVED_VIEW_RULES.md
-- specifications/requirements/lifeware_requirements/FEATURE_ACTIONS.md
-- specifications/requirements/lifeware_requirements/FEATURE_CALENDAR.md
-- specifications/requirements/lifeware_requirements/FEATURE_DELEGATIONS.md
-- specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
-- specifications/requirements/lifeware_requirements/FEATURE_ROUTINES.md
-- specifications/requirements/lifeware_requirements/IMPLEMENTATION_PHASES.md
-- specifications/requirements/lifeware_requirements/MUTATION_RULES.md
-- specifications/requirements/lifeware_requirements/PRODUCT_BACKLOG.md
-- specifications/requirements/lifeware_requirements/REFERENCE_INTEGRITY_RULES.md
-- specifications/requirements/lifeware_requirements/REQUIREMENTS_TRACKER.md
-- specifications/requirements/lifeware_requirements/STATE_SCHEMA.md
-- specifications/requirements/lifeware_requirements/UI_PATTERNS.md
-- specifications/requirements/lifeware_requirements/UI_STATE_ARCHITECTURE.md
-- specifications/requirements/lifeware_requirements/AGENT_HANDOFF_SCHEMA.md
-- specifications/executionState/NEXT_AGENT_HANDOFF.md (Auditor pass)
 - pages/projectItem.py
-- core/item_detail_form.py
-- core/project_service.py
+- specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
+- specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Files Modified
+- pages/projectItem.py
+- specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
 - specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-- QA release readiness verdict: **DEPLOY WITH LOW RISK**.
-- Retained low-risk classification because this pass used static/compile validation only and did not execute an interactive Streamlit runtime smoke flow.
-- No architect-level blocking findings identified.
+- Added widget-level minimum date constraints for project and action due-date editors.
+- Preserved unchanged-past-date exception by allowing the original stored past date value when unchanged.
+- Added save-time defensive validation for project due-date and linked action/delegation modal date updates.
+- Locked Project Detail layout order in requirements to prevent drift.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Dialog open/close behavior should still be manually verified in a live Streamlit session for repeated rerun cycles.
-- Dataframe row selection persistence should be manually checked for sticky selection effects after mutation and rerender.
-- Unresolved linked-reference warnings/removal flow should be manually exercised for both action and delegation branches.
+- For records with existing past dates, widget behavior should be manually smoke-tested to confirm unchanged value remains selectable while new past values are blocked.
 
 --------------------------------------------------
 
@@ -86,40 +62,36 @@ No
 --------------------------------------------------
 
 ## Validation Performed
-- `python -m py_compile pages/projectItem.py core/item_detail_form.py core/project_service.py`
-- `rg -n "Add Task|Add Delegation|@st\\.dialog|st\\.dataframe|form_submit_button|completion|delete|linked|unresolved|dialog" pages/projectItem.py core/item_detail_form.py core/project_service.py`
+- `python -m py_compile pages/projectItem.py`
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- Saved project detail exposes `Add Task` and `Add Delegation` buttons that open dialogs.
-- Linked-item row selection opens modal details for persisted items.
-- Modal save/delete/back behavior remains available with project-link guardrails.
-- Project save/delete/back, completion gating, and delete-choice behavior remain intact.
+- Project edit due-date picker blocks selecting past dates unless retaining an unchanged existing past due date.
+- Linked-item modal date picker blocks selecting past dates unless retaining an unchanged existing past date.
+- Add Action/Add Delegation remain button+modal; project layout remains locked.
 
 --------------------------------------------------
 
 ## Recommended Next Agent Role
-Architect
+Auditor
 
 --------------------------------------------------
 
 ## Recommended Next Action
-Perform Architect release triage: confirm acceptance of the QA low-risk verdict, decide if an interactive manual smoke run is required before deployment, and either freeze this work item as complete or issue a narrowly scoped follow-up task.
+Audit date-guardrail behavior in project and linked-action editing flows, and verify Project Detail layout lock compliance.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-- Live run: saved project Add Task/Add Delegation dialog opens consistently across repeated attempts.
-- Live run: linked-row modal reopen behavior remains reliable after close/save/delete.
-- Live run: append behavior preserves existing linked items while adding new ones.
-- Live run: completion gating and delete-choice flow still enforce project constraints.
+- Existing project with past due date: change non-date fields and save without changing date (should pass).
+- Existing project with past due date: attempt selecting a different past date (should be blocked).
+- Linked action with past due date in modal: unchanged date save should pass; changed past date should be blocked.
 
 --------------------------------------------------
 
 ## Additional Notes
-- This QA pass preserved pipeline routing discipline (Auditor → QA → Architect).
-- No controlled requirement files were modified.
+- Controlled requirements file `FEATURE_PROJECTS.md` was updated based on explicit Product Owner request to lock layout and enforce date-picker rules.
 
 --------------------------------------------------
 
