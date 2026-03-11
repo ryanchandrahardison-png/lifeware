@@ -512,6 +512,7 @@ def _load_project_editor(project: dict) -> dict:
                 "source_snapshot": snapshot,
             }
         )
+        _clear_linked_item_modal_state()
         _flags_store()[f"reset::{PROJECT_EDITOR_NS}"] = True
     return editor
 
@@ -756,8 +757,10 @@ else:
 
     add_cols = st.columns(2)
     if add_cols[0].button("Add Task", use_container_width=True):
+        _reset_editor(f"project_action_editor::{project['id']}", ACTION_EDITOR_DEFAULTS)
         _saved_action_dialog(project)
     if add_cols[1].button("Add Delegation", use_container_width=True):
+        _reset_editor(f"project_delegation_editor::{project['id']}", DELEGATION_EDITOR_DEFAULTS)
         _saved_delegation_dialog(project)
 
     if _get_delete_mode() == project_id:
