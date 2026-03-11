@@ -129,6 +129,11 @@ def _clear_linked_item_modal_state() -> None:
     _flags_store().pop("project_linked_item_modal_editor_key", None)
 
 
+def _clear_linked_item_table_selection_state() -> None:
+    for group in ["Completed", "Past Due", "Upcoming", "Floating"]:
+        st.session_state.pop(f"project_linked_items_{group}", None)
+
+
 def _open_linked_item(item: dict) -> None:
     _flags_store()["project_linked_item_modal"] = item
     _flags_store().pop("project_linked_item_modal_editor_key", None)
