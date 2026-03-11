@@ -1,18 +1,18 @@
 # NEXT AGENT HANDOFF
 
 ## Agent Role
-QA
+Architect
 
 ## Timestamp
-2026-03-11T12:00:00Z
+2026-03-11T16:35:00Z
 
 ## Build / Package Reviewed
-workspace/lifeware working tree @ HEAD (post-project-linked-item parity fix)
+workspace/lifeware working tree @ HEAD (architect clarification + decision freeze for project linked-item UX)
 
 --------------------------------------------------
 
 ## Summary
-Completed QA validation for the bounded Project linked-item navigation/parity work item. Confirmed helper-owned Action vs Delegation editor semantics, project-context return routing hooks, and guarded delete constraints remain aligned with Phase 1 requirements.
+Captured Product Owner clarifications for Project Detail linked-item behavior and updated controlled requirements so Developer implementation is architecturally complete and unambiguous.
 
 --------------------------------------------------
 
@@ -22,41 +22,56 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Frozen areas preserved: Calendar behavior, Event detail structure, canonical persisted state location (`st.session_state.data`), UUID-backed collections.
-- Project-linked item editor semantics remain helper-owned (`item_editor_config`) with Action due-date/open-completed and Delegation follow-up/waiting-completed parity.
-- Project-context back routing contract remains wired through `return_to_project_on_back` and `return_project_view_id`.
-- Linked-item delete guard still enforces project save constraint parity through `validate_project_save` before destructive mutation.
+- Frozen areas remain unchanged: Calendar behavior, Event detail structure, canonical state location, UUID-backed collections.
+- Actions/Delegations full-page detail routing is the preserved direction for persisted linked items.
+- Modal-linked-item behavior in Project Detail remains removed and explicitly disallowed.
 
 --------------------------------------------------
 
 ## Files Reviewed
 - specifications/requirements/SYSTEM_BOOT.md
 - specifications/requirements/lifeware_requirements/AI_WORKFLOW_PROMPTS.md
-- specifications/requirements/lifeware_requirements/UI_STATE_ARCHITECTURE.md
-- specifications/requirements/lifeware_requirements/MUTATION_RULES.md
-- specifications/executionState/NEXT_AGENT_HANDOFF.md (prior Auditor pass)
-- core/item_detail_form.py
-- pages/projectItem.py
-- pages/actionItem.py
-- pages/delegationItem.py
+- specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
+- specifications/executionState/NEXT_AGENT_HANDOFF.md (prior pass)
 
 --------------------------------------------------
 
 ## Files Modified
+- specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
 - specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-- Classified this pass as QA-only validation with no code mutation.
-- Accepted static and programmatic checks as sufficient for this bounded pass in lieu of full interactive Streamlit UI driving.
-- Marked build release-ready with low risk because return-path behavior is session-state dependent and should still be observed during deployment smoke.
+- Product Owner Backlog Check result: No additional backlog items.
+- Requirements Clarity Gate result: clear based on explicit user answers.
+- User clarification captured as binding requirements:
+  1) “Draft linked items” means temporary unsaved linked rows during new-project composition.
+  2) Linked-item open behavior is single-click selection.
+  3) Unresolvable linked-item references must show inline warning and allow user removal.
+  4) Linked-item modal in Project Detail must be fully removed/no modal path.
+- Updated FEATURE_PROJECTS.md to replace obsolete modal requirements with full-page + inline-warning requirements.
+
+--------------------------------------------------
+
+## DECISION FREEZE
+- current phase: PHASE 1 — Projects MVP Foundation
+- active scope for the next pass: implement Project Detail linked-item edge-case UX per clarified requirements (single-click open, inline warning/remove for unresolved links and draft rows, no modal)
+- explicitly out-of-scope items: workflow-governance docs, calendar/event behavior, schema changes, non-project feature work
+- next agent role: Developer
+- exact next task: update `pages/projectItem.py` (and only minimal helper/service files if required) so linked-item selection behavior matches clarified requirements; include removal actions for unresolved references/draft rows without modal usage
+- files allowed to change: pages/projectItem.py; minimal supporting project service/helper files only if necessary for safe unlink/remove behavior; specifications/executionState/NEXT_AGENT_HANDOFF.md
+- files forbidden to change: calendar pages/forms, event detail pages, controlled requirement docs (unless a blocking ambiguity is discovered)
+- whether backlog changed this pass: Yes (clarified and formalized Project Detail linked-item behavior)
+- required delivery format for the next pass: committed code + compile checks + updated NEXT_AGENT_HANDOFF.md documenting acceptance results
+
+All non-listed work is out of scope for the next pass.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Return-to-project behavior depends on lifecycle/ordering of `return_to_project_on_back` and `return_project_view_id`; next validation pass should explicitly run Back/Save/Delete from Action/Delegation detail opened via Project Detail.
-- No browser-driven end-to-end run was executed in this QA pass; manual runtime confirmation is still recommended before final release sign-off.
+- Removal flow for unresolved linked-item references must preserve referential integrity and must not violate project save/complete constraints.
+- Draft-row remove behavior should be deterministic and scoped to draft editor state only.
 
 --------------------------------------------------
 
@@ -66,41 +81,40 @@ No
 --------------------------------------------------
 
 ## Validation Performed
-- `python -m compileall core pages`
-- Programmatic assertions for linked-item editor config parity and guarded delete constraint behavior in `core/item_detail_form.py`.
-- Static route wiring inspection for project-context handoff keys in `pages/projectItem.py`, `pages/actionItem.py`, and `pages/delegationItem.py`.
+- Controlled-requirements update for Project Detail linked-item behavior.
+- Static consistency pass ensuring modal requirements were removed from FEATURE_PROJECTS and replaced with clarified full-page/inline-warning behavior.
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- Selecting persisted linked Actions/Delegations from Project Detail opens the corresponding full-page detail route.
-- Back/Save/Delete from those detail routes returns to Project Detail when project return flags are present and then clears return flags.
-- Action editors continue using Due Date + Open/Completed, while Delegation editors use Follow Up Date + Waiting/Completed.
-- Linked-item deletion remains blocked when it would violate the minimum linked-item save requirement for affected projects.
+- Project Detail linked-item rows open on single click.
+- Persisted linked items route to full-page Action/Delegation details.
+- Draft linked rows and unresolved references show inline warning with explicit remove action.
+- No linked-item modal opens in Project Detail under any path.
 
 --------------------------------------------------
 
 ## Recommended Next Agent Role
-Architect
+Developer
 
 --------------------------------------------------
 
 ## Recommended Next Action
-Architect should perform decision-freeze triage for this completed QA pass and either mark this work item pipeline-complete/frozen or assign any narrowly-scoped follow-up if needed.
+Implement and verify the clarified linked-item warning/remove UX in `pages/projectItem.py` while preserving frozen architecture and existing guardrails.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-- Open persisted linked Action from Project Detail and exercise Back/Save/Delete; verify return to same project context.
-- Open persisted linked Delegation from Project Detail and exercise Back/Save/Delete; verify return to same project context.
-- Confirm linked-item date/status semantics by type (Action vs Delegation).
-- Verify guarded delete messaging when removal would violate project save linked-item constraints.
+- Single-click persisted linked Action row opens `pages/actionItem.py`.
+- Single-click persisted linked Delegation row opens `pages/delegationItem.py`.
+- Draft project linked row selection shows inline warning + remove control (no modal).
+- Saved project with broken linked reference shows inline warning + remove control.
+- No linked-item modal appears when opening/using Project Detail.
 
 --------------------------------------------------
 
 ## Additional Notes
-- QA release readiness verdict: **DEPLOY WITH LOW RISK**.
-- No blocking defects identified in the bounded audited scope.
+- User explicitly confirmed no additional backlog items in this pass.
 
 --------------------------------------------------
 

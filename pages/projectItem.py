@@ -13,7 +13,6 @@ from core.entities import (
     project_health,
 )
 from core.layout import sidebar_file_controls
-from core.item_detail_form import delete_item_with_project_guard, item_editor_config, save_item_with_constraints
 from core.project_service import (
     DELETE_CHOICE_OPTIONS,
     create_linked_action,
@@ -103,15 +102,15 @@ def _linked_item_date_text(item: dict) -> str:
     return linked_date.isoformat() if linked_date else "—"
 
 
-def _open_linked_item(item: dict) -> None:
-    _flags_store()["project_linked_item_modal"] = deepcopy(item)
+def _clear_linked_item_modal_state() -> None:
+    _flags_store().pop("project_linked_item_modal", None)
     _flags_store().pop("project_linked_item_modal_editor_key", None)
 
 
 def _open_linked_item_full_page(item: dict) -> None:
     item_id = item.get("id")
     if not item_id:
-        _open_linked_item(item)
+        _queue_notice("Draft linked items are edited in the draft Action/Delegation sections below.")
         return
 
     if item.get("kind") == "delegation":
@@ -126,115 +125,8 @@ def _open_linked_item_full_page(item: dict) -> None:
         st.switch_page("pages/actionItem.py")
 
 
-@st.dialog("Linked Item Details")
-def _linked_item_detail_dialog() -> None:
-    modal_item = _flags_store().get("project_linked_item_modal")
-    if not isinstance(modal_item, dict):
-        st.info("No linked item selected.")
-        return
-
-    kind = "delegation" if modal_item.get("kind") == "delegation" else "action"
-    item_id = modal_item.get("id")
-    collection_key = "delegations" if kind == "delegation" else "actions"
-    editor_config = item_editor_config(collection_key)
-    date_field = editor_config["date_field_candidates"][0]
-    date_label = editor_config["date_label"]
-    status_options = editor_config["status_options"]
-
-    record = None
-    if item_id:
-        record = deepcopy(st.session_state.data.get(collection_key, {}).get(item_id))
-
-    if record is None:
-        st.markdown(f"**Task Name:** {modal_item.get('title', 'Untitled')}")
-        st.markdown(f"**Type:** {_linked_item_type(modal_item)}")
-        st.markdown(f"**Date:** {_linked_item_date_text(modal_item)}")
-        details_text = str(modal_item.get("details", "") or "").strip() or "(No details)"
-        st.markdown("**Details**")
-        st.write(details_text)
-        st.caption("This linked item is not yet persisted; edit it from the draft controls.")
-        if st.button("Close", use_container_width=True):
-            _flags_store().pop("project_linked_item_modal", None)
-            _flags_store().pop("project_linked_item_modal_editor_key", None)
-            st.rerun()
-        return
-
-    editor_key = f"project_linked_modal_editor::{kind}::{item_id}"
-    title_key = f"{editor_key}::title"
-    date_key = f"{editor_key}::date"
-    details_key = f"{editor_key}::details"
-    status_key = f"{editor_key}::status"
-
-    if _flags_store().get("project_linked_item_modal_editor_key") != editor_key:
-        st.session_state[title_key] = str(record.get("title", "") or "")
-        st.session_state[details_key] = str(record.get("details", "") or "")
-        st.session_state[date_key] = parse_date_only(record.get(date_field)) or date.today()
-        status_value = record.get("status", status_options[0])
-        st.session_state[status_key] = status_value if status_value in status_options else status_options[0]
-        _flags_store()["project_linked_item_modal_editor_key"] = editor_key
-
-    with st.form(f"project_linked_modal_form::{kind}::{item_id}"):
-        st.text_input("Title", key=title_key)
-        st.date_input(date_label, key=date_key)
-        st.text_area("Details", key=details_key, height=180)
-        st.selectbox("Status", status_options, key=status_key)
-
-        controls = st.columns(3)
-        save = controls[0].form_submit_button("Save Changes")
-        delete = controls[1].form_submit_button("Delete")
-        back = controls[2].form_submit_button("Back")
-
-    if back:
-        _flags_store().pop("project_linked_item_modal", None)
-        _flags_store().pop("project_linked_item_modal_editor_key", None)
-        st.rerun()
-        return
-
-    if delete:
-        ok, errors = delete_item_with_project_guard(
-            data=st.session_state.data,
-            list_key=collection_key,
-            item_id=item_id,
-        )
-        if not ok:
-            for error in errors:
-                st.error(error)
-            return
-
-        _flags_store().pop("project_linked_item_modal", None)
-        _flags_store().pop("project_linked_item_modal_editor_key", None)
-        _queue_notice("Linked item deleted.")
-        st.rerun()
-        return
-
-    if save:
-        title = str(st.session_state.get(title_key, "") or "")
-        selected_date = parse_date_only(st.session_state.get(date_key)) or date.today()
-        details = str(st.session_state.get(details_key, "") or "")
-        status = str(st.session_state.get(status_key, status_options[0]) or status_options[0])
-
-        ok, errors, updated = save_item_with_constraints(
-            data=st.session_state.data,
-            list_key=collection_key,
-            item_id=item_id,
-            title=title,
-            details=details,
-            status=status,
-            date_value=selected_date,
-            date_field_candidates=[date_field],
-        )
-        if not ok:
-            for error in errors:
-                st.error(error)
-            return
-
-        _flags_store()["project_linked_item_modal"] = {**(updated or {}), "kind": kind}
-        _flags_store().pop("project_linked_item_modal_editor_key", None)
-        _queue_notice("Linked item updated.")
-        st.rerun()
-
-
 def _render_linked_items(grouped_items: dict[str, list[dict]]) -> None:
+    _clear_linked_item_modal_state()
     st.markdown(
         """
         <style>
@@ -243,7 +135,7 @@ def _render_linked_items(grouped_items: dict[str, list[dict]]) -> None:
         """,
         unsafe_allow_html=True,
     )
-    st.markdown('<div class="linked-section-note">Select a row to preview linked-item details.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="linked-section-note">Select a row to open linked-item details.</div>', unsafe_allow_html=True)
 
     for group in ["Completed", "Past Due", "Upcoming", "Floating"]:
         items = grouped_items.get(group, [])
@@ -271,13 +163,7 @@ def _render_linked_items(grouped_items: dict[str, list[dict]]) -> None:
         selected_rows = selection.selection.get("rows", []) if selection else []
         if selected_rows:
             selected_item = items[selected_rows[0]]
-            if selected_item.get("id"):
-                _open_linked_item_full_page(selected_item)
-            else:
-                _open_linked_item(selected_item)
-
-    if _flags_store().get("project_linked_item_modal"):
-        _linked_item_detail_dialog()
+            _open_linked_item_full_page(selected_item)
 
 
 def _ui_store() -> dict:

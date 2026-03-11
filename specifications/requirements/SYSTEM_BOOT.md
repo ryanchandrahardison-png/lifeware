@@ -128,7 +128,7 @@ Developer, Auditor, and QA should continue using the requirements and handoff un
 
 Escalation routing rule:
 - If Auditor identifies architect-level findings (requirements conflict, architecture drift, frozen-area risk, or phase-boundary ambiguity), Auditor should record them in `NEXT_AGENT_HANDOFF.md` and still route the current build to QA unless the finding is explicitly release-blocking.
-- QA must review any carried architect-level findings and determine release readiness. QA may route next to Deployment or to Architect/Architect 2 based on severity and unresolved risk.
+- QA must review any carried architect-level findings and determine release readiness. QA must route next to Architect or Architect 2 based on severity and unresolved risk; do not route to a Deployment agent in this repository workflow.
 - Architect-level findings that are informational or backlog-candidate items must flow forward in handoff notes for Architect triage; they do not automatically block Auditor → QA progression.
 
 If an agent changes requirements, workflow, handoff schema, or boot behavior, the agent must commit those requirement updates and record them in NEXT_AGENT_HANDOFF.md.
@@ -137,9 +137,9 @@ If an agent changes requirements, workflow, handoff schema, or boot behavior, th
 ## Product Owner Checkpoint Rule
 Before the Architect selects the next work item, the Architect must complete a Product Owner backlog check once per Architect pass.
 
-The check may be satisfied in the current pass by either:
-- asking the user directly in this pass, or
-- using explicit user-provided backlog/requirements guidance already present in the current prompt or handoff context.
+Required behavior:
+- The Architect must ask the user directly in the current Architect pass whether there are additional backlog items or requirement changes.
+- If the current user message already provides that answer (including "no additional items"), the Architect must explicitly acknowledge that provided answer and proceed in the same pass.
 
 This rule is intended to avoid unnecessary Architect-only rounds; when the prompt already includes the user backlog answer (including "no changes"), the Architect should proceed in the same pass.
 
@@ -157,6 +157,7 @@ When the user provides new or changed requirements, the Architect must ensure th
 Required behavior:
 - The Architect must not assume unclear intent.
 - If requirements are ambiguous and cannot be resolved safely from existing controlled docs/handoff/current user text, the Architect must ask focused clarifying questions before issuing a Developer task.
+- The Architect must ask sufficient implementation-detail questions to make the task architecturally complete in a single Architect pass whenever feasible (expected behavior, acceptance checks, constraints, and out-of-scope boundaries).
 - Developer-facing handoff instructions must reflect clarified intent as concrete acceptance expectations.
 
 ## Decision Freeze Rule

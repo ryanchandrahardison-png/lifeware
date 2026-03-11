@@ -6,11 +6,11 @@ Agents must follow the protocol matching their ROLE.
 
 Required pipeline:
 
-Architect → Developer → Auditor → QA → Deployment
+Architect → Developer → Auditor → QA → Architect
 
 Optional escalation path:
 
-Architect → Developer → Auditor → Architect 2 → QA → Deployment
+Architect → Developer → Auditor → Architect 2 → QA → Architect
 
 ==================================================
 1. GLOBAL RULES FOR ALL AGENTS
@@ -68,11 +68,12 @@ Architect must:
 1. Confirm architecture understanding.
 2. Confirm current development phase.
 3. Confirm frozen system areas.
-4. Perform a Product Owner Backlog Check once per Architect pass before selecting the next task. The check may be completed by direct question in this pass or by using explicit user backlog/requirements guidance already present in the current prompt/handoff context.
+4. Perform a Product Owner Backlog Check once per Architect pass before selecting the next task. The Architect must ask the user directly in the current pass whether there are additional backlog items or requirement changes. If the current user message already answers that question (including "no changes"), acknowledge that answer explicitly and proceed in the same pass.
 5. Do not force a second Architect-only round when the user has already provided a backlog answer (including "no changes") in the current pass context.
 6. Perform a Requirements Clarity Gate for new or changed requirements.
    - The Architect must remove ambiguity before assigning Developer work.
    - The Architect must not assume missing intent when requirement wording is unclear.
+   - The Architect must ask enough implementation-detail questions to make the task architecturally complete in one Architect pass whenever feasible (expected behavior, acceptance checks, constraints, and explicit out-of-scope boundaries).
    - If ambiguity remains and cannot be safely resolved from existing requirements/handoff/user text, the Architect must ask focused clarifying questions before issuing a Developer task.
 7. Classify any new user input as:
    - immediate scope
@@ -285,7 +286,7 @@ Explicitly verify these frozen areas remain intact:
 ==================================================
 
 Purpose:
-The Auditor evaluates the finished build before deployment.
+The Auditor evaluates the finished build before QA release-readiness confirmation.
 The Auditor does not modify code.
 
 Auditor must audit for:
@@ -305,7 +306,7 @@ Auditor minimum output:
 - data integrity findings
 - UI pattern findings
 - phase scope findings
-- deployment verdict
+- release-readiness verdict
 - whether architect-level escalation is required
 
 Auditor escalation rule:
@@ -313,7 +314,7 @@ If architect-level findings are present (requirements conflict, architecture dri
 Default routing remains Auditor → QA for the current round unless the finding is release-blocking.
 Architect/backlog triage may occur after QA when findings are informational and non-blocking.
 
-Allowed deployment verdicts:
+Allowed release-readiness verdicts:
 - SAFE TO DEPLOY
 - DEPLOY WITH LOW RISK
 - DO NOT DEPLOY
@@ -323,7 +324,7 @@ Allowed deployment verdicts:
 ==================================================
 
 Purpose:
-QA validates expected user flows before deployment.
+QA validates expected user flows before Architect release triage.
 QA does not modify code, expand scope, or redesign architecture.
 
 QA must:
@@ -345,8 +346,8 @@ QA minimum output:
 
 QA escalation rule:
 If QA discovers architect-level findings surfaced from Auditor/handoff context or QA validation, QA must classify them as either:
-- non-blocking informational/backlog-candidate findings (may continue to Deployment with explicit notes), or
-- blocking architectural/compliance findings (route next pass to Architect/Architect 2 before Deployment).
+- non-blocking informational/backlog-candidate findings (route next pass to Architect with explicit notes), or
+- blocking architectural/compliance findings (route next pass to Architect/Architect 2 for correction).
 
 Allowed release readiness verdicts:
 - SAFE TO DEPLOY

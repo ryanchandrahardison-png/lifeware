@@ -131,8 +131,12 @@ For Project Detail in `pages/projectItem.py`:
   - Upcoming
   - Floating
 - Within non-completed date-based groups, sort by date ascending.
-- Row click opens a linked-item modal editor (Action or Delegation variant by entity type).
-- Add Task and Add Delegation entry must use modal UI.
+- Row selection opens linked-item details on single click.
+- Persisted linked items open their full-page detail routes (`pages/actionItem.py` or `pages/delegationItem.py`).
+- Draft linked items are temporary unsaved entries created during new-project composition (before Save Project persists canonical records).
+- Selecting a draft linked item must not open a modal; show an inline warning explaining it is a draft item and provide an explicit Remove control for that draft row.
+- If a saved project contains a linked-item reference that cannot be resolved, show an inline warning and provide a Remove control to clear the broken link from the project.
+- Add Task and Add Delegation entry must use non-modal inline/expander UI in Project Detail.
 - On narrow screens, switch from table to stacked row presentation.
 - Save/Delete/Back controls should match Actions/Delegations detail button treatment.
 
@@ -144,44 +148,3 @@ Required separation:
 - a project state/service layer outside the page owns save validation, completion gating enforcement, deletion cleanup behavior, and canonical mutation orchestration
 
 The page may call the state/service layer, but it must not become the long-term home of project business rules.
-
-## Project Linked-Item Modal Requirements
-For Project Detail linked-item modal behavior:
-- The modal must render entity-specific fields matching the linked object type.
-  - Action modal required fields: Title, Due Date, Details, Status.
-  - Delegation modal required fields: Title, Follow Up Date, Details, Status.
-- Field-level behavior parity is required with full-page object editors.
-  - If a field is editable on `pages/actionItem.py` / `pages/delegationItem.py`, it must be editable in the corresponding project-linked modal.
-  - The same required-field checks, value-shape checks, and status/date handling rules must apply in both modal and full-page editors.
-- Constraint ownership must remain outside `pages/projectItem.py`.
-  - `pages/projectItem.py` may orchestrate modal UI, but must not become the primary home of Action/Delegation constraint logic.
-  - Shared mutation/service helpers remain the canonical enforcement layer so constraints stay consistent across all entry points.
-- Save/Delete operations from the modal must call shared Action/Delegation mutation helpers (not page-local business-rule mutations).
-- Deletion from the modal must preserve project save-rule protections and referential integrity checks.
-
-### Constraint Consistency Requirement
-Constraint behavior for Actions and Delegations must be system-consistent:
-- inside Project Detail modal editing
-- inside full-page Action/Delegation editing
-- outside Project Detail flows generally
-
-Any future constraint change must be implemented once in shared helpers and observed identically by both modal and full-page editors.
-
-
-### Developer Implementation Contract (Modal Compliance Fix)
-To remove ambiguity for the Developer pass, implementation must satisfy all of the following:
-1. Modal field parity
-   - Action modal renders editable: Title, Due Date, Details, Status.
-   - Delegation modal renders editable: Title, Follow Up Date, Details, Status.
-2. Shared-constraint parity
-   - Modal Save uses the same helper path used by object detail pages for validation/sanitization/persistence.
-   - Modal Delete uses the same guarded delete helper path used by object detail pages.
-3. No page-owned rule duplication
-   - `pages/projectItem.py` may pass field values and react to helper results.
-   - `pages/projectItem.py` must not re-implement canonical validation rules.
-4. Behavioral consistency checks
-   - Empty title fails in modal exactly as it fails in full-page editor.
-   - Status/date persistence semantics match full-page editor behavior for both entity types.
-5. Preservation checks
-   - Project save minimum (>=2 linked items), completion gating, and deletion prompt behavior remain unchanged.
-   - Calendar and Event detail behavior remain unchanged.
