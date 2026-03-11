@@ -116,7 +116,8 @@ Next Actions must appear above Backlog Tasks.
 
 ## Project Detail Linked Items Layout (Selected Scope)
 For Project Detail in `pages/projectItem.py`:
-- The linked-item table and Add Task / Add Delegation controls appear above Save/Delete/Back controls.
+- The Save/Delete/Back controls appear directly below the Project fields and above linked-item sections.
+- This Project Detail layout order is locked and must not be changed unless explicitly approved by the Product Owner.
 - The linked-item table includes all linked actions and delegations.
 - Required table columns:
   - Task Name
@@ -132,13 +133,22 @@ For Project Detail in `pages/projectItem.py`:
   - Floating
 - Within non-completed date-based groups, sort by date ascending.
 - Row selection opens linked-item details on single click.
-- Persisted linked items open their full-page detail routes (`pages/actionItem.py` or `pages/delegationItem.py`).
+- Persisted linked items open modal linked-item details from Project Detail (no full-page navigation jump for this interaction).
 - Draft linked items are temporary unsaved entries created during new-project composition (before Save Project persists canonical records).
 - Selecting a draft linked item must not open a modal; show an inline warning explaining it is a draft item and provide an explicit Remove control for that draft row.
 - If a saved project contains a linked-item reference that cannot be resolved, show an inline warning and provide a Remove control to clear the broken link from the project.
-- Add Task and Add Delegation entry must use non-modal inline/expander UI in Project Detail.
+- Add Task and Add Delegation entry must use button-triggered modal dialogs in Project Detail.
 - On narrow screens, switch from table to stacked row presentation.
 - Save/Delete/Back controls should match Actions/Delegations detail button treatment.
+
+
+### Project Due Date Guardrail (Edit Mode)
+- The Project due-date calendar must prevent selecting past dates during update.
+- Exception: if the stored due date is already in the past and the user does not change it, that unchanged past value is allowed.
+
+### Linked Action Due Date Guardrail (Project Detail)
+- Action due-date calendars used within Project Detail (add/edit linked actions) must prevent selecting past dates.
+- Exception: if an existing linked action already has a past due date and the date remains unchanged, that unchanged past value is allowed.
 
 ## Business Rule Placement
 Project validation and mutation rules are business logic and must not live primarily inside `pages/projectItem.py`.
