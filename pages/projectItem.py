@@ -715,6 +715,11 @@ else:
     if editor.get("status") == "Completed" and not can_complete:
         st.caption("Complete Project is disabled until all linked actions and delegations are completed.")
 
+    command_cols = st.columns(3)
+    save = command_cols[0].button("Save Changes", use_container_width=True)
+    delete = command_cols[1].button("Delete", use_container_width=True)
+    back = command_cols[2].button("Back", use_container_width=True)
+
     linked_actions_with_unresolved, linked_delegations_with_unresolved = _project_linked_items_with_unresolved(data, project)
     grouped_items = _grouped_linked_items(linked_actions_with_unresolved, linked_delegations_with_unresolved)
     st.markdown("**Linked Items**")
@@ -725,11 +730,6 @@ else:
         _saved_action_dialog(project)
     if add_cols[1].button("Add Delegation", use_container_width=True):
         _saved_delegation_dialog(project)
-
-    command_cols = st.columns(3)
-    save = command_cols[0].button("Save Changes", use_container_width=True)
-    delete = command_cols[1].button("Delete", use_container_width=True)
-    back = command_cols[2].button("Back", use_container_width=True)
 
     if _get_delete_mode() == project_id:
         st.warning("This project has linked items. Choose how deletion should be handled.")
