@@ -22,11 +22,31 @@ st.sidebar.page_link("pages/routines.py", label="Routines", icon="🔁")
 st.title("📁 Projects")
 st.caption("Projects are grouped by status first, then Active projects by due-date bucket.")
 
+def _reset_project_detail_runtime_state() -> None:
+    st.session_state.project_delete_mode = None
+    ui = st.session_state.get("ui")
+    if isinstance(ui, dict):
+        for key in ["project_editor", "draft_project", "draft_action_editor", "draft_delegation_editor"]:
+            ui.pop(key, None)
+    flags = st.session_state.get("flags")
+    if isinstance(flags, dict):
+        for key in [
+            "project_delete_mode",
+            "project_linked_item_modal",
+            "project_linked_item_modal_editor_key",
+            "suppress_linked_item_selection_once",
+            "reload_project_editor",
+            "reset::project_editor",
+            "reset::draft_action_editor",
+            "reset::draft_delegation_editor",
+        ]:
+            flags.pop(key, None)
+
 show_completed = st.toggle("Show Completed", value=False)
 
 if st.button("New Project"):
+    _reset_project_detail_runtime_state()
     st.session_state.project_view_id = None
-    st.session_state.project_delete_mode = None
     st.session_state.draft_project = {
         "title": "",
         "description": "",
@@ -36,6 +56,8 @@ if st.button("New Project"):
         "draft_delegations": [],
     }
     st.switch_page("pages/projectItem.py")
+
+
 
 
 def render_project_table(rows, row_ids, key_suffix):
@@ -52,6 +74,7 @@ def render_project_table(rows, row_ids, key_suffix):
     )
     selected_rows = selection.selection.get("rows", []) if selection else []
     if selected_rows:
+        _reset_project_detail_runtime_state()
         st.session_state.project_view_id = row_ids[selected_rows[0]]
         st.session_state.draft_project = None
         st.switch_page("pages/projectItem.py")

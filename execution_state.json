@@ -1,15 +1,15 @@
 {
   "agent_role": "Developer",
   "phase": "PHASE 1 \u2014 Projects MVP Foundation",
-  "task": "Project Save Validation Hardening",
+  "task": "Fix project detail re-entry UI regression by clearing stale runtime state",
   "input_build": "lifeware_codebase_developer_pass_v1_4.zip",
   "requirements_build": "lifeware_requirements_baseline_v1_3.zip",
   "status": "completed",
   "modified_files": [
-    "pages/projectItem.py",
+    "pages/projects.py",
+    "LIFEWARE_REQUIREMENTS_TRACKER.md",
     "NEXT_AGENT_HANDOFF.md",
-    "execution_state.json",
-    "developer_diff_patch.diff"
+    "execution_state.json"
   ],
   "preserved_constraints": [
     "Canonical state remains only in st.session_state.data",
@@ -21,10 +21,12 @@
   "validation": {
     "python_compile_check": true,
     "files_checked": [
+      "pages/projects.py",
       "pages/projectItem.py",
-      "core/project_service.py"
+      "core/project_service.py",
+      "core/item_detail_form.py"
     ]
   },
-  "next_recommended_role": "Developer",
-  "next_action": "Audit remaining project interaction surfaces for save-rule enforcement symmetry and patch only if a real bypass exists."
+  "next_recommended_role": "QA",
+  "next_action": "Reproduce save -> back to list -> reopen project flow and verify updated Project Details layout/modal behavior persists."
 }
