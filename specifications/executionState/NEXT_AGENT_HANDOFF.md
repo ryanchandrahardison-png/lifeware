@@ -4,7 +4,7 @@
 Developer
 
 ## Timestamp
-2026-03-11T14:30:00Z
+2026-03-11T13:30:00Z
 
 ## Build / Package Reviewed
 workspace/lifeware working tree @ HEAD
@@ -12,7 +12,7 @@ workspace/lifeware working tree @ HEAD
 --------------------------------------------------
 
 ## Summary
-Applied targeted Project Detail modal-state fixes while preserving the frozen layout: Add Action/Add Delegation dialogs now open with empty fields every time, and stale linked-item modal state is cleared when opening/switching projects.
+Adjusted Project Details draft-mode linked-item entry UX so Add Action/Add Delegation now use button-triggered dialogs instead of accordion/expander sections.
 
 --------------------------------------------------
 
@@ -22,10 +22,9 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Project Detail layout order remains unchanged/frozen.
-- Add controls remain button-triggered modal dialogs.
-- Project due-date and linked-item date guardrails remain in place.
-- Completion gating and delete-choice behavior remain unchanged.
+- Project detail linked-item interactions remain modal-based.
+- Existing saved-project Add Task/Add Delegation button dialogs remain unchanged.
+- Completion gating and deletion choice behavior remain unchanged.
 
 --------------------------------------------------
 
@@ -42,13 +41,12 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Key Decisions
-- Reset action/delegation editor UI state at button-click time before opening each add dialog.
-- Clear linked-item modal flags during project editor load to prevent stale modal visibility when first opening a project.
+- Added draft-mode dialog wrappers and replaced draft accordions with button triggers to align with expected project-detail UX.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Verify dialog close/reopen behavior in interactive runs to ensure reset occurs on every open without affecting save flows.
+- Verify dialog open/close behavior for draft mode during interactive QA.
 
 --------------------------------------------------
 
@@ -63,9 +61,8 @@ No
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- On every Add Task/Add Delegation click, modal input fields are blank defaults.
-- On first opening Project Detail (or switching projects), no stale linked-item modal is visible.
-- Frozen project-detail layout remains intact.
+- Draft project mode shows Add Action and Add Delegation buttons.
+- Clicking either button opens a modal dialog instead of expanding inline accordion content.
 
 --------------------------------------------------
 
@@ -75,20 +72,19 @@ Auditor
 --------------------------------------------------
 
 ## Recommended Next Action
-Validate modal reset behavior and first-open modal visibility regression in Project Detail for both draft and saved project flows.
+Validate draft and saved project detail flows for modal add-item behavior and ensure no regressions in linked-item editing/deletion.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-- Open saved project: confirm no linked-item modal visible initially.
-- Click Add Task, close, click Add Task again: fields should be empty on reopen.
-- Click Add Delegation, close, click Add Delegation again: fields should be empty on reopen.
-- Confirm layout order unchanged (project fields → Save/Delete/Back → linked items → add buttons).
+- Draft project: Add Action button opens dialog and can submit.
+- Draft project: Add Delegation button opens dialog and can submit.
+- Saved project: Add Task/Add Delegation buttons still open dialogs.
 
 --------------------------------------------------
 
 ## Additional Notes
-- Screenshot attempt may fail in this environment due browser tool local connection issues; compile/static verification passed.
+- Browser screenshot attempt failed in this environment with Playwright `ERR_EMPTY_RESPONSE` when connecting to local Streamlit URL.
 
 --------------------------------------------------
 

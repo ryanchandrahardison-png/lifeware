@@ -689,10 +689,8 @@ if not is_edit:
 
     add_cols = st.columns(2)
     if add_cols[0].button("Add Action", use_container_width=True):
-        _reset_editor("draft_action_editor", ACTION_EDITOR_DEFAULTS)
         _draft_action_dialog(draft)
     if add_cols[1].button("Add Delegation", use_container_width=True):
-        _reset_editor("draft_delegation_editor", DELEGATION_EDITOR_DEFAULTS)
         _draft_delegation_dialog(draft)
 
     action_cols = st.columns(2)
