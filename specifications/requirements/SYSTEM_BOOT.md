@@ -123,13 +123,19 @@ Agents should operate as a self-propagating pipeline.
 Prompts should normally only boot the agent.
 `NEXT_AGENT_HANDOFF.md` should provide the task for the next agent.
 
+Default execution path is the fast path:
+- Architect → Developer → Architect (Product Owner validation checkpoint)
+
+Extended verification path remains available when explicitly requested by Architect or Product Owner:
+- Architect → Developer → Auditor → QA → Architect
+
 Only the Architect should normally ask open-ended workflow or design questions.
 Developer, Auditor, and QA should continue using the requirements and handoff unless a true architectural conflict or frozen-area violation requires escalation.
 
 Escalation routing rule:
-- If Auditor identifies architect-level findings (requirements conflict, architecture drift, frozen-area risk, or phase-boundary ambiguity), Auditor should record them in `NEXT_AGENT_HANDOFF.md` and still route the current build to QA unless the finding is explicitly release-blocking.
-- QA must review any carried architect-level findings and determine release readiness. QA must route next to Architect or Architect 2 based on severity and unresolved risk; do not route to a Deployment agent in this repository workflow.
-- Architect-level findings that are informational or backlog-candidate items must flow forward in handoff notes for Architect triage; they do not automatically block Auditor → QA progression.
+- If extended verification is active and Auditor identifies architect-level findings (requirements conflict, architecture drift, frozen-area risk, or phase-boundary ambiguity), Auditor should record them in `NEXT_AGENT_HANDOFF.md` and route per the selected path unless the finding is explicitly release-blocking.
+- If QA is active, QA must review any carried architect-level findings and determine release readiness. QA must route next to Architect or Architect 2 based on severity and unresolved risk; do not route to a Deployment agent in this repository workflow.
+- Architect-level findings that are informational or backlog-candidate items must flow forward in handoff notes for Architect triage; they do not automatically block progression on the selected path.
 
 If an agent changes requirements, workflow, handoff schema, or boot behavior, the agent must commit those requirement updates and record them in NEXT_AGENT_HANDOFF.md.
 
@@ -177,11 +183,9 @@ The `DECISION FREEZE` must contain:
 All non-listed work is out of scope for the next pass.
 
 ## Pipeline Completion Rule
-If a work item has completed the required pipeline of:
-- Architect
-- Developer
-- Auditor
-- QA
+If a work item has completed the selected pipeline for that item:
+- fast path: Architect → Developer → Architect (with Product Owner validation checkpoint), or
+- extended verification path: Architect → Developer → Auditor → QA → Architect
 
 then that work item must be treated as:
 - COMPLETE

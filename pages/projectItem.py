@@ -314,11 +314,44 @@ def _render_linked_items(grouped_items: dict[str, list[dict]], *, draft: dict | 
     )
     st.markdown('<div class="linked-section-note">Select a row to open linked-item details.</div>', unsafe_allow_html=True)
 
+    compact_key = f"project_linked_items_compact::{project_id or 'draft'}"
+    if compact_key not in st.session_state:
+        ua = ""
+        try:
+            headers = getattr(st.context, "headers", None)
+            if headers:
+                ua = str(headers.get("user-agent", "") or "").lower()
+        except Exception:
+            ua = ""
+        st.session_state[compact_key] = any(token in ua for token in ["iphone", "android", "mobile", "ipad"])
+
+    st.toggle("Compact linked-item view", key=compact_key, help="Use compact stacked rows (recommended for narrow screens).")
+    use_compact_view = bool(st.session_state.get(compact_key, False))
+
     for group in ["Completed", "Past Due", "Upcoming", "Floating"]:
         items = grouped_items.get(group, [])
         st.markdown(f"**{group}**")
         if not items:
             st.caption("No linked items.")
+            continue
+
+        if use_compact_view:
+            for idx, item in enumerate(items):
+                task_name = item.get("title", "Untitled")
+                task_type = _linked_item_type(item)
+                task_date = _linked_item_date_text(item)
+                row_label = f"{task_name}  |  {task_type}  |  {task_date}"
+                if st.button(row_label, key=f"project_linked_compact::{project_id or 'draft'}::{group}::{idx}", use_container_width=True):
+                    selected_id = item.get("id")
+                    if not selected_id and draft is not None:
+                        _render_unresolved_warning(
+                            item=item,
+                            warning="This linked item is still a draft and cannot be opened until the project is saved.",
+                            remove_label="Remove Draft Linked Item",
+                            on_remove=lambda item=item: _remove_draft_linked_item(draft=draft, item=item),
+                        )
+                    else:
+                        _open_linked_item(item)
             continue
 
         rows = [
