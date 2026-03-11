@@ -13,7 +13,7 @@ from core.entities import (
     project_health,
 )
 from core.layout import sidebar_file_controls
-from core.item_detail_form import delete_item_with_project_guard, save_item_with_constraints
+from core.item_detail_form import delete_item_with_project_guard, item_editor_config, save_item_with_constraints
 from core.project_service import (
     DELETE_CHOICE_OPTIONS,
     create_linked_action,
@@ -108,6 +108,24 @@ def _open_linked_item(item: dict) -> None:
     _flags_store().pop("project_linked_item_modal_editor_key", None)
 
 
+def _open_linked_item_full_page(item: dict) -> None:
+    item_id = item.get("id")
+    if not item_id:
+        _open_linked_item(item)
+        return
+
+    if item.get("kind") == "delegation":
+        st.session_state.delegation_view_id = item_id
+        st.session_state.return_to_project_on_back = True
+        st.session_state.return_project_view_id = st.session_state.project_view_id
+        st.switch_page("pages/delegationItem.py")
+    else:
+        st.session_state.action_view_id = item_id
+        st.session_state.return_to_project_on_back = True
+        st.session_state.return_project_view_id = st.session_state.project_view_id
+        st.switch_page("pages/actionItem.py")
+
+
 @st.dialog("Linked Item Details")
 def _linked_item_detail_dialog() -> None:
     modal_item = _flags_store().get("project_linked_item_modal")
@@ -118,9 +136,10 @@ def _linked_item_detail_dialog() -> None:
     kind = "delegation" if modal_item.get("kind") == "delegation" else "action"
     item_id = modal_item.get("id")
     collection_key = "delegations" if kind == "delegation" else "actions"
-    date_field = "follow_up_date" if kind == "delegation" else "due_date"
-    date_label = "Follow Up Date" if kind == "delegation" else "Due Date"
-    status_options = ["Waiting", "Completed"] if kind == "delegation" else ["Open", "Completed"]
+    editor_config = item_editor_config(collection_key)
+    date_field = editor_config["date_field_candidates"][0]
+    date_label = editor_config["date_label"]
+    status_options = editor_config["status_options"]
 
     record = None
     if item_id:
