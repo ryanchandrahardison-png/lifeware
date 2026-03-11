@@ -638,6 +638,16 @@ def _saved_delegation_dialog(project: dict) -> None:
     add_saved_project_delegation(project)
 
 
+@st.dialog("Add Draft Action")
+def _draft_action_dialog(draft: dict) -> None:
+    add_draft_action(draft)
+
+
+@st.dialog("Add Draft Delegation")
+def _draft_delegation_dialog(draft: dict) -> None:
+    add_draft_delegation(draft)
+
+
 project_id = st.session_state.project_view_id
 data = st.session_state.data
 is_edit = project_id is not None and project_id in data.get("projects", {})
@@ -662,11 +672,11 @@ if not is_edit:
     st.markdown("**Linked Items**")
     _render_linked_items(draft_grouped_items, draft=draft)
 
-    st.markdown("**Add linked items**")
-    with st.expander("Add Draft Action"):
-        add_draft_action(draft)
-    with st.expander("Add Draft Delegation"):
-        add_draft_delegation(draft)
+    add_cols = st.columns(2)
+    if add_cols[0].button("Add Action", use_container_width=True):
+        _draft_action_dialog(draft)
+    if add_cols[1].button("Add Delegation", use_container_width=True):
+        _draft_delegation_dialog(draft)
 
     action_cols = st.columns(2)
     save = action_cols[0].button("Save", use_container_width=True)
@@ -715,6 +725,11 @@ else:
     if editor.get("status") == "Completed" and not can_complete:
         st.caption("Complete Project is disabled until all linked actions and delegations are completed.")
 
+    command_cols = st.columns(3)
+    save = command_cols[0].button("Save Changes", use_container_width=True)
+    delete = command_cols[1].button("Delete", use_container_width=True)
+    back = command_cols[2].button("Back", use_container_width=True)
+
     linked_actions_with_unresolved, linked_delegations_with_unresolved = _project_linked_items_with_unresolved(data, project)
     grouped_items = _grouped_linked_items(linked_actions_with_unresolved, linked_delegations_with_unresolved)
     st.markdown("**Linked Items**")
@@ -725,11 +740,6 @@ else:
         _saved_action_dialog(project)
     if add_cols[1].button("Add Delegation", use_container_width=True):
         _saved_delegation_dialog(project)
-
-    command_cols = st.columns(3)
-    save = command_cols[0].button("Save Changes", use_container_width=True)
-    delete = command_cols[1].button("Delete", use_container_width=True)
-    back = command_cols[2].button("Back", use_container_width=True)
 
     if _get_delete_mode() == project_id:
         st.warning("This project has linked items. Choose how deletion should be handled.")
