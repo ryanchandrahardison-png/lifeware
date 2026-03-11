@@ -115,6 +115,69 @@ def _project_delete_guard_errors(*, data: dict, list_key: str, item_id: str) -> 
     return errors
 
 
+def delete_item_with_project_guard(*, data: dict, list_key: str, item_id: str) -> tuple[bool, list[str]]:
+    items = data.setdefault(list_key, {})
+    if item_id not in items:
+        return False, ["Item not found."]
+
+    delete_guard_errors = _project_delete_guard_errors(data=data, list_key=list_key, item_id=item_id)
+    if delete_guard_errors:
+        return False, delete_guard_errors
+
+    if list_key == "actions":
+        for project in data.setdefault("projects", {}).values():
+            project["action_ids"] = [action_id for action_id in project.get("action_ids", []) if action_id != item_id]
+    elif list_key == "delegations":
+        for project in data.setdefault("projects", {}).values():
+            project["delegation_ids"] = [delegation_id for delegation_id in project.get("delegation_ids", []) if delegation_id != item_id]
+
+    del items[item_id]
+    return True, []
+
+
+def save_item_with_constraints(
+    *,
+    data: dict,
+    list_key: str,
+    item_id: str | None,
+    title: str,
+    details: str,
+    status: str,
+    date_value: date | None,
+    date_field_candidates: list[str] | None = None,
+) -> tuple[bool, list[str], dict | None]:
+    items = data.setdefault(list_key, {})
+    is_edit = item_id is not None and item_id in items
+    date_field_candidates = date_field_candidates or DATE_FIELD_CANDIDATES
+    original = _as_dict(items[item_id]) if is_edit else {}
+
+    clean_title = str(title or "").strip()
+    if not clean_title:
+        return False, ["Title is required."], None
+
+    updated = deepcopy(original) if is_edit else {"id": new_uuid()}
+    updated = _sanitize_source_keys(updated)
+    updated["title"] = clean_title
+
+    if date_value is not None:
+        _delete_known_date_keys(updated, date_field_candidates)
+        updated[date_field_candidates[0]] = date_value.isoformat()
+
+    updated["details"] = str(details or "").strip()
+    updated["status"] = str(status or "").strip()
+
+    if list_key == "actions":
+        updated.setdefault("project_id", None)
+        updated.setdefault("is_active_global", True)
+    elif list_key == "delegations":
+        updated.setdefault("project_id", None)
+        updated.setdefault("is_active_global", True)
+
+    target_id = item_id if is_edit else updated["id"]
+    items[target_id] = updated
+    return True, [], deepcopy(updated)
+
+
 def render_item_detail_form(
     *,
     data: dict,
@@ -178,50 +241,32 @@ def render_item_detail_form(
         return
 
     if delete and is_edit:
-        delete_guard_errors = _project_delete_guard_errors(data=data, list_key=list_key, item_id=item_id)
-        if delete_guard_errors:
-            for error in delete_guard_errors:
+        ok, errors = delete_item_with_project_guard(data=data, list_key=list_key, item_id=item_id)
+        if not ok:
+            for error in errors:
                 st.error(error)
             return
 
-        if list_key == "actions":
-            for project in data.setdefault("projects", {}).values():
-                project["action_ids"] = [action_id for action_id in project.get("action_ids", []) if action_id != item_id]
-        elif list_key == "delegations":
-            for project in data.setdefault("projects", {}).values():
-                project["delegation_ids"] = [delegation_id for delegation_id in project.get("delegation_ids", []) if delegation_id != item_id]
-        del items[item_id]
         st.session_state[index_key] = None
         _restore_project_return_context_if_needed(back_page)
         st.switch_page(back_page)
         return
 
     if save:
-        clean_title = title.strip()
-        if not clean_title:
-            st.error("Title is required.")
+        ok, errors, _updated = save_item_with_constraints(
+            data=data,
+            list_key=list_key,
+            item_id=item_id,
+            title=title,
+            details=details,
+            status=status,
+            date_value=due_date_value if show_due_date else None,
+            date_field_candidates=date_field_candidates,
+        )
+        if not ok:
+            for error in errors:
+                st.error(error)
             return
-
-        updated = deepcopy(original) if is_edit else {"id": new_uuid()}
-        updated = _sanitize_source_keys(updated)
-        updated[title_keys[0]] = clean_title
-
-        if show_due_date and due_date_value is not None:
-            _delete_known_date_keys(updated, date_field_candidates)
-            updated[date_field_candidates[0]] = due_date_value.isoformat()
-
-        updated["details"] = details.strip()
-        updated["status"] = status
-
-        if list_key == "actions":
-            updated.setdefault("project_id", None)
-            updated.setdefault("is_active_global", True)
-        elif list_key == "delegations":
-            updated.setdefault("project_id", None)
-            updated.setdefault("is_active_global", True)
-
-        target_id = item_id if is_edit else updated["id"]
-        items[target_id] = updated
 
         st.session_state[index_key] = None
         _restore_project_return_context_if_needed(back_page)

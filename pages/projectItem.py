@@ -13,6 +13,7 @@ from core.entities import (
     project_health,
 )
 from core.layout import sidebar_file_controls
+from core.item_detail_form import delete_item_with_project_guard, save_item_with_constraints
 from core.project_service import (
     DELETE_CHOICE_OPTIONS,
     create_linked_action,
@@ -107,17 +108,6 @@ def _open_linked_item(item: dict) -> None:
     _flags_store().pop("project_linked_item_modal_editor_key", None)
 
 
-def _open_linked_item_full_page(item: dict) -> None:
-    st.session_state.return_to_project_on_back = True
-    st.session_state.return_project_view_id = st.session_state.get("project_view_id")
-    if item.get("kind") == "delegation":
-        st.session_state.delegation_view_id = item.get("id")
-        st.switch_page("pages/delegationItem.py")
-    else:
-        st.session_state.action_view_id = item.get("id")
-        st.switch_page("pages/actionItem.py")
-
-
 @st.dialog("Linked Item Details")
 def _linked_item_detail_dialog() -> None:
     modal_item = _flags_store().get("project_linked_item_modal")
@@ -182,15 +172,16 @@ def _linked_item_detail_dialog() -> None:
         return
 
     if delete:
-        if item_id in st.session_state.data.get(collection_key, {}):
-            del st.session_state.data[collection_key][item_id]
-        project_id = st.session_state.get("project_view_id")
-        if project_id and project_id in st.session_state.data.get("projects", {}):
-            project = st.session_state.data["projects"][project_id]
-            if kind == "delegation":
-                project["delegation_ids"] = [d for d in project.get("delegation_ids", []) if d != item_id]
-            else:
-                project["action_ids"] = [a for a in project.get("action_ids", []) if a != item_id]
+        ok, errors = delete_item_with_project_guard(
+            data=st.session_state.data,
+            list_key=collection_key,
+            item_id=item_id,
+        )
+        if not ok:
+            for error in errors:
+                st.error(error)
+            return
+
         _flags_store().pop("project_linked_item_modal", None)
         _flags_store().pop("project_linked_item_modal_editor_key", None)
         _queue_notice("Linked item deleted.")
@@ -203,25 +194,22 @@ def _linked_item_detail_dialog() -> None:
         details = str(st.session_state.get(details_key, "") or "")
         status = str(st.session_state.get(status_key, status_options[0]) or status_options[0])
 
-        clean_title = title.strip()
-        if not clean_title:
-            st.error("Title is required.")
+        ok, errors, updated = save_item_with_constraints(
+            data=st.session_state.data,
+            list_key=collection_key,
+            item_id=item_id,
+            title=title,
+            details=details,
+            status=status,
+            date_value=selected_date,
+            date_field_candidates=[date_field],
+        )
+        if not ok:
+            for error in errors:
+                st.error(error)
             return
 
-        updated = deepcopy(record)
-        updated["title"] = clean_title
-        updated[date_field] = selected_date.isoformat() if selected_date else None
-        updated["details"] = details.strip()
-        updated["status"] = status
-        if kind == "delegation":
-            updated.setdefault("project_id", st.session_state.get("project_view_id"))
-            updated.setdefault("is_active_global", True)
-        else:
-            updated.setdefault("project_id", st.session_state.get("project_view_id"))
-            updated.setdefault("is_active_global", True)
-
-        st.session_state.data[collection_key][item_id] = updated
-        _flags_store()["project_linked_item_modal"] = {**updated, "kind": kind}
+        _flags_store()["project_linked_item_modal"] = {**(updated or {}), "kind": kind}
         _flags_store().pop("project_linked_item_modal_editor_key", None)
         _queue_notice("Linked item updated.")
         st.rerun()

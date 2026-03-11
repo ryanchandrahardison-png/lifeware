@@ -36,6 +36,9 @@ PHASE 1 — Projects MVP Foundation
 - specifications/requirements/lifeware_requirements/AGENT_HANDOFF_SCHEMA.md
 - specifications/executionState/NEXT_AGENT_HANDOFF.md (prior pass)
 - pages/projectItem.py
+- core/item_detail_form.py
+- specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
+- specifications/requirements/lifeware_requirements/MUTATION_RULES.md
 
 --------------------------------------------------
 
