@@ -337,6 +337,8 @@ def _render_linked_items(grouped_items: dict[str, list[dict]], *, draft: dict | 
             selection_mode="single-row",
             key=f"project_linked_items_{group}",
         )
+        if _flags_store().get("suppress_linked_item_selection_once"):
+            continue
         selected_rows = selection.selection.get("rows", []) if selection else []
         if selected_rows:
             selected_item = items[selected_rows[0]]
@@ -350,6 +352,9 @@ def _render_linked_items(grouped_items: dict[str, list[dict]], *, draft: dict | 
                 )
             else:
                 _open_linked_item(selected_item)
+
+    if _flags_store().pop("suppress_linked_item_selection_once", False):
+        pass
 
     if _flags_store().get("project_linked_item_modal"):
         _linked_item_detail_dialog()
@@ -518,6 +523,8 @@ def _load_project_editor(project: dict) -> dict:
             }
         )
         _clear_linked_item_modal_state()
+        _clear_linked_item_table_selection_state()
+        _flags_store()["suppress_linked_item_selection_once"] = True
         _flags_store()[f"reset::{PROJECT_EDITOR_NS}"] = True
     return editor
 
@@ -694,8 +701,10 @@ if not is_edit:
 
     add_cols = st.columns(2)
     if add_cols[0].button("Add Action", use_container_width=True):
+        _reset_editor("draft_action_editor", ACTION_EDITOR_DEFAULTS)
         _draft_action_dialog(draft)
     if add_cols[1].button("Add Delegation", use_container_width=True):
+        _reset_editor("draft_delegation_editor", DELEGATION_EDITOR_DEFAULTS)
         _draft_delegation_dialog(draft)
 
     action_cols = st.columns(2)

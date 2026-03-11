@@ -4,7 +4,7 @@
 Developer
 
 ## Timestamp
-2026-03-11T13:30:00Z
+2026-03-11T15:00:00Z
 
 ## Build / Package Reviewed
 workspace/lifeware working tree @ HEAD
@@ -12,7 +12,7 @@ workspace/lifeware working tree @ HEAD
 --------------------------------------------------
 
 ## Summary
-Adjusted Project Details draft-mode linked-item entry UX so Add Action/Add Delegation now use button-triggered dialogs instead of accordion/expander sections.
+Applied a stricter initial-load suppression for linked-item row-selection handling so stale dataframe selection state cannot auto-open Linked Item Details when opening a saved project from the projects list.
 
 --------------------------------------------------
 
@@ -22,9 +22,9 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Project detail linked-item interactions remain modal-based.
-- Existing saved-project Add Task/Add Delegation button dialogs remain unchanged.
-- Completion gating and deletion choice behavior remain unchanged.
+- Project Detail layout remains frozen and unchanged.
+- Add Task/Add Delegation modal behavior remains unchanged.
+- Date guardrail behavior remains unchanged.
 
 --------------------------------------------------
 
@@ -41,12 +41,14 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Key Decisions
-- Added draft-mode dialog wrappers and replaced draft accordions with button triggers to align with expected project-detail UX.
+- On project load/switch, set one-time suppression flag for linked-item selection handling.
+- During first linked-item table render after load, ignore any selected rows and clear suppression flag at end of render.
+- Keep explicit row-click modal open behavior unchanged for subsequent user interactions.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Verify dialog open/close behavior for draft mode during interactive QA.
+- Verify first explicit click after project load still opens modal details as expected.
 
 --------------------------------------------------
 
@@ -61,8 +63,8 @@ No
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- Draft project mode shows Add Action and Add Delegation buttons.
-- Clicking either button opens a modal dialog instead of expanding inline accordion content.
+- Opening a saved project from Projects list does not show Linked Item Details modal by default.
+- After initial load, clicking a linked-item row opens modal details normally.
 
 --------------------------------------------------
 
@@ -72,19 +74,19 @@ Auditor
 --------------------------------------------------
 
 ## Recommended Next Action
-Validate draft and saved project detail flows for modal add-item behavior and ensure no regressions in linked-item editing/deletion.
+Regression-check initial saved-project load and first-click modal open behavior for linked items.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-- Draft project: Add Action button opens dialog and can submit.
-- Draft project: Add Delegation button opens dialog and can submit.
-- Saved project: Add Task/Add Delegation buttons still open dialogs.
+- Open saved project from list: modal hidden on load.
+- Click linked row once: modal opens.
+- Close modal and click another row: modal opens with selected item.
 
 --------------------------------------------------
 
 ## Additional Notes
-- Browser screenshot attempt failed in this environment with Playwright `ERR_EMPTY_RESPONSE` when connecting to local Streamlit URL.
+- Change is intentionally minimal and limited to linked-item selection suppression logic on initial load.
 
 --------------------------------------------------
 
