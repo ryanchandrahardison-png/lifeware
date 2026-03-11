@@ -219,3 +219,33 @@ def update_project_from_editor(
         linked_actions=linked_actions,
         linked_delegations=linked_delegations,
     )
+
+
+def remove_project_link_reference(
+    *,
+    data: dict[str, Any],
+    project_id: str,
+    item_type: str,
+    item_id: str,
+) -> ServiceResult:
+    project = data.get("projects", {}).get(project_id)
+    if not project:
+        return ServiceResult(ok=False, errors=["Project not found."])
+
+    if item_type == "action":
+        project["action_ids"] = [aid for aid in project.get("action_ids", []) if aid != item_id]
+        action = data.get("actions", {}).get(item_id)
+        if action and action.get("project_id") == project_id:
+            action["project_id"] = None
+            action["is_active_global"] = True
+        return ServiceResult(ok=True, message="Action link removed from project.")
+
+    if item_type == "delegation":
+        project["delegation_ids"] = [did for did in project.get("delegation_ids", []) if did != item_id]
+        delegation = data.get("delegations", {}).get(item_id)
+        if delegation and delegation.get("project_id") == project_id:
+            delegation["project_id"] = None
+            delegation["is_active_global"] = True
+        return ServiceResult(ok=True, message="Delegation link removed from project.")
+
+    return ServiceResult(ok=False, errors=["Invalid linked-item type."])
