@@ -20,6 +20,7 @@ from core.project_service import (
     delete_project,
     request_project_delete,
     save_project_from_draft,
+    remove_project_link_reference,
     update_project_from_editor,
     validate_project_completion,
     validate_project_save,
@@ -97,6 +98,26 @@ def _grouped_linked_items(linked_actions: list[dict], linked_delegations: list[d
     return grouped
 
 
+def _project_linked_items_with_unresolved(data: dict, project: dict) -> tuple[list[dict], list[dict]]:
+    actions: list[dict] = []
+    for action_id in project.get("action_ids", []):
+        action = data.get("actions", {}).get(action_id)
+        if action:
+            actions.append(action)
+        else:
+            actions.append({"id": action_id, "title": "Missing Action", "status": "Open", "unresolved": True})
+
+    delegations: list[dict] = []
+    for delegation_id in project.get("delegation_ids", []):
+        delegation = data.get("delegations", {}).get(delegation_id)
+        if delegation:
+            delegations.append(delegation)
+        else:
+            delegations.append({"id": delegation_id, "title": "Missing Delegation", "status": "Waiting", "unresolved": True})
+
+    return actions, delegations
+
+
 def _linked_item_date_text(item: dict) -> str:
     linked_date = _linked_item_date(item)
     return linked_date.isoformat() if linked_date else "—"
@@ -110,7 +131,6 @@ def _clear_linked_item_modal_state() -> None:
 def _open_linked_item_full_page(item: dict) -> None:
     item_id = item.get("id")
     if not item_id:
-        _queue_notice("Draft linked items are edited in the draft Action/Delegation sections below.")
         return
 
     if item.get("kind") == "delegation":
@@ -125,7 +145,40 @@ def _open_linked_item_full_page(item: dict) -> None:
         st.switch_page("pages/actionItem.py")
 
 
-def _render_linked_items(grouped_items: dict[str, list[dict]]) -> None:
+def _remove_draft_linked_item(*, draft: dict, item: dict) -> None:
+    if item.get("kind") == "delegation":
+        draft["draft_delegations"] = [row for row in draft.get("draft_delegations", []) if row is not item]
+        _queue_notice("Draft delegation removed.")
+    else:
+        draft["draft_actions"] = [row for row in draft.get("draft_actions", []) if row is not item]
+        _queue_notice("Draft action removed.")
+    _sync_draft_runtime(draft)
+
+
+def _remove_broken_project_link(*, project_id: str, item_type: str, item_id: str) -> None:
+    result = remove_project_link_reference(
+        data=st.session_state.data,
+        project_id=project_id,
+        item_type=item_type,
+        item_id=item_id,
+    )
+    if result.ok:
+        _queue_notice(result.message or "Broken link removed.")
+    else:
+        for error in result.errors or []:
+            st.error(error)
+
+
+def _render_unresolved_warning(*, item: dict, warning: str, remove_label: str, on_remove) -> None:
+    kind = _linked_item_type(item)
+    name = item.get("title") or "Untitled"
+    st.warning(f"{warning} ({kind}: {name})")
+    if st.button(remove_label, key=f"remove_unresolved::{item.get('kind')}::{item.get('id') or id(item)}"):
+        on_remove()
+        st.rerun()
+
+
+def _render_linked_items(grouped_items: dict[str, list[dict]], *, draft: dict | None = None, project_id: str | None = None) -> None:
     _clear_linked_item_modal_state()
     st.markdown(
         """
@@ -163,7 +216,38 @@ def _render_linked_items(grouped_items: dict[str, list[dict]]) -> None:
         selected_rows = selection.selection.get("rows", []) if selection else []
         if selected_rows:
             selected_item = items[selected_rows[0]]
-            _open_linked_item_full_page(selected_item)
+            selected_id = selected_item.get("id")
+            if not selected_id and draft is not None:
+                _render_unresolved_warning(
+                    item=selected_item,
+                    warning="This linked item is still a draft and cannot be opened until the project is saved.",
+                    remove_label="Remove Draft Linked Item",
+                    on_remove=lambda item=selected_item: _remove_draft_linked_item(draft=draft, item=item),
+                )
+            elif selected_item.get("unresolved") and project_id and selected_item.get("kind") == "action":
+                _render_unresolved_warning(
+                    item=selected_item,
+                    warning="This project references an Action that no longer exists.",
+                    remove_label="Remove Broken Action Link",
+                    on_remove=lambda: _remove_broken_project_link(
+                        project_id=project_id,
+                        item_type="action",
+                        item_id=selected_id,
+                    ),
+                )
+            elif selected_item.get("unresolved") and project_id and selected_item.get("kind") == "delegation":
+                _render_unresolved_warning(
+                    item=selected_item,
+                    warning="This project references a Delegation that no longer exists.",
+                    remove_label="Remove Broken Delegation Link",
+                    on_remove=lambda: _remove_broken_project_link(
+                        project_id=project_id,
+                        item_type="delegation",
+                        item_id=selected_id,
+                    ),
+                )
+            else:
+                _open_linked_item_full_page(selected_item)
 
 
 def _ui_store() -> dict:
@@ -453,16 +537,6 @@ def add_saved_project_delegation(project: dict) -> None:
         st.rerun()
 
 
-@st.dialog("Add Action")
-def _saved_action_dialog(project: dict) -> None:
-    add_saved_project_action(project)
-
-
-@st.dialog("Add Delegation")
-def _saved_delegation_dialog(project: dict) -> None:
-    add_saved_project_delegation(project)
-
-
 project_id = st.session_state.project_view_id
 data = st.session_state.data
 is_edit = project_id is not None and project_id in data.get("projects", {})
@@ -485,7 +559,7 @@ if not is_edit:
         draft.get("draft_delegations", []),
     )
     st.markdown("**Linked Items**")
-    _render_linked_items(draft_grouped_items)
+    _render_linked_items(draft_grouped_items, draft=draft)
 
     st.markdown("**Add linked items**")
     with st.expander("Add Draft Action"):
@@ -540,15 +614,16 @@ else:
     if editor.get("status") == "Completed" and not can_complete:
         st.caption("Complete Project is disabled until all linked actions and delegations are completed.")
 
-    grouped_items = _grouped_linked_items(linked_actions, linked_delegations)
+    linked_actions_with_unresolved, linked_delegations_with_unresolved = _project_linked_items_with_unresolved(data, project)
+    grouped_items = _grouped_linked_items(linked_actions_with_unresolved, linked_delegations_with_unresolved)
     st.markdown("**Linked Items**")
-    _render_linked_items(grouped_items)
+    _render_linked_items(grouped_items, project_id=project_id)
 
-    add_cols = st.columns(2)
-    if add_cols[0].button("Add Task", use_container_width=True):
-        _saved_action_dialog(project)
-    if add_cols[1].button("Add Delegation", use_container_width=True):
-        _saved_delegation_dialog(project)
+    st.markdown("**Add linked items**")
+    with st.expander("Add Task"):
+        add_saved_project_action(project)
+    with st.expander("Add Delegation"):
+        add_saved_project_delegation(project)
 
     command_cols = st.columns(3)
     save = command_cols[0].button("Save Changes", use_container_width=True)
