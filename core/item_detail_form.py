@@ -16,6 +16,20 @@ FOLLOW_UP_FIELD_CANDIDATES = ["follow_up_date"]
 SOURCE_FIELD_NAMES = {"source"}
 
 
+def item_editor_config(list_key: str) -> dict:
+    if list_key == "delegations":
+        return {
+            "date_label": "Follow Up Date",
+            "date_field_candidates": FOLLOW_UP_FIELD_CANDIDATES,
+            "status_options": DELEGATION_STATUS_OPTIONS,
+        }
+    return {
+        "date_label": "Due Date",
+        "date_field_candidates": DATE_FIELD_CANDIDATES,
+        "status_options": DEFAULT_STATUS_OPTIONS,
+    }
+
+
 def _as_dict(item: Any) -> dict:
     return deepcopy(item) if isinstance(item, dict) else {"title": "" if item is None else str(item)}
 
@@ -190,14 +204,16 @@ def render_item_detail_form(
     title_keys: list[str],
     subtitle_text: str,
     show_due_date: bool = False,
-    date_label: str = "Due Date",
+    date_label: str | None = None,
     date_field_candidates: list[str] | None = None,
     status_options: list[str] | None = None,
 ) -> None:
     items = data.setdefault(list_key, {})
     is_edit = item_id is not None and item_id in items
-    date_field_candidates = date_field_candidates or DATE_FIELD_CANDIDATES
-    status_options = status_options or DEFAULT_STATUS_OPTIONS
+    editor_config = item_editor_config(list_key)
+    date_field_candidates = date_field_candidates or editor_config["date_field_candidates"]
+    status_options = status_options or editor_config["status_options"]
+    date_label = date_label or editor_config["date_label"]
 
     original = _as_dict(items[item_id]) if is_edit else {}
 

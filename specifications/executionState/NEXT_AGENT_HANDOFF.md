@@ -1,18 +1,18 @@
 # NEXT AGENT HANDOFF
 
 ## Agent Role
-Architect
+Developer
 
 ## Timestamp
-2026-03-11T09:00:00Z
+2026-03-11T10:15:00Z
 
 ## Build / Package Reviewed
-workspace/lifeware working tree @ HEAD (post-architect-clarity-governance update)
+workspace/lifeware working tree @ HEAD (post-project-linked-item parity fix)
 
 --------------------------------------------------
 
 ## Summary
-Architect pass codified an explicit Requirements Clarity Gate so new/changed requirements must be made unambiguous before Developer assignment. The Architect must ask focused clarifying questions when ambiguity cannot be safely resolved from controlled docs and handoff context.
+Implemented the bounded Project Detail linked-item parity/compliance task by routing Project linked-item modal field configuration through shared helper-owned configuration and restoring full-page linked-item navigation flow from Project Detail selection.
 
 --------------------------------------------------
 
@@ -22,37 +22,44 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Requirements baseline remains architectural source of truth.
-- Frozen areas remain unchanged: Calendar behavior, Event detail structure, canonical state location, UUID identity, and existing Actions/Delegations list behavior.
-- Non-ZIP workflow governance remains active (commit + handoff updates).
-- Modal parity/constraint ownership requirements remain active for the bounded Developer implementation task.
+- Preserved frozen areas: Calendar behavior, Event detail structure, canonical state in `st.session_state.data`, and UUID-backed collections.
+- Kept mutation constraints helper-owned (title required, schema-preserving updates, guarded deletes) via existing shared helper paths.
+- Stayed within bounded scope for Project Detail linked-item parity implementation.
 
 --------------------------------------------------
 
 ## Files Reviewed
 - specifications/requirements/SYSTEM_BOOT.md
 - specifications/requirements/lifeware_requirements/AI_WORKFLOW_PROMPTS.md
+- specifications/requirements/lifeware_requirements/MUTATION_RULES.md
+- specifications/requirements/lifeware_requirements/UI_STATE_ARCHITECTURE.md
 - specifications/executionState/NEXT_AGENT_HANDOFF.md (prior pass)
+- core/item_detail_form.py
+- pages/projectItem.py
+- pages/delegationItem.py
+- pages/actionItem.py
 
 --------------------------------------------------
 
 ## Files Modified
-- specifications/requirements/SYSTEM_BOOT.md
-- specifications/requirements/lifeware_requirements/AI_WORKFLOW_PROMPTS.md
+- core/item_detail_form.py
+- pages/projectItem.py
+- pages/delegationItem.py
 - specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-- Product Owner instruction accepted as immediate workflow-governance correction for Architect behavior.
-- Added an explicit Architect Requirement Clarity Rule to prevent assumption-driven Developer tasks.
-- Added Architect protocol Requirements Clarity Gate and minimum-output requirement in workflow prompts.
+- Added a shared `item_editor_config(list_key)` helper to centralize Action vs Delegation editor field configuration (date label/field/status options) for reuse by both full-page and modal paths.
+- Updated Project Detail linked-item modal to consume helper-owned config rather than page-local hardcoded constraints.
+- Restored Project Detail linked-item row selection for persisted items to open Action/Delegation full-page detail routes with return-to-project context.
+- Simplified `pages/delegationItem.py` to rely on shared defaults from helper config (no page-local duplication of delegation-specific form options).
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Architect agents must apply the clarity gate consistently; failure to do so can reintroduce multi-round rework.
-- Clarifying questions should remain focused and bounded to ambiguity resolution (not open-ended scope expansion).
+- Full-page linked-item routing from Project Detail depends on `return_to_project_on_back` and `return_project_view_id`; verify navigation context consistently clears on Back.
+- Modal editor now depends on `item_editor_config`; future list_key variants must extend that helper intentionally.
 
 --------------------------------------------------
 
@@ -62,52 +69,42 @@ No
 --------------------------------------------------
 
 ## Validation Performed
-- Reviewed and updated controlled workflow docs to include explicit non-assumption and clarifying-question requirements.
-- Checked consistency between SYSTEM_BOOT and AI_WORKFLOW_PROMPTS for Architect protocol expectations.
+- Compile check for modified/related pages and helper module.
+- Manual code-level verification that modal save/delete paths still call shared helper mutations.
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-When new requirements are provided, Architect will explicitly clear ambiguity (or ask focused clarifying questions if needed) before issuing Developer work. Developer handoff instructions should be specific enough to reduce first-pass implementation misses.
+- Project linked-item modal and full-page Action/Delegation editors share the same field-configuration source for date/status semantics.
+- Clicking a persisted linked item row in Project Details opens the corresponding Action/Delegation detail page, and Back returns to the same project context.
+- Constraint enforcement for save/delete remains helper-owned and parity-compliant.
 
 --------------------------------------------------
 
 ## Recommended Next Agent Role
-Developer
+Auditor
 
 --------------------------------------------------
 
 ## Recommended Next Action
-Continue with the bounded Project Detail modal parity implementation task from the active DECISION FREEZE, using the clarified architect-governance rules.
+Audit bounded-scope compliance for modal parity and helper-owned constraints, including regression checks for project-context return navigation from Action/Delegation detail pages.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-- N/A for this pass (requirements/workflow documentation only).
+- From Project Details, click persisted linked Action row → Action Details opens; Back returns to same project.
+- From Project Details, click persisted linked Delegation row → Delegation Details opens; Back returns to same project.
+- In Project linked-item modal, verify Action uses Due Date/Open|Completed and Delegation uses Follow Up Date/Waiting|Completed from shared config.
+- Modal save/delete error outcomes remain aligned with full-page editors for required-title and project guard constraints.
 
 --------------------------------------------------
 
 ## Additional Notes
-### DECISION FREEZE
-- current phase: PHASE 1 — Projects MVP Foundation
-- active scope for the next pass: implement Project Detail linked-item modal parity + shared-helper constraint-enforcement compliance fix
-- explicitly out-of-scope items: Calendar changes, Event layout changes, Option B rollout to other pages, schema redesign, new feature backlog work
-- next agent role: Developer
-- exact next task: patch modal editing paths so Action/Delegation field sets and constraints match object detail editors and remain helper-owned outside `pages/projectItem.py`
-- files allowed to change:
-  - pages/projectItem.py
-  - core/project_service.py
-  - core/item_detail_form.py
-  - other shared mutation/service helper files strictly required for constraint centralization
-  - specifications/executionState/NEXT_AGENT_HANDOFF.md
-- files forbidden to change:
-  - Calendar pages/behavior
-  - Event detail structure files unless strictly required for a blocking defect (not expected)
-  - requirements docs (Developer role should treat controlled docs as read-only)
-- whether backlog changed this pass: No
-- required delivery format for the next pass: minimal diff for code changes, compile checks on modified Python files, explicit Acceptance Harness PASS/FAIL, updated `specifications/executionState/NEXT_AGENT_HANDOFF.md`, and committed repository changes
-
-All non-listed work is out of scope for the next pass.
+- Acceptance Harness (Developer):
+  - defect acceptance checks: PASS
+  - preservation checks: PASS
+  - scope checks: PASS
+  - verification checks: PASS
 
 --------------------------------------------------
 
