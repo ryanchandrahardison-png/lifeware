@@ -1,15 +1,14 @@
 {
   "agent_role": "Developer",
   "phase": "PHASE 1 \u2014 Projects MVP Foundation",
-  "task": "Project Save Validation Hardening",
+  "task": "Persist Projects UX constraints in requirements tracker",
   "input_build": "lifeware_codebase_developer_pass_v1_4.zip",
   "requirements_build": "lifeware_requirements_baseline_v1_3.zip",
   "status": "completed",
   "modified_files": [
-    "pages/projectItem.py",
+    "LIFEWARE_REQUIREMENTS_TRACKER.md",
     "NEXT_AGENT_HANDOFF.md",
-    "execution_state.json",
-    "developer_diff_patch.diff"
+    "execution_state.json"
   ],
   "preserved_constraints": [
     "Canonical state remains only in st.session_state.data",
@@ -19,12 +18,9 @@
     "No project completion gating changes"
   ],
   "validation": {
-    "python_compile_check": true,
-    "files_checked": [
-      "pages/projectItem.py",
-      "core/project_service.py"
-    ]
+    "python_compile_check": false,
+    "files_checked": []
   },
   "next_recommended_role": "Developer",
-  "next_action": "Audit remaining project interaction surfaces for save-rule enforcement symmetry and patch only if a real bypass exists."
+  "next_action": "Use the new Projects View Requirements section as frozen behavior unless explicitly overridden by the user."
 }

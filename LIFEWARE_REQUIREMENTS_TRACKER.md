@@ -97,6 +97,20 @@ lifeware/
 - Do not show a Source field in Delegation Details.
 - When a new GTD JSON file is loaded, any prior delegation selection state must be cleared to prevent stale details from a previous file.
 
+## Projects View Requirements
+- Project Details page behavior is considered stable unless explicitly changed by the user.
+- In Project Details, project-level action buttons must follow this layout:
+  - `Back` remains available near the top of the page.
+  - `Add Task` and `Add Delegation` remain in the linked-item action area.
+  - `Save` and `Delete` must appear below `Add Task` / `Add Delegation`.
+- In Project Details, the project-level primary save button label must be `Save` (not `Save Changes`).
+- In linked-item modal opened from Project Details:
+  - Remove the `Back` button from the editable form controls.
+  - Keep `Save` and `Delete` form actions.
+  - The save button label must be `Save` (not `Save Changes`).
+  - After successful `Save`, the modal must close.
+  - After successful `Delete`, the modal must close.
+
 ## Calendar Data Model Requirements
 - The calendar must always read from the currently loaded GTD JSON in `st.session_state.data`.
 - Keep canonical event payload fields consistent:
