@@ -3,21 +3,20 @@
 ## Role
 Developer
 
-## What I did
-- Followed the available boot context in this workspace.
-- Verified there were no prior handoff files to consume.
-- Audited project save-rule enforcement symmetry across project edit/create and linked action/delegation delete surfaces.
-- Re-ran compile checks for touched and dependency files.
+## What changed
+- Fixed a Streamlit multi-dialog runtime failure in `pages/projectItem.py` when `Add Task`/`Add Delegation` was clicked while a linked-item modal flag was set.
+- Removed inline linked-item dialog opening from `_render_linked_items(...)` and deferred dialog opening to one end-of-page dispatch block.
+- Cleared linked-item modal state before opening Add Task/Add Delegation dialogs to avoid stale dialog collisions.
 
-## Audit result
-No additional bypass was found in current project interaction surfaces:
-- Project create/update paths enforce `validate_project_save` through `save_new_project` and `update_project`.
-- Action/delegation deletion paths use `delete_item_with_project_guard` and block deletions that would violate linked-item minimums for any associated project.
-- Linked item add/edit flows inside project detail remain mediated through project service helpers.
+## Root cause
+- The page could attempt to open two dialogs in one run:
+  1) `Linked Item Details` auto-opened during linked-items rendering
+  2) `Add Task` / `Add Delegation` opened later in the same run
+- Streamlit allows only one first-opened dialog per run, causing `StreamlitAPIException`.
 
-## Recommended next step
-- Keep monitoring for new entry points that mutate `project.action_ids` / `project.delegation_ids` directly.
-- If a new mutation surface is added, route it through the same guardrails in `core/project_service.py`.
+## Behavior now
+- Only one dialog opens per run (priority: Add Task, then Add Delegation, else Linked Item Details).
+- Project save/delete/back behavior remains unchanged.
 
-## Validation run
+## Validation
 - `python -m py_compile pages/projectItem.py core/project_service.py pages/projects.py core/item_detail_form.py`

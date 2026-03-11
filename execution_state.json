@@ -1,7 +1,7 @@
 {
   "agent_role": "Developer",
   "phase": "PHASE 1 \u2014 Projects MVP Foundation",
-  "task": "Project Save Rule Symmetry Audit",
+  "task": "Fix project detail multi-dialog Streamlit exception",
   "input_build": "lifeware_codebase_developer_pass_v1_4.zip",
   "requirements_build": "lifeware_requirements_baseline_v1_3.zip",
   "status": "completed",
@@ -25,6 +25,6 @@
       "core/item_detail_form.py"
     ]
   },
-  "next_recommended_role": "Developer",
-  "next_action": "Implement guardrails only if new project-link mutation surfaces are introduced."
+  "next_recommended_role": "QA",
+  "next_action": "Re-run the provided Projects > Add Task reproduction and confirm no Streamlit dialog-open exception occurs."
 }
