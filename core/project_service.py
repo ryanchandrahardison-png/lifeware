@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 from core.entities import is_completed_status, new_uuid
@@ -53,6 +54,16 @@ def validate_project_completion(*, status: str, linked_actions: list[dict[str, A
             errors=["Project cannot be marked Completed until all linked actions and delegations are completed."],
         )
     return ServiceResult(ok=True)
+
+
+def validate_project_due_date_change(*, selected_due_date: date | None, original_due_date: date | None) -> ServiceResult:
+    if selected_due_date and selected_due_date < date.today() and selected_due_date != original_due_date:
+        return ServiceResult(ok=False, errors=["Project Due Date cannot be in the past unless it is unchanged."])
+    return ServiceResult(ok=True)
+
+
+def is_delete_cancellation_choice(choice: str) -> bool:
+    return choice == DELETE_CHOICE_CANCEL
 
 
 def create_linked_action(*, data: dict[str, Any], project_id: str, title: str, details: str, due_date: str | None, is_active_global: bool) -> str:

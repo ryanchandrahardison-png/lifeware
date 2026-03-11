@@ -4,15 +4,15 @@
 Developer
 
 ## Timestamp
-2026-03-11T15:40:00Z
+2026-03-11T17:45:00Z
 
 ## Build / Package Reviewed
-workspace/lifeware working tree @ HEAD
+workspace/lifeware working tree @ HEAD (based on Architect DECISION FREEZE for Phase 1 bounded refactor)
 
 --------------------------------------------------
 
 ## Summary
-Implemented the next approved Project Detail improvement: linked items now support a compact stacked-row presentation designed for narrow/mobile contexts, while preserving existing grouped table behavior and modal detail interactions.
+Completed the bounded Phase 1 refactor to further centralize project business-rule logic in `core/project_service.py` while preserving existing Project Detail behavior. The page now delegates due-date validation and delete-cancel choice checks to service helpers and relies on service-layer validation for draft save.
 
 --------------------------------------------------
 
@@ -22,35 +22,38 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Frozen Project Detail section order remains unchanged.
-- Linked-item groups remain Completed/Past Due/Upcoming/Floating.
-- Single-click/one-click linked-item open behavior remains preserved in both table and compact modes.
-- Existing modal detail flows, date guardrails, and delete/completion protections remain unchanged.
+- Frozen areas preserved: Calendar behavior, Event detail structure, canonical state location, UUID-backed collections.
+- Project Detail linked-item layout/grouping behavior unchanged.
+- No schema changes introduced.
+- Business-rule placement moved further toward shared service ownership.
 
 --------------------------------------------------
 
 ## Files Reviewed
-- pages/projectItem.py
-- specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
 - specifications/executionState/NEXT_AGENT_HANDOFF.md
+- pages/projectItem.py
+- core/project_service.py
+- specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
+- specifications/requirements/lifeware_requirements/AI_WORKFLOW_PROMPTS.md
 
 --------------------------------------------------
 
 ## Files Modified
+- core/project_service.py
 - pages/projectItem.py
 - specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-- Added compact-mode linked-item rendering with stacked row buttons.
-- Added per-project compact-view state key with mobile user-agent defaulting to compact mode.
-- Retained dataframe path as default for non-compact contexts.
+- Removed duplicate page-level draft save pre-validation and used `save_project_from_draft(...)` as single validation/mutation path.
+- Added `validate_project_due_date_change(...)` in service layer and replaced page inline due-date business rule with service call.
+- Added `is_delete_cancellation_choice(...)` in service layer and replaced page string-literal deletion-choice branch.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Mobile user-agent detection is heuristic; manual compact toggle remains available if automatic default does not match device context.
+- Refactor is behavior-preserving by design, but Project save and delete-choice pathways should be smoke-tested in UI to ensure no regression.
 
 --------------------------------------------------
 
@@ -60,37 +63,37 @@ No
 --------------------------------------------------
 
 ## Validation Performed
-- `python -m py_compile pages/projectItem.py`
-- `rg -n "Compact linked-item view|project_linked_items_compact|user-agent|suppress_linked_item_selection_once" pages/projectItem.py`
+- `python -m py_compile pages/projectItem.py core/project_service.py`
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- Users can switch linked-item display to compact stacked rows.
-- Mobile-like user agents default to compact mode on first open for each project/draft context.
-- Linked-item modal details still open from row/button selection.
+- Draft project save still enforces title + minimum linked-item count and shows same errors.
+- Project due-date edit guardrail still blocks newly selected past dates while allowing unchanged historical dates.
+- Project delete confirmation still treats cancel as no-op and preserves existing flow behavior.
 
 --------------------------------------------------
 
 ## Recommended Next Agent Role
-Auditor
+Architect
 
 --------------------------------------------------
 
 ## Recommended Next Action
-Ask Product Owner whether compact-mode UX should be auto-only (no toggle) or keep explicit toggle for deterministic control.
+Review this refactor for compliance with the DECISION FREEZE and either close the item or issue a narrow follow-up extraction task if any remaining business-rule branches in `pages/projectItem.py` still warrant migration.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-- Saved project: toggle compact on/off and confirm same linked items appear in both modes.
-- In compact mode: click linked row button and confirm modal opens correctly.
-- Draft project: compact mode draft-row warning/remove behavior remains intact.
+- Draft project save blocked at <2 linked items and allowed at >=2.
+- Edit saved project with unchanged past due date vs newly selected past due date.
+- Delete project flow: Cancel deletion path and confirm-delete path both behave as before.
+- Linked-item table/compact behavior remains unchanged after save/delete operations.
 
 --------------------------------------------------
 
 ## Additional Notes
-- This pass follows the new fast path default and avoids optional Auditor/QA routing unless explicitly requested.
+- Scope stayed within the Architect DECISION FREEZE file boundaries.
 
 --------------------------------------------------
 
