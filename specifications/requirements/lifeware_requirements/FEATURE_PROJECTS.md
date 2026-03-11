@@ -147,10 +147,41 @@ The page may call the state/service layer, but it must not become the long-term 
 
 ## Project Linked-Item Modal Requirements
 For Project Detail linked-item modal behavior:
-- The modal must render entity-specific fields matching the linked object type:
-  - Action: Title, Due Date, Details, Status
-  - Delegation: Title, Follow Up Date, Details, Status
-- Modal fields must be editable using the same constraints enforced for Action/Delegation detail pages.
-- Save/Delete operations from the modal must use shared mutation helpers, not page-local business-rule mutations.
+- The modal must render entity-specific fields matching the linked object type.
+  - Action modal required fields: Title, Due Date, Details, Status.
+  - Delegation modal required fields: Title, Follow Up Date, Details, Status.
+- Field-level behavior parity is required with full-page object editors.
+  - If a field is editable on `pages/actionItem.py` / `pages/delegationItem.py`, it must be editable in the corresponding project-linked modal.
+  - The same required-field checks, value-shape checks, and status/date handling rules must apply in both modal and full-page editors.
+- Constraint ownership must remain outside `pages/projectItem.py`.
+  - `pages/projectItem.py` may orchestrate modal UI, but must not become the primary home of Action/Delegation constraint logic.
+  - Shared mutation/service helpers remain the canonical enforcement layer so constraints stay consistent across all entry points.
+- Save/Delete operations from the modal must call shared Action/Delegation mutation helpers (not page-local business-rule mutations).
 - Deletion from the modal must preserve project save-rule protections and referential integrity checks.
-- Constraint enforcement must remain canonical outside `pages/projectItem.py` so rule changes apply consistently across detail pages and modal editing.
+
+### Constraint Consistency Requirement
+Constraint behavior for Actions and Delegations must be system-consistent:
+- inside Project Detail modal editing
+- inside full-page Action/Delegation editing
+- outside Project Detail flows generally
+
+Any future constraint change must be implemented once in shared helpers and observed identically by both modal and full-page editors.
+
+
+### Developer Implementation Contract (Modal Compliance Fix)
+To remove ambiguity for the Developer pass, implementation must satisfy all of the following:
+1. Modal field parity
+   - Action modal renders editable: Title, Due Date, Details, Status.
+   - Delegation modal renders editable: Title, Follow Up Date, Details, Status.
+2. Shared-constraint parity
+   - Modal Save uses the same helper path used by object detail pages for validation/sanitization/persistence.
+   - Modal Delete uses the same guarded delete helper path used by object detail pages.
+3. No page-owned rule duplication
+   - `pages/projectItem.py` may pass field values and react to helper results.
+   - `pages/projectItem.py` must not re-implement canonical validation rules.
+4. Behavioral consistency checks
+   - Empty title fails in modal exactly as it fails in full-page editor.
+   - Status/date persistence semantics match full-page editor behavior for both entity types.
+5. Preservation checks
+   - Project save minimum (>=2 linked items), completion gating, and deletion prompt behavior remain unchanged.
+   - Calendar and Event detail behavior remain unchanged.

@@ -111,7 +111,7 @@ Agents must not expand Option A into Option B during the current pass unless exp
 - Option A for `pages/projectItem.py` has completed Architect → Developer → Auditor → QA in the current build stream.
 - Option B remains backlog only and must not start without an explicit new Architect decision freeze.
 - Newly approved backlog item: Routines / Cadenced Checklists.
-- Active selected bounded task: Project Detail linked-items table/layout/modal update in `pages/projectItem.py` per Product Owner clarifications.
+- Active selected bounded task: Project Detail linked-item modal parity and constraint-enforcement compliance fix (Action/Delegation field parity + shared-helper constraint enforcement) centered in `pages/projectItem.py` integration paths and shared mutation/service helpers.
 
 
 ## Developer Artifact Rule
@@ -119,7 +119,7 @@ Developer agents must follow the delivery format specified in `NEXT_AGENT_HANDOF
 
 Default rule for normal implementation passes:
 - provide a minimal diff patch
-- provide the full updated project ZIP when code changes
+- provide committed repository changes when code changes
 
 Developers must not ask whether to provide a diff patch vs full replacement when the handoff already specifies the format.
 Full-file replacement is allowed only when explicitly required by the handoff or explicitly requested by the user.
@@ -129,12 +129,11 @@ Full-file replacement is allowed only when explicitly required by the handoff or
 - Only the Architect may normally ask open-ended workflow or design questions.
 - Developer, Auditor, and QA should derive their task from `NEXT_AGENT_HANDOFF.md` and the requirements package.
 - Every non-terminal agent must update `NEXT_AGENT_HANDOFF.md` before finishing.
-- If requirements-side files change, the agent must return a regenerated requirements ZIP.
+- If requirements-side files change, the agent must commit those updates and record them in NEXT_AGENT_HANDOFF.md.
 - The intended user workflow is:
-  1. download returned ZIP files
-  2. open the next agent
-  3. paste the universal prompt
-  4. let the next agent continue from the handoff
+  1. open the repository in the next agent
+  2. paste the universal prompt
+  3. let the next agent continue from the handoff
 
 
 ## Routine Backlog Rule
