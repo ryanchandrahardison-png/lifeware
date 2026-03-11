@@ -638,6 +638,16 @@ def _saved_delegation_dialog(project: dict) -> None:
     add_saved_project_delegation(project)
 
 
+@st.dialog("Add Draft Action")
+def _draft_action_dialog(draft: dict) -> None:
+    add_draft_action(draft)
+
+
+@st.dialog("Add Draft Delegation")
+def _draft_delegation_dialog(draft: dict) -> None:
+    add_draft_delegation(draft)
+
+
 project_id = st.session_state.project_view_id
 data = st.session_state.data
 is_edit = project_id is not None and project_id in data.get("projects", {})
@@ -662,11 +672,11 @@ if not is_edit:
     st.markdown("**Linked Items**")
     _render_linked_items(draft_grouped_items, draft=draft)
 
-    st.markdown("**Add linked items**")
-    with st.expander("Add Draft Action"):
-        add_draft_action(draft)
-    with st.expander("Add Draft Delegation"):
-        add_draft_delegation(draft)
+    add_cols = st.columns(2)
+    if add_cols[0].button("Add Action", use_container_width=True):
+        _draft_action_dialog(draft)
+    if add_cols[1].button("Add Delegation", use_container_width=True):
+        _draft_delegation_dialog(draft)
 
     action_cols = st.columns(2)
     save = action_cols[0].button("Save", use_container_width=True)
