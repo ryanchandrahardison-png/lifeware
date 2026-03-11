@@ -12,6 +12,7 @@ from core.entities import (
     parse_date_only,
     project_health,
 )
+from core.item_detail_form import delete_item_with_project_guard, save_item_with_constraints
 from core.layout import sidebar_file_controls
 from core.project_service import (
     DELETE_CHOICE_OPTIONS,
@@ -128,21 +129,131 @@ def _clear_linked_item_modal_state() -> None:
     _flags_store().pop("project_linked_item_modal_editor_key", None)
 
 
-def _open_linked_item_full_page(item: dict) -> None:
-    item_id = item.get("id")
-    if not item_id:
+def _open_linked_item(item: dict) -> None:
+    _flags_store()["project_linked_item_modal"] = item
+    _flags_store().pop("project_linked_item_modal_editor_key", None)
+
+
+@st.dialog("Linked Item Details")
+def _linked_item_detail_dialog() -> None:
+    modal_item = _flags_store().get("project_linked_item_modal")
+    if not isinstance(modal_item, dict):
+        st.info("No linked item selected.")
         return
 
-    if item.get("kind") == "delegation":
-        st.session_state.delegation_view_id = item_id
-        st.session_state.return_to_project_on_back = True
-        st.session_state.return_project_view_id = st.session_state.project_view_id
-        st.switch_page("pages/delegationItem.py")
-    else:
-        st.session_state.action_view_id = item_id
-        st.session_state.return_to_project_on_back = True
-        st.session_state.return_project_view_id = st.session_state.project_view_id
-        st.switch_page("pages/actionItem.py")
+    kind = "delegation" if modal_item.get("kind") == "delegation" else "action"
+    item_id = modal_item.get("id")
+    collection_key = "delegations" if kind == "delegation" else "actions"
+    date_field = "follow_up_date" if kind == "delegation" else "due_date"
+    date_label = "Follow Up Date" if kind == "delegation" else "Due Date"
+    status_options = ["Waiting", "Completed"] if kind == "delegation" else ["Open", "Completed"]
+
+    if modal_item.get("unresolved"):
+        st.warning("This linked item reference is unresolved and cannot be edited.")
+        project_id = st.session_state.get("project_view_id")
+        if project_id and item_id:
+            remove_label = "Remove Broken Delegation Link" if kind == "delegation" else "Remove Broken Action Link"
+            if st.button(remove_label, use_container_width=True):
+                _remove_broken_project_link(
+                    project_id=project_id,
+                    item_type=kind,
+                    item_id=item_id,
+                )
+                _clear_linked_item_modal_state()
+                st.rerun()
+        if st.button("Close", use_container_width=True):
+            _clear_linked_item_modal_state()
+            st.rerun()
+        return
+
+    record = None
+    if item_id:
+        record = deepcopy(st.session_state.data.get(collection_key, {}).get(item_id))
+
+    if record is None:
+        st.markdown(f"**Task Name:** {modal_item.get('title', 'Untitled')}")
+        st.markdown(f"**Type:** {_linked_item_type(modal_item)}")
+        st.markdown(f"**Date:** {_linked_item_date_text(modal_item)}")
+        details_text = str(modal_item.get("details", "") or "").strip() or "(No details)"
+        st.markdown("**Details**")
+        st.write(details_text)
+        st.caption("This linked item is not yet persisted; edit it from the draft controls.")
+        if st.button("Close", use_container_width=True):
+            _clear_linked_item_modal_state()
+            st.rerun()
+        return
+
+    editor_key = f"project_linked_modal_editor::{kind}::{item_id}"
+    title_key = f"{editor_key}::title"
+    date_key = f"{editor_key}::date"
+    details_key = f"{editor_key}::details"
+    status_key = f"{editor_key}::status"
+
+    if _flags_store().get("project_linked_item_modal_editor_key") != editor_key:
+        st.session_state[title_key] = str(record.get("title", "") or "")
+        st.session_state[details_key] = str(record.get("details", "") or "")
+        st.session_state[date_key] = parse_date_only(record.get(date_field)) or date.today()
+        status_value = record.get("status", status_options[0])
+        st.session_state[status_key] = status_value if status_value in status_options else status_options[0]
+        _flags_store()["project_linked_item_modal_editor_key"] = editor_key
+
+    with st.form(f"project_linked_modal_form::{kind}::{item_id}"):
+        st.text_input("Title", key=title_key)
+        st.date_input(date_label, key=date_key)
+        st.text_area("Details", key=details_key, height=180)
+        st.selectbox("Status", status_options, key=status_key)
+
+        controls = st.columns(3)
+        save = controls[0].form_submit_button("Save Changes")
+        delete = controls[1].form_submit_button("Delete")
+        back = controls[2].form_submit_button("Back")
+
+    if back:
+        _clear_linked_item_modal_state()
+        st.rerun()
+        return
+
+    if delete:
+        ok, errors = delete_item_with_project_guard(
+            data=st.session_state.data,
+            list_key=collection_key,
+            item_id=item_id,
+        )
+        if not ok:
+            for error in errors:
+                st.error(error)
+            return
+
+        _clear_linked_item_modal_state()
+        _queue_notice("Linked item deleted.")
+        st.rerun()
+        return
+
+    if save:
+        title = str(st.session_state.get(title_key, "") or "")
+        selected_date = parse_date_only(st.session_state.get(date_key)) or date.today()
+        details = str(st.session_state.get(details_key, "") or "")
+        status = str(st.session_state.get(status_key, status_options[0]) or status_options[0])
+
+        ok, errors, updated = save_item_with_constraints(
+            data=st.session_state.data,
+            list_key=collection_key,
+            item_id=item_id,
+            title=title,
+            details=details,
+            status=status,
+            date_value=selected_date,
+            date_field_candidates=[date_field],
+        )
+        if not ok:
+            for error in errors:
+                st.error(error)
+            return
+
+        _flags_store()["project_linked_item_modal"] = {**(updated or {}), "kind": kind}
+        _flags_store().pop("project_linked_item_modal_editor_key", None)
+        _queue_notice("Linked item updated.")
+        st.rerun()
 
 
 def _remove_draft_linked_item(*, draft: dict, item: dict) -> None:
@@ -179,7 +290,6 @@ def _render_unresolved_warning(*, item: dict, warning: str, remove_label: str, o
 
 
 def _render_linked_items(grouped_items: dict[str, list[dict]], *, draft: dict | None = None, project_id: str | None = None) -> None:
-    _clear_linked_item_modal_state()
     st.markdown(
         """
         <style>
@@ -224,30 +334,11 @@ def _render_linked_items(grouped_items: dict[str, list[dict]], *, draft: dict | 
                     remove_label="Remove Draft Linked Item",
                     on_remove=lambda item=selected_item: _remove_draft_linked_item(draft=draft, item=item),
                 )
-            elif selected_item.get("unresolved") and project_id and selected_item.get("kind") == "action":
-                _render_unresolved_warning(
-                    item=selected_item,
-                    warning="This project references an Action that no longer exists.",
-                    remove_label="Remove Broken Action Link",
-                    on_remove=lambda: _remove_broken_project_link(
-                        project_id=project_id,
-                        item_type="action",
-                        item_id=selected_id,
-                    ),
-                )
-            elif selected_item.get("unresolved") and project_id and selected_item.get("kind") == "delegation":
-                _render_unresolved_warning(
-                    item=selected_item,
-                    warning="This project references a Delegation that no longer exists.",
-                    remove_label="Remove Broken Delegation Link",
-                    on_remove=lambda: _remove_broken_project_link(
-                        project_id=project_id,
-                        item_type="delegation",
-                        item_id=selected_id,
-                    ),
-                )
             else:
-                _open_linked_item_full_page(selected_item)
+                _open_linked_item(selected_item)
+
+    if _flags_store().get("project_linked_item_modal"):
+        _linked_item_detail_dialog()
 
 
 def _ui_store() -> dict:
@@ -537,6 +628,16 @@ def add_saved_project_delegation(project: dict) -> None:
         st.rerun()
 
 
+@st.dialog("Add Task")
+def _saved_action_dialog(project: dict) -> None:
+    add_saved_project_action(project)
+
+
+@st.dialog("Add Delegation")
+def _saved_delegation_dialog(project: dict) -> None:
+    add_saved_project_delegation(project)
+
+
 project_id = st.session_state.project_view_id
 data = st.session_state.data
 is_edit = project_id is not None and project_id in data.get("projects", {})
@@ -619,11 +720,11 @@ else:
     st.markdown("**Linked Items**")
     _render_linked_items(grouped_items, project_id=project_id)
 
-    st.markdown("**Add linked items**")
-    with st.expander("Add Task"):
-        add_saved_project_action(project)
-    with st.expander("Add Delegation"):
-        add_saved_project_delegation(project)
+    add_cols = st.columns(2)
+    if add_cols[0].button("Add Task", use_container_width=True):
+        _saved_action_dialog(project)
+    if add_cols[1].button("Add Delegation", use_container_width=True):
+        _saved_delegation_dialog(project)
 
     command_cols = st.columns(3)
     save = command_cols[0].button("Save Changes", use_container_width=True)

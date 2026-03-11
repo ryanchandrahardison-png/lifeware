@@ -1,18 +1,18 @@
 # NEXT AGENT HANDOFF
 
 ## Agent Role
-QA
+Developer
 
 ## Timestamp
-2026-03-11T12:45:00Z
+2026-03-11T12:38:00Z
 
 ## Build / Package Reviewed
-workspace/lifeware working tree @ HEAD (post-auditor QA validation pass for project linked-item UX clarifications)
+workspace/lifeware working tree @ HEAD (post-user-request UX rollback for Project linked-item modal/buttons)
 
 --------------------------------------------------
 
 ## Summary
-Executed QA validation for the audited Phase 1 project-linked-item changes using requirements review plus static/runtime-safe checks available in this environment. No direct requirement violations were detected in reviewed code paths; however, full interactive Streamlit smoke flows were not executed in this non-interactive pass.
+Implemented a focused rollback of Project detail linked-item UX to restore modal-based interaction for saved project flows. `Add Task` / `Add Delegation` were restored to button-triggered dialogs, and linked-item row selection now opens the linked-item detail modal again instead of switching to full detail pages.
 
 --------------------------------------------------
 
@@ -22,10 +22,10 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Frozen areas remain preserved in reviewed implementation scope (Calendar/Event untouched, canonical data location unchanged, project completion/deletion flows present).
-- Project delete flow still requires user choice where linked items exist.
-- No modal (`st.dialog`) path appears in reviewed project-linked-item implementation files.
-- Date entry remains direct-edit style in project detail context (no checkbox-gated date-enable pattern introduced for date fields).
+- Canonical persisted state remains in `st.session_state.data`.
+- Calendar behavior and Event page architecture were not modified.
+- Project completion gating and project deletion choice flow remain unchanged.
+- Date fields in project/editors remain directly editable.
 
 --------------------------------------------------
 
@@ -33,27 +33,29 @@ PHASE 1 — Projects MVP Foundation
 - specifications/requirements/SYSTEM_BOOT.md
 - specifications/requirements/lifeware_requirements/AI_WORKFLOW_PROMPTS.md
 - specifications/requirements/lifeware_requirements/UI_STATE_ARCHITECTURE.md
-- specifications/executionState/NEXT_AGENT_HANDOFF.md (auditor pass)
+- specifications/executionState/NEXT_AGENT_HANDOFF.md (prior pass)
 - pages/projectItem.py
-- core/project_service.py
+- core/item_detail_form.py
 
 --------------------------------------------------
 
 ## Files Modified
+- pages/projectItem.py
 - specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-- QA verdict set to DEPLOY WITH LOW RISK due to environment-limited validation depth (no end-to-end interactive Streamlit session run in this pass).
-- Routing to Architect for release triage and decision freeze continuation.
+- Restored `st.dialog` usage for linked-item details and saved-project add flows.
+- Kept unresolved-link safety behavior by presenting unresolved linked items in modal with removal controls.
+- Kept draft linked-item unresolved handling inline (draft remove warning path).
+- Limited scope to `pages/projectItem.py` plus execution handoff update.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Selection-triggered rerun behavior after linked-item remove actions still needs hands-on interactive confirmation.
-- Unresolved linked-ID remediation flows should be verified in live UI with intentionally broken references.
-- Append-without-replace behavior for saved project linked items should be confirmed through full manual smoke sequence.
+- Streamlit modal rerun behavior should be manually smoke-tested for repeated open/save/delete cycles.
+- Verify linked-item row selection opens modal consistently across all groups after add/remove actions.
 
 --------------------------------------------------
 
@@ -63,43 +65,42 @@ No
 --------------------------------------------------
 
 ## Validation Performed
-- Requirement and workflow compliance review against controlled baseline documents.
 - Python compile check:
-  - `python -m py_compile pages/projectItem.py core/project_service.py`
-- Static pattern checks:
-  - `rg -n "st\\.dialog|checkbox|form_submit_button|setdefault\\(\\\"(events|actions|delegations|projects)\\\"|st\\.session_state\\.data|mark_project_complete|delete" pages/projectItem.py core/project_service.py`
+  - `python -m py_compile pages/projectItem.py`
+- Static implementation checks:
+  - `rg -n "@st\.dialog\(\"Linked Item Details\"\)|@st\.dialog\(\"Add Task\"\)|@st\.dialog\(\"Add Delegation\"\)|button\(\"Add Task\"|button\(\"Add Delegation\"" pages/projectItem.py`
+- Manual visual capture attempt and success via browser tool:
+  - Streamlit run in-session + Playwright screenshot artifact capture.
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- Persisted linked items remain navigable from project detail.
-- Draft/unresolved linked rows keep inline warning/removal behavior.
-- Project deletion prompt path remains active when linked items exist.
-- No requirement-level regressions identified from static QA checks.
+- In saved project detail, `Add Task` and `Add Delegation` appear as buttons and open dialogs.
+- Clicking a linked-item row opens the linked-item modal dialog for viewing/editing/deleting persisted items.
+- Draft linked items still show unresolved inline warning and can be removed safely.
 
 --------------------------------------------------
 
 ## Recommended Next Agent Role
-Architect
+Auditor
 
 --------------------------------------------------
 
 ## Recommended Next Action
-Perform release triage decision (Architect pass), determine whether to accept deployment now or request an additional interactive QA smoke run before release approval.
+Audit the modal/button rollback for requirements compliance and Streamlit lifecycle safety, then route to QA.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-- Full manual Phase 1 smoke protocol in live Streamlit session (draft create/add/save/reopen/append).
-- Post-remove selection/rerun behavior for linked items.
-- Broken linked-reference unresolved row remove/cleanup behavior.
-- Completion gating and deletion-choice prompt confirmation.
+- Saved Project: click `Add Task` and `Add Delegation` buttons and validate dialogs open.
+- Linked rows: select Action/Delegation rows and validate linked-item detail dialog opens each time.
+- Modal save/delete actions: verify updates persist and deletion guards still respect project-link rules.
+- Broken linked-reference row: ensure unresolved modal warning and remove-link path works.
 
 --------------------------------------------------
 
 ## Additional Notes
-- QA protocol obligations completed for requirements review and available non-interactive checks.
-- No controlled requirement documents changed.
+- User-requested UX rollback target: restore pre-change modal/button interaction style for project linked items.
 
 --------------------------------------------------
 
