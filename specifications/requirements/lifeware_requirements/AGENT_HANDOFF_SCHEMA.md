@@ -18,7 +18,7 @@ If multiple handoff files exist, agents should read the most role-relevant file 
 # NEXT AGENT HANDOFF
 
 ## Agent Role
-Architect | Architect 2 | Developer | Auditor | QA | Deployment
+Architect | Architect 2 | Developer | Auditor | QA
 
 ## Timestamp
 [ISO timestamp if available]
@@ -89,7 +89,7 @@ Explain the expected system behavior.
 --------------------------------------------------
 
 ## Recommended Next Agent Role
-Architect | Architect 2 | Developer | Auditor | QA | Deployment
+Architect | Architect 2 | Developer | Auditor | QA
 
 --------------------------------------------------
 
