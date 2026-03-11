@@ -1,18 +1,18 @@
 # NEXT AGENT HANDOFF
 
 ## Agent Role
-QA
+Developer
 
 ## Timestamp
-2026-03-11T12:46:34Z
+2026-03-11T14:30:00Z
 
 ## Build / Package Reviewed
-workspace/lifeware working tree @ HEAD (commit 33fe0ea)
+workspace/lifeware working tree @ HEAD
 
 --------------------------------------------------
 
 ## Summary
-Executed QA validation pass for the Phase 1 project linked-item rollback build. Verified compile integrity and performed targeted flow-oriented static checks for modal add/edit/delete behavior, append-preserving linked items, unresolved-link handling, completion gating, and delete-choice flow. No release-blocking issues identified.
+Applied targeted Project Detail modal-state fixes while preserving the frozen layout: Add Action/Add Delegation dialogs now open with empty fields every time, and stale linked-item modal state is cleared when opening/switching projects.
 
 --------------------------------------------------
 
@@ -22,61 +22,33 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Canonical persisted state remains in `st.session_state.data` and canonical collections remain UUID-keyed (`events`, `actions`, `delegations`, `projects`).
-- Frozen Calendar behavior and Event detail/view structure were not modified in this pass.
-- Project completion gating remains enforced through linked-item completion validation.
-- Project deletion prompt behavior with explicit linked-item handling choices remains present.
-- Linked-item interactions continue to use Add Task/Add Delegation dialog entry points and modal detail editing.
-- Date entry remains directly editable; no checkbox-gated date-entry pattern introduced.
+- Project Detail layout order remains unchanged/frozen.
+- Add controls remain button-triggered modal dialogs.
+- Project due-date and linked-item date guardrails remain in place.
+- Completion gating and delete-choice behavior remain unchanged.
 
 --------------------------------------------------
 
 ## Files Reviewed
-- specifications/requirements/SYSTEM_BOOT.md
-- specifications/requirements/README_BASELINE.md
-- specifications/requirements/REQUIREMENTS_VERSION.md
-- specifications/requirements/lifeware_requirements/AI_WORKFLOW_PROMPTS.md
-- specifications/requirements/lifeware_requirements/AI_DEVELOPER_PROTOCOL.md
-- specifications/requirements/lifeware_requirements/ARCHITECTURE.md
-- specifications/requirements/lifeware_requirements/DATA_MODEL.md
-- specifications/requirements/lifeware_requirements/DERIVED_VIEW_RULES.md
-- specifications/requirements/lifeware_requirements/FEATURE_ACTIONS.md
-- specifications/requirements/lifeware_requirements/FEATURE_CALENDAR.md
-- specifications/requirements/lifeware_requirements/FEATURE_DELEGATIONS.md
-- specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
-- specifications/requirements/lifeware_requirements/FEATURE_ROUTINES.md
-- specifications/requirements/lifeware_requirements/IMPLEMENTATION_PHASES.md
-- specifications/requirements/lifeware_requirements/MUTATION_RULES.md
-- specifications/requirements/lifeware_requirements/PRODUCT_BACKLOG.md
-- specifications/requirements/lifeware_requirements/REFERENCE_INTEGRITY_RULES.md
-- specifications/requirements/lifeware_requirements/REQUIREMENTS_TRACKER.md
-- specifications/requirements/lifeware_requirements/STATE_SCHEMA.md
-- specifications/requirements/lifeware_requirements/UI_PATTERNS.md
-- specifications/requirements/lifeware_requirements/UI_STATE_ARCHITECTURE.md
-- specifications/requirements/lifeware_requirements/AGENT_HANDOFF_SCHEMA.md
-- specifications/executionState/NEXT_AGENT_HANDOFF.md (Auditor pass)
 - pages/projectItem.py
-- core/item_detail_form.py
-- core/project_service.py
+- specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Files Modified
+- pages/projectItem.py
 - specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-- QA release readiness verdict: **DEPLOY WITH LOW RISK**.
-- Retained low-risk classification because this pass used static/compile validation only and did not execute an interactive Streamlit runtime smoke flow.
-- No architect-level blocking findings identified.
+- Reset action/delegation editor UI state at button-click time before opening each add dialog.
+- Clear linked-item modal flags during project editor load to prevent stale modal visibility when first opening a project.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Dialog open/close behavior should still be manually verified in a live Streamlit session for repeated rerun cycles.
-- Dataframe row selection persistence should be manually checked for sticky selection effects after mutation and rerender.
-- Unresolved linked-reference warnings/removal flow should be manually exercised for both action and delegation branches.
+- Verify dialog close/reopen behavior in interactive runs to ensure reset occurs on every open without affecting save flows.
 
 --------------------------------------------------
 
@@ -86,40 +58,37 @@ No
 --------------------------------------------------
 
 ## Validation Performed
-- `python -m py_compile pages/projectItem.py core/item_detail_form.py core/project_service.py`
-- `rg -n "Add Task|Add Delegation|@st\\.dialog|st\\.dataframe|form_submit_button|completion|delete|linked|unresolved|dialog" pages/projectItem.py core/item_detail_form.py core/project_service.py`
+- `python -m py_compile pages/projectItem.py`
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- Saved project detail exposes `Add Task` and `Add Delegation` buttons that open dialogs.
-- Linked-item row selection opens modal details for persisted items.
-- Modal save/delete/back behavior remains available with project-link guardrails.
-- Project save/delete/back, completion gating, and delete-choice behavior remain intact.
+- On every Add Task/Add Delegation click, modal input fields are blank defaults.
+- On first opening Project Detail (or switching projects), no stale linked-item modal is visible.
+- Frozen project-detail layout remains intact.
 
 --------------------------------------------------
 
 ## Recommended Next Agent Role
-Architect
+Auditor
 
 --------------------------------------------------
 
 ## Recommended Next Action
-Perform Architect release triage: confirm acceptance of the QA low-risk verdict, decide if an interactive manual smoke run is required before deployment, and either freeze this work item as complete or issue a narrowly scoped follow-up task.
+Validate modal reset behavior and first-open modal visibility regression in Project Detail for both draft and saved project flows.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-- Live run: saved project Add Task/Add Delegation dialog opens consistently across repeated attempts.
-- Live run: linked-row modal reopen behavior remains reliable after close/save/delete.
-- Live run: append behavior preserves existing linked items while adding new ones.
-- Live run: completion gating and delete-choice flow still enforce project constraints.
+- Open saved project: confirm no linked-item modal visible initially.
+- Click Add Task, close, click Add Task again: fields should be empty on reopen.
+- Click Add Delegation, close, click Add Delegation again: fields should be empty on reopen.
+- Confirm layout order unchanged (project fields → Save/Delete/Back → linked items → add buttons).
 
 --------------------------------------------------
 
 ## Additional Notes
-- This QA pass preserved pipeline routing discipline (Auditor → QA → Architect).
-- No controlled requirement files were modified.
+- Screenshot attempt may fail in this environment due browser tool local connection issues; compile/static verification passed.
 
 --------------------------------------------------
 
