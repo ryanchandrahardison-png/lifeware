@@ -1,11 +1,13 @@
 {
   "agent_role": "Developer",
   "phase": "PHASE 1 \u2014 Projects MVP Foundation",
-  "task": "Fix project detail multi-dialog Streamlit exception",
+  "task": "Fix project detail re-entry UI regression by clearing stale runtime state",
   "input_build": "lifeware_codebase_developer_pass_v1_4.zip",
   "requirements_build": "lifeware_requirements_baseline_v1_3.zip",
   "status": "completed",
   "modified_files": [
+    "pages/projects.py",
+    "LIFEWARE_REQUIREMENTS_TRACKER.md",
     "NEXT_AGENT_HANDOFF.md",
     "execution_state.json"
   ],
@@ -19,12 +21,12 @@
   "validation": {
     "python_compile_check": true,
     "files_checked": [
+      "pages/projects.py",
       "pages/projectItem.py",
       "core/project_service.py",
-      "pages/projects.py",
       "core/item_detail_form.py"
     ]
   },
   "next_recommended_role": "QA",
-  "next_action": "Re-run the provided Projects > Add Task reproduction and confirm no Streamlit dialog-open exception occurs."
+  "next_action": "Reproduce save -> back to list -> reopen project flow and verify updated Project Details layout/modal behavior persists."
 }

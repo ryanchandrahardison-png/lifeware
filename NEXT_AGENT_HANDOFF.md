@@ -4,19 +4,13 @@
 Developer
 
 ## What changed
-- Fixed a Streamlit multi-dialog runtime failure in `pages/projectItem.py` when `Add Task`/`Add Delegation` was clicked while a linked-item modal flag was set.
-- Removed inline linked-item dialog opening from `_render_linked_items(...)` and deferred dialog opening to one end-of-page dispatch block.
-- Cleared linked-item modal state before opening Add Task/Add Delegation dialogs to avoid stale dialog collisions.
+- Fixed a Project re-entry regression by clearing stale project UI/runtime state before opening Project Details from Projects list and from New Project.
+- Added `_reset_project_detail_runtime_state()` in `pages/projects.py` and invoked it in both navigation entry points.
+- Updated requirements tracker with a persisted rule that Project Details entry must clear stale runtime flags to prevent layout/modal drift after save/re-open flows.
 
-## Root cause
-- The page could attempt to open two dialogs in one run:
-  1) `Linked Item Details` auto-opened during linked-items rendering
-  2) `Add Task` / `Add Delegation` opened later in the same run
-- Streamlit allows only one first-opened dialog per run, causing `StreamlitAPIException`.
-
-## Behavior now
-- Only one dialog opens per run (priority: Add Task, then Add Delegation, else Linked Item Details).
-- Project save/delete/back behavior remains unchanged.
+## Why
+- User reported Project Details looked correct during initial create flow, but reverted to older behavior after saving, returning to list, and reopening the project.
+- Root cause was stale UI/flag state surviving between Project page entries.
 
 ## Validation
-- `python -m py_compile pages/projectItem.py core/project_service.py pages/projects.py core/item_detail_form.py`
+- `python -m py_compile pages/projects.py pages/projectItem.py core/project_service.py core/item_detail_form.py`

@@ -214,15 +214,9 @@ def _linked_item_detail_dialog() -> None:
         st.text_area("Details", key=details_key, height=180)
         st.selectbox("Status", status_options, key=status_key)
 
-        controls = st.columns(3)
-        save = controls[0].form_submit_button("Save Changes")
+        controls = st.columns(2)
+        save = controls[0].form_submit_button("Save")
         delete = controls[1].form_submit_button("Delete")
-        back = controls[2].form_submit_button("Back")
-
-    if back:
-        _clear_linked_item_modal_state()
-        st.rerun()
-        return
 
     if delete:
         ok, errors = delete_item_with_project_guard(
@@ -265,8 +259,7 @@ def _linked_item_detail_dialog() -> None:
                 st.error(error)
             return
 
-        _flags_store()["project_linked_item_modal"] = {**(updated or {}), "kind": kind}
-        _flags_store().pop("project_linked_item_modal_editor_key", None)
+        _clear_linked_item_modal_state()
         _queue_notice("Linked item updated.")
         st.rerun()
 
@@ -780,10 +773,10 @@ else:
     if editor.get("status") == "Completed" and not can_complete:
         st.caption("Complete Project is disabled until all linked actions and delegations are completed.")
 
-    command_cols = st.columns(3)
-    save = command_cols[0].button("Save Changes", use_container_width=True)
-    delete = command_cols[1].button("Delete", use_container_width=True)
-    back = command_cols[2].button("Back", use_container_width=True)
+    nav_cols = st.columns(3)
+    save = False
+    delete = False
+    back = nav_cols[2].button("Back", use_container_width=True)
 
     linked_actions_with_unresolved, linked_delegations_with_unresolved = _project_linked_items_with_unresolved(data, project)
     grouped_items = _grouped_linked_items(linked_actions_with_unresolved, linked_delegations_with_unresolved)
@@ -799,6 +792,10 @@ else:
     if open_add_delegation_dialog:
         _clear_linked_item_modal_state()
         _reset_editor(f"project_delegation_editor::{project['id']}", DELEGATION_EDITOR_DEFAULTS)
+
+    action_cols = st.columns(2)
+    save = action_cols[0].button("Save", use_container_width=True)
+    delete = action_cols[1].button("Delete", use_container_width=True)
 
     if _get_delete_mode() == project_id:
         st.warning("This project has linked items. Choose how deletion should be handled.")
