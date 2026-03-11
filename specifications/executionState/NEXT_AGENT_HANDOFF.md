@@ -4,15 +4,15 @@
 Developer
 
 ## Timestamp
-2026-03-11T02:24:00Z
+2026-03-11T02:32:00Z
 
 ## Build / Package Reviewed
-workspace/lifeware working tree (post-QA handoff)
+workspace/lifeware working tree (follow-up fix for modal behavior)
 
 --------------------------------------------------
 
 ## Summary
-Implemented the scoped Project Detail linked-items table click behavior so persisted linked rows now navigate directly to Action/Delegation detail pages, while draft-only rows still open the existing modal preview.
+Addressed regression from prior row-click navigation change by restoring linked-item modal usage and moving modal save/delete constraint enforcement into shared `core/item_detail_form.py` helpers. Also updated controlled requirements docs to explicitly define Project linked-item modal behavior and mutation-governance requirements.
 
 --------------------------------------------------
 
@@ -23,38 +23,39 @@ PHASE 1 — Projects MVP Foundation
 
 ## Requirements Confirmed
 - Canonical persisted state remains only in `st.session_state.data`.
-- Frozen areas preserved: Calendar behavior, Event detail structure, UUID-keyed canonical collections, and Actions/Delegations list behavior.
+- Frozen areas preserved: Calendar behavior, Event detail structure, UUID-keyed canonical collections, Actions/Delegations list behavior.
 - Date fields remain directly editable.
-- Project save validation, completion gating, and deletion prompt behavior were not changed.
-- Option A UI state architecture for `pages/projectItem.py` remains intact.
+- Project save validation and completion/deletion rules remain enforced.
 
 --------------------------------------------------
 
 ## Files Reviewed
-- specifications/requirements/SYSTEM_BOOT.md
-- specifications/requirements/lifeware_requirements/AI_WORKFLOW_PROMPTS.md
-- specifications/requirements/lifeware_requirements/AGENT_HANDOFF_SCHEMA.md
-- specifications/executionState/NEXT_AGENT_HANDOFF.md
 - pages/projectItem.py
+- core/item_detail_form.py
+- specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
+- specifications/requirements/lifeware_requirements/MUTATION_RULES.md
 
 --------------------------------------------------
 
 ## Files Modified
 - pages/projectItem.py
+- core/item_detail_form.py
+- specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
+- specifications/requirements/lifeware_requirements/MUTATION_RULES.md
 - specifications/executionState/NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-- Kept the existing modal path for draft linked items (which have no persisted ID).
-- Routed persisted linked-item row clicks to full-page detail navigation via existing `_open_linked_item_full_page` helper.
-- Avoided touching helper modules because existing page-local behavior supported the requirement.
+- Reverted persisted-row click behavior back to modal opening so linked-item modal is the primary Project Detail editing path.
+- Centralized modal-linked item save/delete constraint logic in shared item-detail helpers.
+- Documented modal parity requirements in controlled specs so future passes preserve this behavior.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Verify row-click navigation consistently switches to the correct detail page for both actions and delegations.
-- Verify unsaved draft rows continue to open modal preview and do not attempt page navigation.
+- Verify modal save/delete behavior matches Action/Delegation detail-page constraints.
+- Verify deletion guard errors still prevent violating project minimum linked-item rules.
 
 --------------------------------------------------
 
@@ -64,14 +65,15 @@ No
 --------------------------------------------------
 
 ## Validation Performed
-- Python compile check for modified page module.
-- Streamlit app launch sanity check and screenshot capture.
+- Python compile checks for modified Python files.
+- Streamlit launch and screenshot capture.
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- In Project Detail linked-items tables, selecting a persisted row opens the corresponding Action/Delegation detail page.
-- Selecting a draft-only linked row continues to show the modal preview.
+- Clicking linked-item rows in Project Detail opens modal editor.
+- Modal edit/delete operations now use shared helper constraints consistent with detail pages.
+- Requirements docs now explicitly codify this modal behavior and mutation rule placement.
 
 --------------------------------------------------
 
@@ -81,20 +83,20 @@ Auditor
 --------------------------------------------------
 
 ## Recommended Next Action
-Audit this pass for phase/frozen-area compliance and confirm linked-item row-click navigation behavior plus regression safety.
+Audit code and requirement updates for phase/frozen-area compliance and confirm modal behavior correctness.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-- Open a saved project and click a linked Action row → navigates to `pages/actionItem.py` for that item.
-- Open a saved project and click a linked Delegation row → navigates to `pages/delegationItem.py` for that item.
-- In draft project flow, clicking linked rows without IDs opens modal preview (no navigation crash).
-- Save/Delete/Back controls and completion/delete rules unchanged.
+- Saved project linked-item row click opens modal for both Action and Delegation.
+- Modal save updates title/date/details/status correctly.
+- Modal delete respects project save-rule guard behavior.
+- No regression in Save/Delete/Back flows.
 
 --------------------------------------------------
 
 ## Additional Notes
-No controlled requirement docs were modified.
+Controlled requirements docs were updated in this pass per explicit user instruction.
 
 --------------------------------------------------
 

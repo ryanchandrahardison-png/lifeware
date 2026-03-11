@@ -75,3 +75,10 @@ UI control strategies may not block required field editability.
 The checkbox-based date-enable pattern is not allowed for Project due dates, draft Action due dates, or draft Delegation follow-up dates.
 
 A mutation-safe implementation is still non-compliant if the user cannot actually edit required fields in the rendered interface.
+
+## Project Detail Linked-Item Modal Mutation Rules
+When editing or deleting linked Actions/Delegations from Project Detail modal UI:
+- The modal must call shared Action/Delegation mutation helpers.
+- Mutation constraints must match Action/Delegation detail-page constraints (title required, schema field preservation, status/date persistence).
+- Delete operations must execute the same project save-rule guard checks used elsewhere before removal.
+- ProjectDetail page code may orchestrate UI events, but constraint logic must remain outside `pages/projectItem.py`.

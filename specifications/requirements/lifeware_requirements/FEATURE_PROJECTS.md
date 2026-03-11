@@ -131,7 +131,7 @@ For Project Detail in `pages/projectItem.py`:
   - Upcoming
   - Floating
 - Within non-completed date-based groups, sort by date ascending.
-- Row click opens linked item detail view by entity type.
+- Row click opens a linked-item modal editor (Action or Delegation variant by entity type).
 - Add Task and Add Delegation entry must use modal UI.
 - On narrow screens, switch from table to stacked row presentation.
 - Save/Delete/Back controls should match Actions/Delegations detail button treatment.
@@ -144,3 +144,13 @@ Required separation:
 - a project state/service layer outside the page owns save validation, completion gating enforcement, deletion cleanup behavior, and canonical mutation orchestration
 
 The page may call the state/service layer, but it must not become the long-term home of project business rules.
+
+## Project Linked-Item Modal Requirements
+For Project Detail linked-item modal behavior:
+- The modal must render entity-specific fields matching the linked object type:
+  - Action: Title, Due Date, Details, Status
+  - Delegation: Title, Follow Up Date, Details, Status
+- Modal fields must be editable using the same constraints enforced for Action/Delegation detail pages.
+- Save/Delete operations from the modal must use shared mutation helpers, not page-local business-rule mutations.
+- Deletion from the modal must preserve project save-rule protections and referential integrity checks.
+- Constraint enforcement must remain canonical outside `pages/projectItem.py` so rule changes apply consistently across detail pages and modal editing.
