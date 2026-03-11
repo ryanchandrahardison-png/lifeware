@@ -4,7 +4,11 @@ This file defines the required agent workflow for Lifeware development.
 The requirements package is the architectural source of truth.
 Agents must follow the protocol matching their ROLE.
 
-Required pipeline:
+Default fast pipeline:
+
+Architect → Developer → Architect (Product Owner validation checkpoint)
+
+Extended verification pipeline (opt-in):
 
 Architect → Developer → Auditor → QA → Architect
 
@@ -56,6 +60,11 @@ Canonical collections are:
 
 Current active implementation phase unless explicitly overridden:
 PHASE 1 — Projects MVP Foundation
+
+Pipeline selection rule:
+- The default path is the fast pipeline unless the Architect or Product Owner explicitly marks the work item as high-risk or requests additional verification.
+- High-risk examples include cross-module refactors, state-model/schema risk, migration or deletion risk, or unresolved architecture conflicts.
+- When extended verification is not explicitly requested, Auditor and QA passes are optional and should be skipped to reduce iteration latency.
 
 ==================================================
 2. ARCHITECT PROTOCOL
@@ -155,6 +164,11 @@ Architect 2 minimum output:
 - whether the file boundary stayed surgical
 
 Architect 2 is a review role, not a coding role.
+
+Auditor and QA execution boundary:
+- Auditor and QA are verification/reporting roles.
+- Auditor and QA must not modify application/runtime source files unless the user explicitly overrides this rule.
+- Auditor and QA may update mutable execution-state handoff/report files to record findings and routing decisions.
 
 ==================================================
 4. DEVELOPER PROTOCOL
