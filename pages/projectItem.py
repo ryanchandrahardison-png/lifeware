@@ -263,7 +263,11 @@ def _render_linked_items(grouped_items: dict[str, list[dict]]) -> None:
         )
         selected_rows = selection.selection.get("rows", []) if selection else []
         if selected_rows:
-            _open_linked_item(items[selected_rows[0]])
+            selected_item = items[selected_rows[0]]
+            if selected_item.get("id"):
+                _open_linked_item_full_page(selected_item)
+            else:
+                _open_linked_item(selected_item)
 
     if _flags_store().get("project_linked_item_modal"):
         _linked_item_detail_dialog()
