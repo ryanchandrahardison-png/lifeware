@@ -19,12 +19,13 @@ from core.project_service import (
     create_linked_action,
     create_linked_delegation,
     delete_project,
+    is_delete_cancellation_choice,
     request_project_delete,
     save_project_from_draft,
     remove_project_link_reference,
+    validate_project_due_date_change,
     update_project_from_editor,
     validate_project_completion,
-    validate_project_save,
 )
 from core.state import init_state
 
@@ -748,24 +749,15 @@ if not is_edit:
         _clear_draft_runtime()
         st.switch_page("pages/projects.py")
     elif save:
-        validation = validate_project_save(
-            title=draft.get("title", ""),
-            action_ids=[f"draft-action-{i}" for i in range(len(draft.get("draft_actions", [])))],
-            delegation_ids=[f"draft-delegation-{i}" for i in range(len(draft.get("draft_delegations", [])))],
-        )
-        if not validation.ok:
-            for error in validation.errors or []:
+        result = save_project_from_draft(data=st.session_state.data, draft=draft)
+        if not result.ok:
+            for error in result.errors or []:
                 st.error(error)
         else:
-            result = save_project_from_draft(data=st.session_state.data, draft=draft)
-            if not result.ok:
-                for error in result.errors or []:
-                    st.error(error)
-            else:
-                st.session_state.project_view_id = result.project_id
-                _clear_draft_runtime()
-                _queue_notice(result.message or "Project saved.")
-                st.switch_page("pages/projectItem.py")
+            st.session_state.project_view_id = result.project_id
+            _clear_draft_runtime()
+            _queue_notice(result.message or "Project saved.")
+            st.switch_page("pages/projectItem.py")
 else:
     project = data["projects"][project_id]
     editor = _load_project_editor(project)
@@ -820,7 +812,7 @@ else:
         confirm_cols = st.columns(2)
         if confirm_cols[0].button("Confirm Project Delete"):
             choice = st.session_state.get("project_delete_choice", DELETE_CHOICE_OPTIONS[0])
-            if choice == "Cancel deletion":
+            if is_delete_cancellation_choice(choice):
                 _set_delete_mode(None)
                 st.rerun()
             else:
@@ -862,8 +854,13 @@ else:
         status = editor.get("status", "Active")
         selected_due_date = parse_date_only(editor.get("due_date"))
         original_due_date = parse_date_only(project.get("due_date"))
-        if selected_due_date and selected_due_date < date.today() and selected_due_date != original_due_date:
-            st.error("Project Due Date cannot be in the past unless it is unchanged.")
+        due_date_check = validate_project_due_date_change(
+            selected_due_date=selected_due_date,
+            original_due_date=original_due_date,
+        )
+        if not due_date_check.ok:
+            for error in due_date_check.errors or []:
+                st.error(error)
         else:
             result = update_project_from_editor(
                 data=data,
