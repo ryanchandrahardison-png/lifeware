@@ -84,6 +84,36 @@ def _restore_project_return_context_if_needed(back_page: str) -> None:
         st.session_state.return_project_view_id = None
 
 
+def _ui_store() -> dict:
+    st.session_state.setdefault("ui", {})
+    return st.session_state.ui
+
+
+def _flags_store() -> dict:
+    st.session_state.setdefault("flags", {})
+    return st.session_state.flags
+
+
+def _widget_key(namespace: str, field: str) -> str:
+    return f"{namespace}__{field}"
+
+
+def _pop_reset_flag(namespace: str) -> bool:
+    return bool(_flags_store().pop(f"reset::{namespace}", False))
+
+
+def _prepare_widget_defaults(namespace: str, fields: list[str], editor: dict, *, force: bool = False) -> None:
+    for field in fields:
+        key = _widget_key(namespace, field)
+        if force or key not in st.session_state:
+            st.session_state[key] = editor.get(field)
+
+
+def _sync_editor_from_widgets(namespace: str, fields: list[str], editor: dict) -> None:
+    for field in fields:
+        editor[field] = st.session_state.get(_widget_key(namespace, field))
+
+
 def _project_delete_guard_errors(*, data: dict, list_key: str, item_id: str) -> list[str]:
     guarded_projects: list[tuple[str, dict, list[str], list[str]]] = []
     if list_key == "actions":
@@ -222,36 +252,69 @@ def render_item_detail_form(
     default_status = _pick(original, ["status", "state"], status_options[0])
     default_due_date = _parse_iso_date(_pick(original, date_field_candidates, "")) if show_due_date else None
 
+    namespace = f"{list_key}_detail_editor"
+    editor = _ui_store().get(namespace)
+    snapshot = (
+        item_id,
+        default_title,
+        default_details,
+        default_status,
+        default_due_date.isoformat() if default_due_date else "",
+        bool(is_edit),
+    )
+    if not isinstance(editor, dict):
+        editor = {}
+        _ui_store()[namespace] = editor
+
+    if editor.get("source_snapshot") != snapshot:
+        editor.update(
+            {
+                "title": default_title,
+                "details": default_details,
+                "status": default_status if default_status in status_options else status_options[0],
+                "due_date": default_due_date if default_due_date is not None else date.today(),
+                "source_snapshot": snapshot,
+            }
+        )
+        _flags_store()[f"reset::{namespace}"] = True
+
+    fields = ["title", "details", "status"] + (["due_date"] if show_due_date else [])
+    _prepare_widget_defaults(namespace, fields, editor, force=_pop_reset_flag(namespace))
+
     st.title(f"{title_emoji} {page_title}")
     st.caption(subtitle_text if is_edit else f"Create a new {page_title.lower()}.")
 
     with st.form(f"{list_key}_detail_form"):
-        title = st.text_input("Title", value=default_title)
+        st.text_input("Title", key=_widget_key(namespace, "title"))
 
-        due_date_value = None
         if show_due_date:
-            due_date_kwargs = {"value": default_due_date if default_due_date is not None else date.today()}
+            due_date_kwargs = {"key": _widget_key(namespace, "due_date")}
             if not is_edit:
                 due_date_kwargs["min_value"] = date.today()
-            due_date_value = st.date_input(date_label, **due_date_kwargs)
+            st.date_input(date_label, **due_date_kwargs)
 
-        details = st.text_area("Details", value=default_details, height=180)
+        st.text_area("Details", key=_widget_key(namespace, "details"), height=180)
 
-        status = st.selectbox(
+        st.selectbox(
             "Status",
             status_options,
-            index=_status_index(default_status, status_options),
+            index=_status_index(str(editor.get("status", status_options[0])), status_options),
+            key=_widget_key(namespace, "status"),
         )
+
+        _sync_editor_from_widgets(namespace, fields, editor)
 
         action_cols = st.columns(3)
         save = action_cols[0].form_submit_button("Save Changes" if is_edit else "Create")
         delete = action_cols[1].form_submit_button("Delete", disabled=not is_edit)
-        back = action_cols[2].form_submit_button("Back")
+        back = action_cols[2].form_submit_button(back_label)
 
     index_key = f"{list_key[:-1]}_view_id"
 
     if back:
         st.session_state[index_key] = None
+        _ui_store().pop(namespace, None)
+        _flags_store().pop(f"reset::{namespace}", None)
         _restore_project_return_context_if_needed(back_page)
         st.switch_page(back_page)
         return
@@ -264,19 +327,22 @@ def render_item_detail_form(
             return
 
         st.session_state[index_key] = None
+        _ui_store().pop(namespace, None)
+        _flags_store().pop(f"reset::{namespace}", None)
         _restore_project_return_context_if_needed(back_page)
         st.switch_page(back_page)
         return
 
     if save:
+        due_date_value = editor.get("due_date") if show_due_date else None
         ok, errors, _updated = save_item_with_constraints(
             data=data,
             list_key=list_key,
             item_id=item_id,
-            title=title,
-            details=details,
-            status=status,
-            date_value=due_date_value if show_due_date else None,
+            title=str(editor.get("title", "") or ""),
+            details=str(editor.get("details", "") or ""),
+            status=str(editor.get("status", status_options[0]) or status_options[0]),
+            date_value=due_date_value,
             date_field_candidates=date_field_candidates,
         )
         if not ok:
@@ -285,5 +351,7 @@ def render_item_detail_form(
             return
 
         st.session_state[index_key] = None
+        _ui_store().pop(namespace, None)
+        _flags_store().pop(f"reset::{namespace}", None)
         _restore_project_return_context_if_needed(back_page)
         st.switch_page(back_page)

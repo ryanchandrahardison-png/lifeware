@@ -4,6 +4,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from core.state import init_state
 from core.layout import sidebar_file_controls
+from core.selection_utils import selected_single_row_index
 
 st.set_page_config(page_title="Calendar", layout="wide")
 
@@ -51,7 +52,10 @@ st.markdown(
 def parse_dt(value):
     if not value:
         return None
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except Exception:
+        return None
 
 
 def sort_key(item):
@@ -77,10 +81,12 @@ def render_event_table(rows, row_ids, key_suffix):
         key=key_suffix,
     )
 
-    selected_rows = selection.selection.get("rows", []) if selection else []
-    if selected_rows:
-        selected_pos = selected_rows[0]
-        st.session_state.event_view_id = row_ids[selected_pos]
+    selected_index, had_stale_selection = selected_single_row_index(selection, len(row_ids))
+    if had_stale_selection:
+        st.session_state.pop(key_suffix, None)
+        return
+    if selected_index is not None:
+        st.session_state.event_view_id = row_ids[selected_index]
         st.session_state.event_new_mode = False
         st.switch_page("pages/calendarEvent.py")
 
