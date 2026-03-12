@@ -19,6 +19,7 @@ st.sidebar.page_link("pages/actions.py", label="Actions", icon="✅")
 st.sidebar.page_link("pages/delegations.py", label="Delegations", icon="🤝")
 st.sidebar.page_link("pages/projects.py", label="Projects", icon="📁")
 st.sidebar.page_link("pages/routines.py", label="Routines", icon="🔁")
+st.sidebar.page_link("pages/myDay.py", label="My Day", icon="☀️")
 
 st.title("📁 Projects")
 st.caption("Projects are grouped by status first, then Active projects by due-date bucket.")

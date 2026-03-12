@@ -18,6 +18,7 @@ st.sidebar.page_link("pages/actions.py", label="Actions", icon="✅")
 st.sidebar.page_link("pages/delegations.py", label="Delegations", icon="🤝")
 st.sidebar.page_link("pages/projects.py", label="Projects", icon="📁")
 st.sidebar.page_link("pages/routines.py", label="Routines", icon="🔁")
+st.sidebar.page_link("pages/myDay.py", label="My Day", icon="☀️")
 
 st.title("🤝 Delegations")
 st.caption("Select a row to view or edit delegation details.")
