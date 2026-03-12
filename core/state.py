@@ -7,6 +7,7 @@ DEFAULT_DATA = {
     "actions": {},
     "delegations": {},
     "projects": {},
+    "routines": {},
 }
 
 
