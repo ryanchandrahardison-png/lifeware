@@ -169,12 +169,6 @@ def save_item_with_constraints(
     if not clean_title:
         return False, ["Title is required."], None
 
-    if date_value is not None:
-        original_date = _parse_iso_date(_pick(original, date_field_candidates, "")) if is_edit else None
-        if date_value < date.today() and date_value != original_date:
-            date_label = item_editor_config(list_key)["date_label"]
-            return False, [f"{date_label} cannot be in the past unless it is unchanged."], None
-
     updated = deepcopy(original) if is_edit else {"id": new_uuid()}
     updated = _sanitize_source_keys(updated)
     updated["title"] = clean_title
