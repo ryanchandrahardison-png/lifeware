@@ -84,7 +84,7 @@ Option B:
 Apply the same UI state architecture to:
 - pages/actionItem.py
 - pages/delegationItem.py
-- pages/eventItem.py
+- pages/calendarEvent.py (event detail page)
 
 --------------------------------------------------
 6. NON-NEGOTIABLE PRESERVATIONS
@@ -124,4 +124,8 @@ Option A execution rule:
 - Treat Option A as the canonical approved pattern for future reference.
 
 Option B execution rule:
-- Option B must remain backlog only until Option A completes the full pipeline and is confirmed stable.
+- Option B has now been implemented for:
+  - pages/actionItem.py
+  - pages/delegationItem.py
+  - pages/calendarEvent.py
+- Treat this rollout as COMPLETE and FROZEN unless a new explicit defect is opened.

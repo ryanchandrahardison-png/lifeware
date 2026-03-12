@@ -18,6 +18,36 @@ UTC_TZ = ZoneInfo("UTC")
 NY_TZ = ZoneInfo("America/New_York")
 
 
+def _ui_store() -> dict:
+    st.session_state.setdefault("ui", {})
+    return st.session_state.ui
+
+
+def _flags_store() -> dict:
+    st.session_state.setdefault("flags", {})
+    return st.session_state.flags
+
+
+def _widget_key(namespace: str, field: str) -> str:
+    return f"{namespace}__{field}"
+
+
+def _pop_reset_flag(namespace: str) -> bool:
+    return bool(_flags_store().pop(f"reset::{namespace}", False))
+
+
+def _prepare_widget_defaults(namespace: str, fields: list[str], editor: dict, *, force: bool = False) -> None:
+    for field in fields:
+        key = _widget_key(namespace, field)
+        if force or key not in st.session_state:
+            st.session_state[key] = editor.get(field)
+
+
+def _sync_editor_from_widgets(namespace: str, fields: list[str], editor: dict) -> None:
+    for field in fields:
+        editor[field] = st.session_state.get(_widget_key(namespace, field))
+
+
 def _round_up_to_next_slot(value: datetime, minutes: int = 30) -> datetime:
     floored = value.replace(second=0, microsecond=0)
     remainder = floored.minute % minutes
@@ -65,6 +95,7 @@ def _default_form_values(event: dict | None) -> dict:
         "start_time": time(9, 0),
         "end_date": date.today(),
         "end_time": time(9, 30),
+        "confirm_delete": False,
     }
 
     if not isinstance(event, dict):
@@ -98,6 +129,29 @@ def render_calendar_event_form(
     event = events.get(event_index) if is_edit else None
 
     values = _default_form_values(event)
+
+    namespace = f"calendar_event_editor::{ 'drawer' if drawer_mode else 'page' }"
+    editor = _ui_store().get(namespace)
+    snapshot = (
+        event_index,
+        values["title"],
+        values["description"],
+        values["status"],
+        values["start_date"].isoformat(),
+        values["start_time"].isoformat(),
+        values["end_date"].isoformat(),
+        values["end_time"].isoformat(),
+        bool(is_edit),
+        bool(read_only),
+    )
+    if not isinstance(editor, dict):
+        editor = {}
+        _ui_store()[namespace] = editor
+    if editor.get("source_snapshot") != snapshot:
+        editor.update(values)
+        editor["source_snapshot"] = snapshot
+        _flags_store()[f"reset::{namespace}"] = True
+
     now_local = datetime.now(NY_TZ)
     min_start_dt_local = _round_up_to_next_slot(now_local, 30)
 
@@ -124,6 +178,8 @@ def render_calendar_event_form(
         if header_cols[1].button("✕", key="drawer_close", help="Close event view"):
             st.session_state.event_view_id = None
             st.session_state.event_new_mode = False
+            _ui_store().pop(namespace, None)
+            _flags_store().pop(f"reset::{namespace}", None)
             st.rerun()
     else:
         st.title(f"📅 {title_text}")
@@ -131,16 +187,23 @@ def render_calendar_event_form(
     if read_only and not is_edit:
         st.info("No event is selected.")
         if st.button("Back to Calendar"):
+            _ui_store().pop(namespace, None)
+            _flags_store().pop(f"reset::{namespace}", None)
             st.switch_page("pages/calendarList.py")
         if drawer_mode:
             st.markdown("</div>", unsafe_allow_html=True)
         return
 
+    start_value = editor.get("start_date", values["start_date"])
+    start_time_value = editor.get("start_time", values["start_time"])
+    end_value = editor.get("end_date", values["end_date"])
+    end_time_value = editor.get("end_time", values["end_time"])
+
     if is_edit:
-        start_default_date = values["start_date"]
+        start_default_date = start_value
         start_min_date = None
     else:
-        start_default_date = max(values["start_date"], min_start_dt_local.date())
+        start_default_date = max(start_value, min_start_dt_local.date())
         start_min_date = min_start_dt_local.date()
 
     if not is_edit and start_default_date == min_start_dt_local.date():
@@ -152,7 +215,7 @@ def render_calendar_event_form(
     if not start_time_options:
         start_time_options = [min_start_dt_local.time().replace(second=0, microsecond=0)]
 
-    preferred_start_time = values["start_time"]
+    preferred_start_time = start_time_value
     if (
         not is_edit
         and start_default_date == min_start_dt_local.date()
@@ -163,10 +226,10 @@ def render_calendar_event_form(
     start_time_index = _time_index(start_time_options, preferred_start_time)
 
     if is_edit:
-        end_default_date = values["end_date"]
+        end_default_date = end_value
         end_min_date = None
     else:
-        end_default_date = max(values["end_date"], start_default_date)
+        end_default_date = max(end_value, start_default_date)
         end_min_date = start_default_date
 
     if not is_edit and end_default_date == start_default_date:
@@ -179,7 +242,7 @@ def render_calendar_event_form(
     if not end_time_options:
         end_time_options = [end_time_min]
 
-    preferred_end_time = values["end_time"]
+    preferred_end_time = end_time_value
     if (
         not is_edit
         and end_default_date == start_default_date
@@ -189,53 +252,67 @@ def render_calendar_event_form(
 
     end_time_index = _time_index(end_time_options, preferred_end_time)
 
+    fields = ["title", "description", "status", "start_date", "start_time", "end_date", "end_time", "confirm_delete"]
+    _prepare_widget_defaults(namespace, fields, editor, force=_pop_reset_flag(namespace))
+
+    # Ensure time key values are valid for current option sets before widget render.
+    start_time_key = _widget_key(namespace, "start_time")
+    end_time_key = _widget_key(namespace, "end_time")
+    if st.session_state.get(start_time_key) not in start_time_options:
+        st.session_state[start_time_key] = start_time_options[start_time_index]
+    if st.session_state.get(end_time_key) not in end_time_options:
+        st.session_state[end_time_key] = end_time_options[end_time_index]
+
     with st.form(f"calendar_form_{'drawer' if drawer_mode else 'page'}"):
-        title = st.text_input("Title", value=values["title"], disabled=read_only)
+        st.text_input("Title", key=_widget_key(namespace, "title"), disabled=read_only)
 
         c1, c2 = st.columns(2)
         start_date_kwargs = {
-            "value": start_default_date,
+            "key": _widget_key(namespace, "start_date"),
             "disabled": read_only,
         }
         if start_min_date is not None:
             start_date_kwargs["min_value"] = start_min_date
-        start_date = c1.date_input("Start Date", **start_date_kwargs)
-        start_time = c2.selectbox(
+        c1.date_input("Start Date", **start_date_kwargs)
+        c2.selectbox(
             "Start Time",
             options=start_time_options,
-            index=start_time_index,
+            index=_time_index(start_time_options, st.session_state.get(start_time_key, start_time_options[0])),
             format_func=_format_time_label,
             disabled=read_only,
+            key=start_time_key,
         )
 
         c3, c4 = st.columns(2)
         end_date_kwargs = {
-            "value": end_default_date,
+            "key": _widget_key(namespace, "end_date"),
             "disabled": read_only,
         }
         if end_min_date is not None:
             end_date_kwargs["min_value"] = end_min_date
-        end_date = c3.date_input("End Date", **end_date_kwargs)
-        end_time = c4.selectbox(
+        c3.date_input("End Date", **end_date_kwargs)
+        c4.selectbox(
             "End Time",
             options=end_time_options,
-            index=end_time_index,
+            index=_time_index(end_time_options, st.session_state.get(end_time_key, end_time_options[0])),
             format_func=_format_time_label,
             disabled=read_only,
+            key=end_time_key,
         )
 
-        description = st.text_area(
+        st.text_area(
             "Description",
-            value=values["description"],
+            key=_widget_key(namespace, "description"),
             height=180,
             disabled=read_only,
         )
 
-        status = st.selectbox(
+        st.selectbox(
             "Status",
             DEFAULT_STATUS_OPTIONS,
-            index=0 if values["status"] != "Complete" else 1,
+            index=0 if str(editor.get("status", "Scheduled")) != "Complete" else 1,
             disabled=read_only,
+            key=_widget_key(namespace, "status"),
         )
 
         if read_only:
@@ -245,12 +322,18 @@ def render_calendar_event_form(
             delete = False
             confirm_delete = False
         else:
-            confirm_delete = st.checkbox("Confirm deletion") if is_edit else False
+            if is_edit:
+                st.checkbox("Confirm deletion", key=_widget_key(namespace, "confirm_delete"))
+            else:
+                st.session_state[_widget_key(namespace, "confirm_delete")] = False
             action_cols = st.columns(3)
             save = action_cols[0].form_submit_button("Save Changes" if is_edit else "Create Event")
             delete = action_cols[1].form_submit_button("Delete Event", disabled=not is_edit)
             back_label = "Close" if drawer_mode else "Back to Calendar"
             back = action_cols[2].form_submit_button(back_label)
+            confirm_delete = bool(st.session_state.get(_widget_key(namespace, "confirm_delete"), False))
+
+    _sync_editor_from_widgets(namespace, fields, editor)
 
     if drawer_mode:
         st.markdown("</div>", unsafe_allow_html=True)
@@ -258,6 +341,8 @@ def render_calendar_event_form(
     if back:
         st.session_state.event_view_id = None
         st.session_state.event_new_mode = False
+        _ui_store().pop(namespace, None)
+        _flags_store().pop(f"reset::{namespace}", None)
         if drawer_mode:
             st.rerun()
         else:
@@ -271,6 +356,8 @@ def render_calendar_event_form(
             del events[event_index]
             st.session_state.event_view_id = None
             st.session_state.event_new_mode = False
+            _ui_store().pop(namespace, None)
+            _flags_store().pop(f"reset::{namespace}", None)
             if drawer_mode:
                 st.rerun()
             else:
@@ -278,6 +365,14 @@ def render_calendar_event_form(
         return
 
     if save:
+        start_date = editor.get("start_date")
+        start_time = editor.get("start_time")
+        end_date = editor.get("end_date")
+        end_time = editor.get("end_time")
+        title = str(editor.get("title", "") or "")
+        description = str(editor.get("description", "") or "")
+        status = str(editor.get("status", "Scheduled") or "Scheduled")
+
         start_utc = local_to_utc_iso(start_date, start_time)
         end_utc = local_to_utc_iso(end_date, end_time)
 
@@ -312,6 +407,8 @@ def render_calendar_event_form(
 
         st.session_state.event_view_id = None
         st.session_state.event_new_mode = False
+        _ui_store().pop(namespace, None)
+        _flags_store().pop(f"reset::{namespace}", None)
         if drawer_mode:
             st.rerun()
         else:
