@@ -179,10 +179,10 @@ Date mapping by linked-item type:
 ### Product Owner Clarifications (Accepted)
 - Applies only to `pages/projectItem.py`.
 - Use the order:
-  1. Project fields
-  2. Linked Items table
+  1. Project fields (+ Back available near top)
+  2. Linked Items table sections
   3. Add Task / Add Delegation controls
-  4. Save / Delete / Back controls
+  4. Save / Delete controls
 - Include all linked items in the table.
 - Group rows by: Completed, Past Due, Upcoming, Floating.
 - Sort by date ascending within each non-completed date group.

@@ -1,10 +1,10 @@
 # NEXT AGENT HANDOFF
 
 ## Agent Role
-Developer
+Architect
 
 ## Timestamp
-2026-03-12T12:11:18Z
+2026-03-12T12:25:29Z
 
 ## Build / Package Reviewed
 workspace/lifeware working tree @ HEAD
@@ -12,7 +12,7 @@ workspace/lifeware working tree @ HEAD
 --------------------------------------------------
 
 ## Summary
-Applied all three architect-review hardening fixes: (1) safe stale-selection guards across list pages, (2) explicit unresolved-item classification in Project Detail activity split, and (3) shared selection helper extraction to prevent recurrence.
+Implemented all four requested fixes and completed a post-fix full audit pass. Fixed completion-control availability logic in Project Detail, removed duplicate linked-item control rendering, hardened calendar timestamp parsing, and aligned conflicting requirements docs to the currently approved layout behavior.
 
 --------------------------------------------------
 
@@ -22,43 +22,52 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Preserved frozen areas and canonical state location.
-- Preserved existing list/detail flows and page routing behavior.
-- Preserved Project Detail modal behavior and Next Actions/Backlog split.
+- Frozen architecture areas preserved (calendar/event model behavior and canonical state location unchanged).
+- Project Detail linked-item modal and table behavior preserved with additional safety hardening.
+- Requirements docs updated to resolve Project Detail layout order conflict in controlled baseline.
 
 --------------------------------------------------
 
 ## Files Reviewed
-- pages/actions.py
-- pages/delegations.py
-- pages/projects.py
-- pages/calendarList.py
 - pages/projectItem.py
+- pages/calendarList.py
+- specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
+- specifications/requirements/lifeware_requirements/PRODUCT_BACKLOG.md
+- specifications/requirements/lifeware_requirements/REQUIREMENTS_TRACKER.md
 
 --------------------------------------------------
 
 ## Files Modified
-- core/selection_utils.py
-- pages/actions.py
-- pages/delegations.py
-- pages/projects.py
-- pages/calendarList.py
 - pages/projectItem.py
+- pages/calendarList.py
+- specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
+- specifications/requirements/lifeware_requirements/PRODUCT_BACKLOG.md
+- specifications/requirements/lifeware_requirements/REQUIREMENTS_TRACKER.md
 - NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-- Added reusable `selected_single_row_index(...)` helper in `core/selection_utils.py`.
-- Replaced direct `row_ids[selected_rows[0]]` access with helper-based guarded selection in Actions, Delegations, Projects, Calendar, and Project Detail linked-item tables.
-- On stale/out-of-range selections, table keys are cleared (`st.session_state.pop(key, None)`) and flow safely returns/continues.
-- Made unresolved linked-item classification explicit in Project Detail split: unresolved references are treated as Backlog side (not Next Actions).
+1) Implemented Fix #1 (completion control availability):
+- Completion availability now checks linked-item completeness against target status="Completed" before rendering status options.
+- When project cannot be completed, status selector excludes `Completed` (unless already persisted as Completed).
+
+2) Implemented Fix #2 (duplicate controls):
+- `_render_linked_items(...)` gained `show_controls` flag.
+- Next Actions renders shared controls (hint + compact toggle), Backlog section renders only rows/groups.
+
+3) Implemented Fix #3 (requirements alignment):
+- Updated `FEATURE_PROJECTS.md` and `PRODUCT_BACKLOG.md` ordering language to match current approved layout (Back near top; Save/Delete below Add controls).
+- Added alignment note in `REQUIREMENTS_TRACKER.md`.
+
+4) Implemented Fix #4 (calendar parse hardening):
+- `parse_dt` now safely handles malformed datetime values with try/except and returns `None`.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Existing old selection keys clear naturally on stale detection.
-- Recommend smoke testing repeated delete/re-add and status toggles across all list pages.
+- Calendar malformed-datetime entries are now skipped rather than crashing list rendering; data-quality issues may remain silent unless surfaced separately.
+- Status option exclusion for incomplete projects should be smoke-tested with projects that transition between complete/incomplete linked-item states.
 
 --------------------------------------------------
 
@@ -68,15 +77,17 @@ No
 --------------------------------------------------
 
 ## Validation Performed
-- `python -m py_compile pages/actions.py pages/delegations.py pages/projects.py pages/calendarList.py pages/projectItem.py core/selection_utils.py core/project_service.py core/item_detail_form.py`
-- UI screenshot artifact: `browser:/tmp/codex_browser_invocations/0c8d37ffc6be36c2/artifacts/artifacts/selection_hardening.png`
+- `python -m py_compile pages/projectItem.py pages/calendarList.py pages/actions.py pages/delegations.py pages/projects.py core/selection_utils.py core/project_service.py core/item_detail_form.py`
+- Post-fix audit search for stale selection direct-index patterns and requirement conflicts.
+- Screenshot artifact: `browser:/tmp/codex_browser_invocations/ea3cc7816aa166d1/artifacts/artifacts/post_fix_audit.png`
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- Stale dataframe selection indices no longer raise `IndexError` in list pages or Project Detail linked-item tables.
-- Next Actions / Backlog split in Project Detail remains stable, with unresolved items explicitly non-active.
-- Selection logic is centralized and reusable for future list/table additions.
+- Project Detail no longer presents duplicate compact-controls across Next/Backlog sections.
+- Project completion selection is unavailable when linked items are incomplete.
+- Calendar list tolerates malformed timestamp rows without crashing.
+- Controlled requirements docs now match current Project Detail layout behavior.
 
 --------------------------------------------------
 
@@ -86,19 +97,19 @@ Architect
 --------------------------------------------------
 
 ## Recommended Next Action
-Validate this hardening pass against the architect review findings and decide whether the item can be closed/frozen.
+Perform final compliance review for Phase 1 Project Detail parity/hardening and, if acceptable, mark the item complete/frozen.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-- Actions/Delegations/Projects/Calendar: select row, mutate list, then rerender; verify no crash and stale selection clears.
-- Project Detail: select/delete linked items in both Next Actions and Backlog sections repeatedly.
-- Confirm unresolved linked-item references appear in Backlog grouping and remain removable.
+- Incomplete project: verify `Completed` cannot be newly selected in status options.
+- Linked items view: confirm only one compact toggle/hint appears in Project Detail while both Next/Backlog sections render.
+- Calendar list with malformed datetime payload: ensure page remains stable and valid rows still render.
 
 --------------------------------------------------
 
 ## Additional Notes
-- This pass intentionally addressed all three previously suggested issue classes in one bounded hardening pass.
+Post-fix full audit found no additional high-severity selection-index crash paths in list/table pages after helper rollout.
 
 --------------------------------------------------
 

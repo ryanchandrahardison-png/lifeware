@@ -331,17 +331,13 @@ def _render_unresolved_warning(*, item: dict, warning: str, remove_label: str, o
         st.rerun()
 
 
-def _render_linked_items(grouped_items: dict[str, list[dict]], *, draft: dict | None = None, project_id: str | None = None) -> None:
-    st.markdown(
-        """
-        <style>
-        .linked-section-note { margin-bottom: .4rem; opacity: .8; }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.markdown('<div class="linked-section-note">Select a row to open linked-item details.</div>', unsafe_allow_html=True)
-
+def _render_linked_items(
+    grouped_items: dict[str, list[dict]],
+    *,
+    draft: dict | None = None,
+    project_id: str | None = None,
+    show_controls: bool = True,
+) -> None:
     compact_key = f"project_linked_items_compact::{project_id or 'draft'}"
     if compact_key not in st.session_state:
         ua = ""
@@ -353,7 +349,17 @@ def _render_linked_items(grouped_items: dict[str, list[dict]], *, draft: dict | 
             ua = ""
         st.session_state[compact_key] = any(token in ua for token in ["iphone", "android", "mobile", "ipad"])
 
-    st.toggle("Compact linked-item view", key=compact_key, help="Use compact stacked rows (recommended for narrow screens).")
+    if show_controls:
+        st.markdown(
+            """
+            <style>
+            .linked-section-note { margin-bottom: .4rem; opacity: .8; }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.markdown('<div class="linked-section-note">Select a row to open linked-item details.</div>', unsafe_allow_html=True)
+        st.toggle("Compact linked-item view", key=compact_key, help="Use compact stacked rows (recommended for narrow screens).")
     use_compact_view = bool(st.session_state.get(compact_key, False))
 
     for group in ["Completed", "Past Due", "Upcoming", "Floating"]:
@@ -793,7 +799,7 @@ else:
     linked_actions = linked_actions_for_project(data, project)
     linked_delegations = linked_delegations_for_project(data, project)
     completion_check = validate_project_completion(
-        status=editor.get("status", project.get("status", "Active")),
+        status="Completed",
         linked_actions=linked_actions,
         linked_delegations=linked_delegations,
     )
@@ -802,10 +808,11 @@ else:
     st.title("📁 Project Details")
     st.caption(f"Health: {project_health(data, project)}")
 
+    project_status_options = ["Active", "Someday", "Completed"] if (can_complete or project.get("status") == "Completed") else ["Active", "Someday"]
     _render_project_editor(
         PROJECT_EDITOR_NS,
         editor,
-        status_options=["Active", "Someday", "Completed"],
+        status_options=project_status_options,
         original_due_date=parse_date_only(project.get("due_date")),
     )
 
@@ -826,13 +833,13 @@ else:
     if _count_grouped_items(next_actions_grouped) == 0:
         st.caption("No next actions.")
     else:
-        _render_linked_items(next_actions_grouped, project_id=f"{project_id}::next")
+        _render_linked_items(next_actions_grouped, project_id=f"{project_id}::next", show_controls=True)
 
     st.markdown("**Backlog Tasks**")
     if _count_grouped_items(backlog_grouped) == 0:
         st.caption("No backlog tasks.")
     else:
-        _render_linked_items(backlog_grouped, project_id=f"{project_id}::backlog")
+        _render_linked_items(backlog_grouped, project_id=f"{project_id}::backlog", show_controls=False)
 
     add_cols = st.columns(2)
     open_add_task_dialog = add_cols[0].button("Add Task", use_container_width=True)
