@@ -145,3 +145,4 @@ Full-file replacement is allowed only when explicitly required by the handoff or
 - Routine implementation requires a future bounded architecture pass and is not authorized during Phase 1 Projects MVP work.
 
 - Project Detail Backlog Table Layout has been selected into active scoped planning for the next Developer pass via Architect DECISION FREEZE.
+- Project Detail layout ordering is aligned to current approved UX: Back near top; linked-item sections above Add controls; Save/Delete below Add controls.

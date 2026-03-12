@@ -116,7 +116,8 @@ Next Actions must appear above Backlog Tasks.
 
 ## Project Detail Linked Items Layout (Selected Scope)
 For Project Detail in `pages/projectItem.py`:
-- The Save/Delete/Back controls appear directly below the Project fields and above linked-item sections.
+- In Project Detail, `Back` remains available near the top of the page (near project fields).
+- `Save` and `Delete` appear below linked-item sections and below Add Task / Add Delegation controls.
 - This Project Detail layout order is locked and must not be changed unless explicitly approved by the Product Owner.
 - The linked-item table includes all linked actions and delegations.
 - Required table columns:

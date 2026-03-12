@@ -62,6 +62,12 @@ def validate_project_due_date_change(*, selected_due_date: date | None, original
     return ServiceResult(ok=True)
 
 
+def validate_linked_item_date_change(*, selected_date: date | None, original_date: date | None, date_label: str) -> ServiceResult:
+    if selected_date and selected_date < date.today() and selected_date != original_date:
+        return ServiceResult(ok=False, errors=[f"{date_label} cannot be in the past unless it is unchanged."])
+    return ServiceResult(ok=True)
+
+
 def is_delete_cancellation_choice(choice: str) -> bool:
     return choice == DELETE_CHOICE_CANCEL
 
