@@ -147,8 +147,13 @@ def _clear_linked_item_modal_state() -> None:
 
 
 def _clear_linked_item_table_selection_state() -> None:
-    for group in ["Completed", "Past Due", "Upcoming", "Floating"]:
-        st.session_state.pop(f"project_linked_items_{group}", None)
+    keys_to_clear = [key for key in st.session_state.keys() if str(key).startswith("project_linked_items::")]
+    for key in keys_to_clear:
+        st.session_state.pop(key, None)
+
+
+def _linked_item_table_key(scope: str, group: str) -> str:
+    return f"project_linked_items::{scope}::{group}"
 
 
 def _open_linked_item(item: dict) -> None:
@@ -378,19 +383,25 @@ def _render_linked_items(grouped_items: dict[str, list[dict]], *, draft: dict | 
             }
             for item in items
         ]
+        table_scope = project_id or "draft"
+        table_key = _linked_item_table_key(table_scope, group)
         selection = st.dataframe(
             pd.DataFrame(rows),
             use_container_width=True,
             hide_index=True,
             on_select="rerun",
             selection_mode="single-row",
-            key=f"project_linked_items_{group}",
+            key=table_key,
         )
         if _flags_store().get("suppress_linked_item_selection_once"):
             continue
         selected_rows = selection.selection.get("rows", []) if selection else []
         if selected_rows:
-            selected_item = items[selected_rows[0]]
+            selected_index = selected_rows[0]
+            if selected_index >= len(items):
+                st.session_state.pop(table_key, None)
+                continue
+            selected_item = items[selected_index]
             selected_id = selected_item.get("id")
             if not selected_id and draft is not None:
                 _render_unresolved_warning(

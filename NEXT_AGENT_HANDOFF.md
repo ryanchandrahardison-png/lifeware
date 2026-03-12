@@ -4,7 +4,7 @@
 Developer
 
 ## Timestamp
-2026-03-12T11:17:44Z
+2026-03-12T11:49:15Z
 
 ## Build / Package Reviewed
 workspace/lifeware working tree @ HEAD
@@ -12,7 +12,7 @@ workspace/lifeware working tree @ HEAD
 --------------------------------------------------
 
 ## Summary
-Implemented the remaining bounded Phase 1 Project Detail parity/compliance work by (1) moving linked-item modal past-date validation into project service helper ownership and (2) rendering required Next Actions and Backlog Tasks sections in Project Detail, with Next Actions above Backlog Tasks.
+Fixed a Project Detail linked-item deletion crash (`IndexError`) caused by stale table selection indices after list mutation and by shared dataframe keys across Next Actions/Backlog sections.
 
 --------------------------------------------------
 
@@ -22,42 +22,34 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Preserved frozen areas: Calendar behavior, Event detail structure, canonical state in `st.session_state.data`, UUID-backed collections.
-- Kept Project Detail persisted-item interaction modal-based.
-- Preserved standalone Action/Delegation detail behavior (no shared helper broadening in `core/item_detail_form.py`).
-- Added explicit Project Detail sections for Next Actions and Backlog Tasks ordering.
+- Preserved frozen architecture areas and canonical state location.
+- Preserved Project Detail modal behavior and linked-item grouping/sorting.
+- Preserved Next Actions / Backlog Tasks section split from previous pass.
 
 --------------------------------------------------
 
 ## Files Reviewed
-- specifications/requirements/lifeware_requirements/FEATURE_PROJECTS.md
-- specifications/requirements/lifeware_requirements/REQUIREMENTS_TRACKER.md
 - pages/projectItem.py
-- core/project_service.py
-- core/item_detail_form.py
+- NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Files Modified
 - pages/projectItem.py
-- core/project_service.py
 - NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-- Added `validate_linked_item_date_change(...)` to `core/project_service.py` so linked-item modal date guardrail is service-owned rather than page-inline.
-- Replaced inline modal date comparison in `pages/projectItem.py` with service validation call.
-- Added grouped filtering to render Project Detail linked items as two required sections:
-  - Next Actions (`is_active_global=True`)
-  - Backlog Tasks (`is_active_global=False`)
-- Kept standalone item detail save helper untouched to avoid unintended scope expansion.
+- Added namespaced dataframe keys for linked-item selections (`project_linked_items::{scope}::{group}`) to prevent state collisions between Next Actions and Backlog Tasks renderings.
+- Hardened selection handling by guarding selected row index bounds before list lookup; stale selections are now cleared instead of crashing.
+- Updated selection reset helper to clear all namespaced linked-item selection keys.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Existing unresolved linked-item references default to active classification (`is_active_global` absent -> True), so they appear under Next Actions unless future requirement says otherwise.
-- Verify section rendering and row selection behavior still works in both dataframe and compact modes.
+- Existing sessions with old key names naturally age out; reset helper now targets new namespaced keys only.
+- Verify row selection remains stable after repeated add/delete operations in both Next Actions and Backlog sections.
 
 --------------------------------------------------
 
@@ -68,14 +60,12 @@ No
 
 ## Validation Performed
 - `python -m py_compile pages/projectItem.py core/project_service.py core/item_detail_form.py`
-- Browser screenshot capture of updated UI pass: `browser:/tmp/codex_browser_invocations/48be476e75c612d2/artifacts/artifacts/project_detail_change.png`
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- Project Detail shows Next Actions section above Backlog Tasks.
-- Linked-item modal edit date guardrail uses shared project service validation and preserves unchanged past date exception.
-- Standalone Action/Delegation detail pages remain behavior-preserved from baseline.
+- Deleting a linked item no longer causes `IndexError` in `_render_linked_items` when previous selection references a removed row.
+- Next Actions and Backlog Tasks use isolated dataframe state keys and no longer interfere with one another.
 
 --------------------------------------------------
 
@@ -85,20 +75,19 @@ Architect
 --------------------------------------------------
 
 ## Recommended Next Action
-Validate this pass against the active bounded task completion criteria and confirm whether Phase 1 Project Detail modal parity/constraint item is now complete and can be frozen.
+Confirm the deletion-crash fix and determine whether the Project Detail parity/constraint work item can be closed/frozen or needs any further narrow follow-up.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-- In Project Detail, confirm Next Actions appears above Backlog Tasks with correct membership split by `is_active_global`.
-- Modal edit for linked Action/Delegation: unchanged past date allowed, newly selected past date rejected.
-- Verify unresolved/draft linked-item warnings/removal still behave correctly.
-- Verify compact-mode row clicks still open modal for persisted items.
+- In Project Detail, select a linked row then delete it from modal; confirm return to list without crash.
+- Repeat in both Next Actions and Backlog Tasks sections.
+- Verify selection and modal open behavior remains correct after multiple deletes/additions.
 
 --------------------------------------------------
 
 ## Additional Notes
-- Scope stayed inside DECISION FREEZE-allowed files.
+- Fix was surgical and limited to `pages/projectItem.py` selection key/state handling.
 
 --------------------------------------------------
 
