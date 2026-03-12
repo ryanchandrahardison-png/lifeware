@@ -5,6 +5,7 @@ import streamlit as st
 from core.state import init_state
 from core.layout import sidebar_file_controls
 from core.entities import parse_date_only
+from core.selection_utils import selected_single_row_index
 
 st.set_page_config(page_title="Delegations", layout="wide")
 init_state()
@@ -17,6 +18,7 @@ st.sidebar.page_link("pages/actions.py", label="Actions", icon="✅")
 st.sidebar.page_link("pages/delegations.py", label="Delegations", icon="🤝")
 st.sidebar.page_link("pages/projects.py", label="Projects", icon="📁")
 st.sidebar.page_link("pages/routines.py", label="Routines", icon="🔁")
+st.sidebar.page_link("pages/myDay.py", label="My Day", icon="☀️")
 
 st.title("🤝 Delegations")
 st.caption("Select a row to view or edit delegation details.")
@@ -55,10 +57,13 @@ def render_delegation_table(rows, row_ids, key_suffix):
         selection_mode="single-row",
         key=key_suffix,
     )
-    selected_rows = selection.selection.get("rows", []) if selection else []
-    if selected_rows:
+    selected_index, had_stale_selection = selected_single_row_index(selection, len(row_ids))
+    if had_stale_selection:
+        st.session_state.pop(key_suffix, None)
+        return
+    if selected_index is not None:
         st.session_state.return_to_project_on_back = False
-        st.session_state.delegation_view_id = row_ids[selected_rows[0]]
+        st.session_state.delegation_view_id = row_ids[selected_index]
         st.switch_page("pages/delegationItem.py")
 
 

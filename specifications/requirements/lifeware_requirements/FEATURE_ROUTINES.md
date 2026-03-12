@@ -1,8 +1,7 @@
 # Routines Feature Specification
 
 ## Status
-Approved backlog only.
-Not approved for the current implementation pass.
+Approved for bounded implementation pass (Routines + My Day).
 
 ## Purpose
 Routines provide recurring operating checklists that help the user execute daily and periodic habits without mixing those checklist items into the main Next Actions view.
@@ -16,8 +15,8 @@ Each routine must have one of these cadence values:
 - 6-Month
 - Yearly
 
-## Daily Routine Scheduling
-Daily routines must include a start time.
+## Routine Scheduling
+All routines include a start time.
 
 ## Routine Tasks
 Each routine contains a list of tasks.
@@ -42,12 +41,7 @@ Routines reset at midnight based on their cadence.
 - Afternoon | Daily | 5:30 PM
 - Bed Time | Daily | 9:30 PM
 
-## Not Yet Architected
-The following details require a future Architect pass before implementation:
-- canonical routine schema
-- recurrence materialization strategy
-- history retention
-- missed-routine recovery behavior
-- midnight reset edge cases
-- interaction between routines and calendar/time blocking
-- reporting and visibility outside the routine execution surface
+## Deferred for Future Pass
+- history retention / mutation ledger
+- advanced missed-routine analytics and reporting
+- interaction between routines and calendar time-blocking automation
