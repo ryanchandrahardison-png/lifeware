@@ -29,6 +29,7 @@ from core.project_service import (
     validate_linked_item_date_change,
 )
 from core.state import init_state
+from core.selection_utils import selected_single_row_index
 
 st.set_page_config(page_title="Project Details", layout="wide")
 init_state()
@@ -101,6 +102,12 @@ def _grouped_linked_items(linked_actions: list[dict], linked_delegations: list[d
     return grouped
 
 
+def _is_next_action_item(item: dict) -> bool:
+    if item.get("unresolved"):
+        return False
+    return bool(item.get("is_active_global", True))
+
+
 def _filter_linked_items_by_activity(
     grouped_items: dict[str, list[dict]],
     *,
@@ -108,7 +115,7 @@ def _filter_linked_items_by_activity(
 ) -> dict[str, list[dict]]:
     filtered: dict[str, list[dict]] = {}
     for group, items in grouped_items.items():
-        filtered[group] = [item for item in items if bool(item.get("is_active_global", True)) is active]
+        filtered[group] = [item for item in items if _is_next_action_item(item) is active]
     return filtered
 
 
@@ -395,12 +402,11 @@ def _render_linked_items(grouped_items: dict[str, list[dict]], *, draft: dict | 
         )
         if _flags_store().get("suppress_linked_item_selection_once"):
             continue
-        selected_rows = selection.selection.get("rows", []) if selection else []
-        if selected_rows:
-            selected_index = selected_rows[0]
-            if selected_index >= len(items):
-                st.session_state.pop(table_key, None)
-                continue
+        selected_index, had_stale_selection = selected_single_row_index(selection, len(items))
+        if had_stale_selection:
+            st.session_state.pop(table_key, None)
+            continue
+        if selected_index is not None:
             selected_item = items[selected_index]
             selected_id = selected_item.get("id")
             if not selected_id and draft is not None:

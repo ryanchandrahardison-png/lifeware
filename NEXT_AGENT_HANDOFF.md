@@ -4,7 +4,7 @@
 Developer
 
 ## Timestamp
-2026-03-12T11:49:15Z
+2026-03-12T12:11:18Z
 
 ## Build / Package Reviewed
 workspace/lifeware working tree @ HEAD
@@ -12,7 +12,7 @@ workspace/lifeware working tree @ HEAD
 --------------------------------------------------
 
 ## Summary
-Fixed a Project Detail linked-item deletion crash (`IndexError`) caused by stale table selection indices after list mutation and by shared dataframe keys across Next Actions/Backlog sections.
+Applied all three architect-review hardening fixes: (1) safe stale-selection guards across list pages, (2) explicit unresolved-item classification in Project Detail activity split, and (3) shared selection helper extraction to prevent recurrence.
 
 --------------------------------------------------
 
@@ -22,34 +22,43 @@ PHASE 1 — Projects MVP Foundation
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Preserved frozen architecture areas and canonical state location.
-- Preserved Project Detail modal behavior and linked-item grouping/sorting.
-- Preserved Next Actions / Backlog Tasks section split from previous pass.
+- Preserved frozen areas and canonical state location.
+- Preserved existing list/detail flows and page routing behavior.
+- Preserved Project Detail modal behavior and Next Actions/Backlog split.
 
 --------------------------------------------------
 
 ## Files Reviewed
+- pages/actions.py
+- pages/delegations.py
+- pages/projects.py
+- pages/calendarList.py
 - pages/projectItem.py
-- NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Files Modified
+- core/selection_utils.py
+- pages/actions.py
+- pages/delegations.py
+- pages/projects.py
+- pages/calendarList.py
 - pages/projectItem.py
 - NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions
-- Added namespaced dataframe keys for linked-item selections (`project_linked_items::{scope}::{group}`) to prevent state collisions between Next Actions and Backlog Tasks renderings.
-- Hardened selection handling by guarding selected row index bounds before list lookup; stale selections are now cleared instead of crashing.
-- Updated selection reset helper to clear all namespaced linked-item selection keys.
+- Added reusable `selected_single_row_index(...)` helper in `core/selection_utils.py`.
+- Replaced direct `row_ids[selected_rows[0]]` access with helper-based guarded selection in Actions, Delegations, Projects, Calendar, and Project Detail linked-item tables.
+- On stale/out-of-range selections, table keys are cleared (`st.session_state.pop(key, None)`) and flow safely returns/continues.
+- Made unresolved linked-item classification explicit in Project Detail split: unresolved references are treated as Backlog side (not Next Actions).
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Existing sessions with old key names naturally age out; reset helper now targets new namespaced keys only.
-- Verify row selection remains stable after repeated add/delete operations in both Next Actions and Backlog sections.
+- Existing old selection keys clear naturally on stale detection.
+- Recommend smoke testing repeated delete/re-add and status toggles across all list pages.
 
 --------------------------------------------------
 
@@ -59,13 +68,15 @@ No
 --------------------------------------------------
 
 ## Validation Performed
-- `python -m py_compile pages/projectItem.py core/project_service.py core/item_detail_form.py`
+- `python -m py_compile pages/actions.py pages/delegations.py pages/projects.py pages/calendarList.py pages/projectItem.py core/selection_utils.py core/project_service.py core/item_detail_form.py`
+- UI screenshot artifact: `browser:/tmp/codex_browser_invocations/0c8d37ffc6be36c2/artifacts/artifacts/selection_hardening.png`
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- Deleting a linked item no longer causes `IndexError` in `_render_linked_items` when previous selection references a removed row.
-- Next Actions and Backlog Tasks use isolated dataframe state keys and no longer interfere with one another.
+- Stale dataframe selection indices no longer raise `IndexError` in list pages or Project Detail linked-item tables.
+- Next Actions / Backlog split in Project Detail remains stable, with unresolved items explicitly non-active.
+- Selection logic is centralized and reusable for future list/table additions.
 
 --------------------------------------------------
 
@@ -75,19 +86,19 @@ Architect
 --------------------------------------------------
 
 ## Recommended Next Action
-Confirm the deletion-crash fix and determine whether the Project Detail parity/constraint work item can be closed/frozen or needs any further narrow follow-up.
+Validate this hardening pass against the architect review findings and decide whether the item can be closed/frozen.
 
 --------------------------------------------------
 
 ## Smoke Test Focus (If Code Changed)
-- In Project Detail, select a linked row then delete it from modal; confirm return to list without crash.
-- Repeat in both Next Actions and Backlog Tasks sections.
-- Verify selection and modal open behavior remains correct after multiple deletes/additions.
+- Actions/Delegations/Projects/Calendar: select row, mutate list, then rerender; verify no crash and stale selection clears.
+- Project Detail: select/delete linked items in both Next Actions and Backlog sections repeatedly.
+- Confirm unresolved linked-item references appear in Backlog grouping and remain removable.
 
 --------------------------------------------------
 
 ## Additional Notes
-- Fix was surgical and limited to `pages/projectItem.py` selection key/state handling.
+- This pass intentionally addressed all three previously suggested issue classes in one bounded hardening pass.
 
 --------------------------------------------------
 
