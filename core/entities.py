@@ -7,7 +7,7 @@ from typing import Any
 
 from core.calendar_utils import ensure_event_utc_fields
 
-CANONICAL_COLLECTIONS = ("events", "actions", "delegations", "projects")
+CANONICAL_COLLECTIONS = ("events", "actions", "delegations", "projects", "routines")
 
 
 def new_uuid() -> str:
@@ -93,6 +93,33 @@ def _normalize_project(item: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+
+
+def _normalize_routine(item: dict[str, Any]) -> dict[str, Any]:
+    normalized = deepcopy(item)
+    normalized.setdefault("id", new_uuid())
+    normalized.setdefault("title", "")
+    normalized.setdefault("cadence", "Daily")
+    normalized.setdefault("start_time", "09:00")
+    normalized.setdefault("day_of_week", None)
+    normalized.setdefault("day_of_month", None)
+    normalized.setdefault("anchor_date", None)
+    tasks = normalized.get("tasks")
+    if not isinstance(tasks, list):
+        tasks = []
+    normalized["tasks"] = []
+    for task in tasks:
+        if not isinstance(task, dict):
+            task = {"title": str(task or "")}
+        normalized["tasks"].append({
+            "id": task.get("id") or new_uuid(),
+            "title": str(task.get("title") or "").strip(),
+            "state": str(task.get("state") or "pending"),
+            "postpone_until": task.get("postpone_until"),
+        })
+    normalized.setdefault("active_instance_key", None)
+    return normalized
+
 def _dictify_collection(raw: Any, kind: str) -> dict[str, dict[str, Any]]:
     if isinstance(raw, dict):
         iterable = raw.values()
@@ -111,8 +138,10 @@ def _dictify_collection(raw: Any, kind: str) -> dict[str, dict[str, Any]]:
             normalized = _normalize_action(item)
         elif kind == "delegations":
             normalized = _normalize_delegation(item)
-        else:
+        elif kind == "projects":
             normalized = _normalize_project(item)
+        else:
+            normalized = _normalize_routine(item)
         result[normalized["id"]] = normalized
     return result
 
@@ -126,6 +155,7 @@ def normalize_data(loaded: Any) -> dict[str, Any]:
     normalized["actions"] = _dictify_collection(loaded.get("actions", {}), "actions")
     normalized["delegations"] = _dictify_collection(loaded.get("delegations", {}), "delegations")
     normalized["projects"] = _dictify_collection(loaded.get("projects", {}), "projects")
+    normalized["routines"] = _dictify_collection(loaded.get("routines", {}), "routines")
     normalized.pop("calendar", None)
     return normalized
 
@@ -136,6 +166,7 @@ def ensure_integrity(data: dict[str, Any]) -> list[str]:
     data.setdefault("actions", {})
     data.setdefault("delegations", {})
     data.setdefault("projects", {})
+    data.setdefault("routines", {})
 
     projects = data["projects"]
     actions = data["actions"]

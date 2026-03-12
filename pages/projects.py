@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from core.entities import parse_date_only, project_health
+from core.selection_utils import selected_single_row_index
 from core.layout import sidebar_file_controls
 from core.state import init_state
 
@@ -18,6 +19,7 @@ st.sidebar.page_link("pages/actions.py", label="Actions", icon="✅")
 st.sidebar.page_link("pages/delegations.py", label="Delegations", icon="🤝")
 st.sidebar.page_link("pages/projects.py", label="Projects", icon="📁")
 st.sidebar.page_link("pages/routines.py", label="Routines", icon="🔁")
+st.sidebar.page_link("pages/myDay.py", label="My Day", icon="☀️")
 
 st.title("📁 Projects")
 st.caption("Projects are grouped by status first, then Active projects by due-date bucket.")
@@ -72,10 +74,13 @@ def render_project_table(rows, row_ids, key_suffix):
         selection_mode="single-row",
         key=key_suffix,
     )
-    selected_rows = selection.selection.get("rows", []) if selection else []
-    if selected_rows:
+    selected_index, had_stale_selection = selected_single_row_index(selection, len(row_ids))
+    if had_stale_selection:
+        st.session_state.pop(key_suffix, None)
+        return
+    if selected_index is not None:
         _reset_project_detail_runtime_state()
-        st.session_state.project_view_id = row_ids[selected_rows[0]]
+        st.session_state.project_view_id = row_ids[selected_index]
         st.session_state.draft_project = None
         st.switch_page("pages/projectItem.py")
 
