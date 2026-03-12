@@ -26,6 +26,7 @@ from core.project_service import (
     validate_project_due_date_change,
     update_project_from_editor,
     validate_project_completion,
+    validate_linked_item_date_change,
 )
 from core.state import init_state
 
@@ -98,6 +99,21 @@ def _grouped_linked_items(linked_actions: list[dict], linked_delegations: list[d
     for key in ["Past Due", "Upcoming", "Floating"]:
         grouped[key] = sorted(grouped[key], key=_linked_item_sort_key)
     return grouped
+
+
+def _filter_linked_items_by_activity(
+    grouped_items: dict[str, list[dict]],
+    *,
+    active: bool,
+) -> dict[str, list[dict]]:
+    filtered: dict[str, list[dict]] = {}
+    for group, items in grouped_items.items():
+        filtered[group] = [item for item in items if bool(item.get("is_active_global", True)) is active]
+    return filtered
+
+
+def _count_grouped_items(grouped_items: dict[str, list[dict]]) -> int:
+    return sum(len(items) for items in grouped_items.values())
 
 
 def _project_linked_items_with_unresolved(data: dict, project: dict) -> tuple[list[dict], list[dict]]:
@@ -240,8 +256,14 @@ def _linked_item_detail_dialog() -> None:
         details = str(st.session_state.get(details_key, "") or "")
         status = str(st.session_state.get(status_key, status_options[0]) or status_options[0])
         original_item_date = parse_date_only(record.get(date_field))
-        if selected_date < date.today() and selected_date != original_item_date:
-            st.error(f"{date_label} cannot be in the past unless it is unchanged.")
+        date_check = validate_linked_item_date_change(
+            selected_date=selected_date,
+            original_date=original_item_date,
+            date_label=date_label,
+        )
+        if not date_check.ok:
+            for error in date_check.errors or []:
+                st.error(error)
             return
 
         ok, errors, updated = save_item_with_constraints(
@@ -780,8 +802,20 @@ else:
 
     linked_actions_with_unresolved, linked_delegations_with_unresolved = _project_linked_items_with_unresolved(data, project)
     grouped_items = _grouped_linked_items(linked_actions_with_unresolved, linked_delegations_with_unresolved)
-    st.markdown("**Linked Items**")
-    _render_linked_items(grouped_items, project_id=project_id)
+    next_actions_grouped = _filter_linked_items_by_activity(grouped_items, active=True)
+    backlog_grouped = _filter_linked_items_by_activity(grouped_items, active=False)
+
+    st.markdown("**Next Actions**")
+    if _count_grouped_items(next_actions_grouped) == 0:
+        st.caption("No next actions.")
+    else:
+        _render_linked_items(next_actions_grouped, project_id=f"{project_id}::next")
+
+    st.markdown("**Backlog Tasks**")
+    if _count_grouped_items(backlog_grouped) == 0:
+        st.caption("No backlog tasks.")
+    else:
+        _render_linked_items(backlog_grouped, project_id=f"{project_id}::backlog")
 
     add_cols = st.columns(2)
     open_add_task_dialog = add_cols[0].button("Add Task", use_container_width=True)
