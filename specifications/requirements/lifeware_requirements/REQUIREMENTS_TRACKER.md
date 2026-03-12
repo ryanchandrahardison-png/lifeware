@@ -72,7 +72,7 @@ Projects serve as organizational and planning containers, not the primary interf
 - Option B remains in backlog for:
   - `pages/actionItem.py`
   - `pages/delegationItem.py`
-  - `pages/eventItem.py`
+  - `pages/calendarEvent.py`
 
 
 ## Active Architectural Decision — UI State Architecture
@@ -85,13 +85,13 @@ Approved and completed current scope:
 Option A — the UI State Architecture has already been applied to `pages/projectItem.py` in the current build stream.
 
 Deferred backlog scope:
-Option B — apply the same UI State Architecture later to:
+Option B — apply the same UI State Architecture to:
 - pages/actionItem.py
 - pages/delegationItem.py
-- pages/eventItem.py
+- pages/calendarEvent.py
 
 Agents must treat Option A as the approved and completed architecture change for Phase 1 project defect stabilization.
-Agents must not expand Option A into Option B during the current pass unless explicitly approved.
+Option B has now been explicitly approved by Product Owner instruction and implemented in the active stream.
 
 
 ## Task Source Rule
@@ -109,9 +109,9 @@ Agents must not expand Option A into Option B during the current pass unless exp
 ## Current Execution Readiness
 - The next bounded Phase 1 task is to move project business-rule validation and mutation orchestration into a dedicated state/service layer while keeping `pages/projectItem.py` as a thin UI/controller page.
 - Option A for `pages/projectItem.py` has completed Architect → Developer → Auditor → QA in the current build stream.
-- Option B remains backlog only and must not start without an explicit new Architect decision freeze.
+- Option B rollout for Action/Delegation/Calendar Event detail pages is COMPLETE and FROZEN in the active stream.
 - Newly approved backlog item: Routines / Cadenced Checklists.
-- Active selected bounded task: Project Detail linked-item modal parity and constraint-enforcement compliance fix (Action/Delegation field parity + shared-helper constraint enforcement) centered in `pages/projectItem.py` integration paths and shared mutation/service helpers.
+- Project Detail linked-item modal parity and constraint-enforcement compliance fix (Action/Delegation field parity + shared-helper constraint enforcement) is COMPLETE and FROZEN in the active build stream.
 
 
 ## Developer Artifact Rule
@@ -144,4 +144,5 @@ Full-file replacement is allowed only when explicitly required by the handoff or
 - Routine reset behavior is defined as midnight reset based on cadence.
 - Routine implementation requires a future bounded architecture pass and is not authorized during Phase 1 Projects MVP work.
 
-- Project Detail Backlog Table Layout has been selected into active scoped planning for the next Developer pass via Architect DECISION FREEZE.
+- Project Detail Backlog Table Layout implementation is COMPLETE and FROZEN in the active build stream.
+- Project Detail layout ordering is aligned to current approved UX: Back near top; linked-item sections above Add controls; Save/Delete below Add controls.
