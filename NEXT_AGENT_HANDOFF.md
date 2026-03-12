@@ -4,7 +4,7 @@
 Developer
 
 ## Timestamp
-2026-03-12T21:07:00Z
+2026-03-12T21:20:00Z
 
 ## Build / Package Reviewed
 workspace/lifeware working tree @ HEAD
@@ -12,7 +12,7 @@ workspace/lifeware working tree @ HEAD
 --------------------------------------------------
 
 ## Summary
-Implemented requested navigation-flow correction for routines: split routine list and routine details into separate pages to match Actions/Delegations UX.
+Implemented routines save-flow fix: after successful Save on routine details, navigation now returns to the routines list view.
 
 --------------------------------------------------
 
@@ -22,37 +22,31 @@ PHASE 1 — Projects MVP Foundation (bounded routines pass)
 --------------------------------------------------
 
 ## Requirements Confirmed
-- Routines list and details are now separated.
-- Routines list (`pages/routines.py`) now mirrors table-driven list/open pattern used by actions/delegations.
-- Routine details/editor now lives in `pages/routineItem.py`.
+- Successful routine save now returns user to `pages/routines.py` list view.
+- Routines list/details remain separated (prior pass behavior preserved).
 
 --------------------------------------------------
 
 ## Files Reviewed
 - pages/routines.py
 - pages/routineItem.py
-- core/state.py
 - NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Files Modified
-- pages/routines.py
-- pages/routineItem.py (new)
-- core/state.py
+- pages/routineItem.py
 - NEXT_AGENT_HANDOFF.md
 
 --------------------------------------------------
 
 ## Key Decisions / Implementation Notes
-- `pages/routines.py` now only renders list + New Routine action + row-click open.
-- `pages/routineItem.py` now owns routine editor concerns (metadata, cadence controls, subtask CRUD, save/delete).
-- Added `routine_view_id` default in runtime state initialization for consistent navigation behavior.
+- On valid Save, `pages/routineItem.py` now immediately `st.switch_page("pages/routines.py")` per requested flow.
 
 --------------------------------------------------
 
 ## Risks / Watch Areas
-- Existing deep links/bookmarks to old single-page behavior should be revalidated.
+- No new structural risk; behavior change is limited to post-save navigation target.
 
 --------------------------------------------------
 
@@ -63,14 +57,13 @@ No
 
 ## Validation Performed
 - Python bytecode compile for changed modules.
-- UI smoke screenshots for both list page and detail page.
+- UI smoke screenshot capture for routines list/detail flow.
 
 --------------------------------------------------
 
 ## Expected Behavior After This Pass
-- Selecting a routine row on `pages/routines.py` opens `pages/routineItem.py`.
-- Clicking New Routine opens `pages/routineItem.py` with a new draft routine record.
-- Returning to routines uses explicit “Back to Routines” in detail page.
+- Saving routine details now returns to `pages/routines.py` automatically.
+- Back and Delete behavior continue returning to list view.
 
 --------------------------------------------------
 
@@ -80,14 +73,13 @@ Auditor
 --------------------------------------------------
 
 ## Recommended Next Action
-Verify split-page routines flow end-to-end (list->detail->save->back, list->detail->delete->back).
+Verify save redirect flow (list->detail->save returns to list) and regression-check delete/back behavior.
 
 --------------------------------------------------
 
 ## Smoke Test Focus
-- `pages/routines.py` has no embedded editor fields.
-- `pages/routineItem.py` supports save/delete/back and cadence-specific fields.
-- stale table selection recovery on routines list.
+- Save on `pages/routineItem.py` returns to `pages/routines.py`.
+- Delete/Back still return to list.
 
 --------------------------------------------------
 

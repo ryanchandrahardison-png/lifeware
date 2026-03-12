@@ -128,7 +128,7 @@ if save_col.button("Save Routine", type="primary"):
         if routine.get("day_of_month") is not None:
             routine["day_of_month"] = int(routine["day_of_month"])
         reset_due_instance_if_needed(routine, today=date.today())
-        st.success("Routine saved.")
+        st.switch_page("pages/routines.py")
 
 if del_col.button("Delete Routine"):
     routines.pop(routine_id, None)
