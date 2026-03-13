@@ -7,6 +7,7 @@ DEFAULT_DATA = {
     "actions": {},
     "delegations": {},
     "projects": {},
+    "routines": {},
 }
 
 
@@ -16,6 +17,7 @@ def _initialize_runtime_state() -> None:
         "event_new_mode": False,
         "action_view_id": None,
         "delegation_view_id": None,
+        "routine_view_id": None,
         "project_view_id": None,
         "project_delete_mode": None,
         "project_delete_choice": "Convert linked items to standalone items",

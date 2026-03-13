@@ -18,16 +18,17 @@ from core.project_service import (
     DELETE_CHOICE_OPTIONS,
     create_linked_action,
     create_linked_delegation,
-    delete_project,
-    is_delete_cancellation_choice,
-    request_project_delete,
+    begin_project_delete_flow,
+    confirm_project_delete_flow,
     save_project_from_draft,
+    save_project_editor_submission,
     remove_project_link_reference,
-    validate_project_due_date_change,
     update_project_from_editor,
     validate_project_completion,
+    validate_linked_item_date_change,
 )
 from core.state import init_state
+from core.selection_utils import selected_single_row_index
 
 st.set_page_config(page_title="Project Details", layout="wide")
 init_state()
@@ -40,6 +41,7 @@ st.sidebar.page_link("pages/actions.py", label="Actions", icon="✅")
 st.sidebar.page_link("pages/delegations.py", label="Delegations", icon="🤝")
 st.sidebar.page_link("pages/projects.py", label="Projects", icon="📁")
 st.sidebar.page_link("pages/routines.py", label="Routines", icon="🔁")
+st.sidebar.page_link("pages/myDay.py", label="My Day", icon="☀️")
 
 st.session_state.setdefault("ui", {})
 st.session_state.setdefault("flags", {})
@@ -100,6 +102,27 @@ def _grouped_linked_items(linked_actions: list[dict], linked_delegations: list[d
     return grouped
 
 
+def _is_next_action_item(item: dict) -> bool:
+    if item.get("unresolved"):
+        return False
+    return bool(item.get("is_active_global", True))
+
+
+def _filter_linked_items_by_activity(
+    grouped_items: dict[str, list[dict]],
+    *,
+    active: bool,
+) -> dict[str, list[dict]]:
+    filtered: dict[str, list[dict]] = {}
+    for group, items in grouped_items.items():
+        filtered[group] = [item for item in items if _is_next_action_item(item) is active]
+    return filtered
+
+
+def _count_grouped_items(grouped_items: dict[str, list[dict]]) -> int:
+    return sum(len(items) for items in grouped_items.values())
+
+
 def _project_linked_items_with_unresolved(data: dict, project: dict) -> tuple[list[dict], list[dict]]:
     actions: list[dict] = []
     for action_id in project.get("action_ids", []):
@@ -131,8 +154,13 @@ def _clear_linked_item_modal_state() -> None:
 
 
 def _clear_linked_item_table_selection_state() -> None:
-    for group in ["Completed", "Past Due", "Upcoming", "Floating"]:
-        st.session_state.pop(f"project_linked_items_{group}", None)
+    keys_to_clear = [key for key in st.session_state.keys() if str(key).startswith("project_linked_items::")]
+    for key in keys_to_clear:
+        st.session_state.pop(key, None)
+
+
+def _linked_item_table_key(scope: str, group: str) -> str:
+    return f"project_linked_items::{scope}::{group}"
 
 
 def _open_linked_item(item: dict) -> None:
@@ -240,8 +268,14 @@ def _linked_item_detail_dialog() -> None:
         details = str(st.session_state.get(details_key, "") or "")
         status = str(st.session_state.get(status_key, status_options[0]) or status_options[0])
         original_item_date = parse_date_only(record.get(date_field))
-        if selected_date < date.today() and selected_date != original_item_date:
-            st.error(f"{date_label} cannot be in the past unless it is unchanged.")
+        date_check = validate_linked_item_date_change(
+            selected_date=selected_date,
+            original_date=original_item_date,
+            date_label=date_label,
+        )
+        if not date_check.ok:
+            for error in date_check.errors or []:
+                st.error(error)
             return
 
         ok, errors, updated = save_item_with_constraints(
@@ -297,17 +331,13 @@ def _render_unresolved_warning(*, item: dict, warning: str, remove_label: str, o
         st.rerun()
 
 
-def _render_linked_items(grouped_items: dict[str, list[dict]], *, draft: dict | None = None, project_id: str | None = None) -> None:
-    st.markdown(
-        """
-        <style>
-        .linked-section-note { margin-bottom: .4rem; opacity: .8; }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.markdown('<div class="linked-section-note">Select a row to open linked-item details.</div>', unsafe_allow_html=True)
-
+def _render_linked_items(
+    grouped_items: dict[str, list[dict]],
+    *,
+    draft: dict | None = None,
+    project_id: str | None = None,
+    show_controls: bool = True,
+) -> None:
     compact_key = f"project_linked_items_compact::{project_id or 'draft'}"
     if compact_key not in st.session_state:
         ua = ""
@@ -319,7 +349,17 @@ def _render_linked_items(grouped_items: dict[str, list[dict]], *, draft: dict | 
             ua = ""
         st.session_state[compact_key] = any(token in ua for token in ["iphone", "android", "mobile", "ipad"])
 
-    st.toggle("Compact linked-item view", key=compact_key, help="Use compact stacked rows (recommended for narrow screens).")
+    if show_controls:
+        st.markdown(
+            """
+            <style>
+            .linked-section-note { margin-bottom: .4rem; opacity: .8; }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.markdown('<div class="linked-section-note">Select a row to open linked-item details.</div>', unsafe_allow_html=True)
+        st.toggle("Compact linked-item view", key=compact_key, help="Use compact stacked rows (recommended for narrow screens).")
     use_compact_view = bool(st.session_state.get(compact_key, False))
 
     for group in ["Completed", "Past Due", "Upcoming", "Floating"]:
@@ -356,19 +396,24 @@ def _render_linked_items(grouped_items: dict[str, list[dict]], *, draft: dict | 
             }
             for item in items
         ]
+        table_scope = project_id or "draft"
+        table_key = _linked_item_table_key(table_scope, group)
         selection = st.dataframe(
             pd.DataFrame(rows),
             use_container_width=True,
             hide_index=True,
             on_select="rerun",
             selection_mode="single-row",
-            key=f"project_linked_items_{group}",
+            key=table_key,
         )
         if _flags_store().get("suppress_linked_item_selection_once"):
             continue
-        selected_rows = selection.selection.get("rows", []) if selection else []
-        if selected_rows:
-            selected_item = items[selected_rows[0]]
+        selected_index, had_stale_selection = selected_single_row_index(selection, len(items))
+        if had_stale_selection:
+            st.session_state.pop(table_key, None)
+            continue
+        if selected_index is not None:
+            selected_item = items[selected_index]
             selected_id = selected_item.get("id")
             if not selected_id and draft is not None:
                 _render_unresolved_warning(
@@ -754,7 +799,7 @@ else:
     linked_actions = linked_actions_for_project(data, project)
     linked_delegations = linked_delegations_for_project(data, project)
     completion_check = validate_project_completion(
-        status=editor.get("status", project.get("status", "Active")),
+        status="Completed",
         linked_actions=linked_actions,
         linked_delegations=linked_delegations,
     )
@@ -763,10 +808,11 @@ else:
     st.title("📁 Project Details")
     st.caption(f"Health: {project_health(data, project)}")
 
+    project_status_options = ["Active", "Someday", "Completed"] if (can_complete or project.get("status") == "Completed") else ["Active", "Someday"]
     _render_project_editor(
         PROJECT_EDITOR_NS,
         editor,
-        status_options=["Active", "Someday", "Completed"],
+        status_options=project_status_options,
         original_due_date=parse_date_only(project.get("due_date")),
     )
 
@@ -780,8 +826,20 @@ else:
 
     linked_actions_with_unresolved, linked_delegations_with_unresolved = _project_linked_items_with_unresolved(data, project)
     grouped_items = _grouped_linked_items(linked_actions_with_unresolved, linked_delegations_with_unresolved)
-    st.markdown("**Linked Items**")
-    _render_linked_items(grouped_items, project_id=project_id)
+    next_actions_grouped = _filter_linked_items_by_activity(grouped_items, active=True)
+    backlog_grouped = _filter_linked_items_by_activity(grouped_items, active=False)
+
+    st.markdown("**Next Actions**")
+    if _count_grouped_items(next_actions_grouped) == 0:
+        st.caption("No next actions.")
+    else:
+        _render_linked_items(next_actions_grouped, project_id=f"{project_id}::next", show_controls=True)
+
+    st.markdown("**Backlog Tasks**")
+    if _count_grouped_items(backlog_grouped) == 0:
+        st.caption("No backlog tasks.")
+    else:
+        _render_linked_items(backlog_grouped, project_id=f"{project_id}::backlog", show_controls=False)
 
     add_cols = st.columns(2)
     open_add_task_dialog = add_cols[0].button("Add Task", use_container_width=True)
@@ -807,22 +865,21 @@ else:
         confirm_cols = st.columns(2)
         if confirm_cols[0].button("Confirm Project Delete"):
             choice = st.session_state.get("project_delete_choice", DELETE_CHOICE_OPTIONS[0])
-            if is_delete_cancellation_choice(choice):
+            result = confirm_project_delete_flow(data=data, project_id=project_id, choice=choice)
+            if result.canceled:
                 _set_delete_mode(None)
                 st.rerun()
+            elif result.deleted:
+                st.session_state.project_view_id = None
+                _set_delete_mode(None)
+                _ui_store().pop(PROJECT_EDITOR_NS, None)
+                st.switch_page("pages/projects.py")
+            elif not result.ok:
+                for error in result.errors or []:
+                    st.error(error)
             else:
-                result = delete_project(data=data, project_id=project_id, choice=choice)
-                if result.deleted:
-                    st.session_state.project_view_id = None
-                    _set_delete_mode(None)
-                    _ui_store().pop(PROJECT_EDITOR_NS, None)
-                    st.switch_page("pages/projects.py")
-                elif not result.ok:
-                    for error in result.errors or []:
-                        st.error(error)
-                else:
-                    _set_delete_mode(None)
-                    st.rerun()
+                _set_delete_mode(None)
+                st.rerun()
         if confirm_cols[1].button("Back from Delete"):
             _set_delete_mode(None)
             st.rerun()
@@ -833,7 +890,7 @@ else:
         _ui_store().pop(PROJECT_EDITOR_NS, None)
         st.switch_page("pages/projects.py")
     elif delete:
-        delete_request = request_project_delete(data=data, project_id=project_id)
+        delete_request = begin_project_delete_flow(data=data, project_id=project_id)
         if not delete_request.ok:
             for error in delete_request.errors or []:
                 st.error(error)
@@ -847,36 +904,27 @@ else:
             st.switch_page("pages/projects.py")
     elif save:
         status = editor.get("status", "Active")
-        selected_due_date = parse_date_only(editor.get("due_date"))
-        original_due_date = parse_date_only(project.get("due_date"))
-        due_date_check = validate_project_due_date_change(
-            selected_due_date=selected_due_date,
-            original_due_date=original_due_date,
+        result = save_project_editor_submission(
+            data=data,
+            project_id=project_id,
+            title=_editor_text(editor, "title"),
+            description=_editor_text(editor, "description"),
+            due_date=_editor_date_value(editor, "due_date"),
+            status=status,
+            original_due_date=parse_date_only(project.get("due_date")),
         )
-        if not due_date_check.ok:
-            for error in due_date_check.errors or []:
+        if not result.ok:
+            for error in result.errors or []:
                 st.error(error)
         else:
-            result = update_project_from_editor(
-                data=data,
-                project_id=project_id,
-                title=_editor_text(editor, "title"),
-                description=_editor_text(editor, "description"),
-                due_date=_editor_date_value(editor, "due_date"),
-                status=status,
+            editor["source_snapshot"] = (
+                project.get("title", ""),
+                project.get("description", ""),
+                project.get("due_date"),
+                project.get("status", "Active"),
             )
-            if not result.ok:
-                for error in result.errors or []:
-                    st.error(error)
-            else:
-                editor["source_snapshot"] = (
-                    project.get("title", ""),
-                    project.get("description", ""),
-                    project.get("due_date"),
-                    project.get("status", "Active"),
-                )
-                editor["loaded_project_id"] = project_id
-                st.success(result.message or "Project updated.")
+            editor["loaded_project_id"] = project_id
+            st.success(result.message or "Project updated.")
 
     if open_add_task_dialog:
         _saved_action_dialog(project)

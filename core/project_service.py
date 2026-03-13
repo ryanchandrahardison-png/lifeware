@@ -62,6 +62,12 @@ def validate_project_due_date_change(*, selected_due_date: date | None, original
     return ServiceResult(ok=True)
 
 
+def validate_linked_item_date_change(*, selected_date: date | None, original_date: date | None, date_label: str) -> ServiceResult:
+    if selected_date and selected_date < date.today() and selected_date != original_date:
+        return ServiceResult(ok=False, errors=[f"{date_label} cannot be in the past unless it is unchanged."])
+    return ServiceResult(ok=True)
+
+
 def is_delete_cancellation_choice(choice: str) -> bool:
     return choice == DELETE_CHOICE_CANCEL
 
@@ -260,3 +266,65 @@ def remove_project_link_reference(
         return ServiceResult(ok=True, message="Delegation link removed from project.")
 
     return ServiceResult(ok=False, errors=["Invalid linked-item type."])
+
+
+@dataclass
+class DeleteFlowResult(ServiceResult):
+    deleted: bool = False
+    requires_choice: bool = False
+    canceled: bool = False
+
+
+def save_project_editor_submission(
+    *,
+    data: dict[str, Any],
+    project_id: str,
+    title: str,
+    description: str,
+    due_date: str | None,
+    status: str,
+    original_due_date: date | None,
+) -> ServiceResult:
+    try:
+        selected_due_date = date.fromisoformat(due_date) if due_date else None
+    except Exception:
+        selected_due_date = None
+    due_date_check = validate_project_due_date_change(
+        selected_due_date=selected_due_date,
+        original_due_date=original_due_date,
+    )
+    if not due_date_check.ok:
+        return due_date_check
+
+    return update_project_from_editor(
+        data=data,
+        project_id=project_id,
+        title=title,
+        description=description,
+        due_date=due_date,
+        status=status,
+    )
+
+
+def begin_project_delete_flow(*, data: dict[str, Any], project_id: str) -> DeleteFlowResult:
+    request = request_project_delete(data=data, project_id=project_id)
+    return DeleteFlowResult(
+        ok=request.ok,
+        message=request.message,
+        errors=request.errors,
+        deleted=request.deleted,
+        requires_choice=request.requires_choice,
+    )
+
+
+def confirm_project_delete_flow(*, data: dict[str, Any], project_id: str, choice: str) -> DeleteFlowResult:
+    if is_delete_cancellation_choice(choice):
+        return DeleteFlowResult(ok=True, canceled=True, message="Project deletion canceled.")
+
+    result = delete_project(data=data, project_id=project_id, choice=choice)
+    return DeleteFlowResult(
+        ok=result.ok,
+        message=result.message,
+        errors=result.errors,
+        deleted=result.deleted,
+    )

@@ -57,13 +57,13 @@ Future Phase: Automation / System Integrity
 
 
 ## Architecture Follow-On Decision
-- After Option A stabilization, the next bounded Phase 1 engineering step is to extract project business-rule validation and mutation orchestration into a dedicated state/service layer outside `pages/projectItem.py` while preserving the Option A UI buffer pattern.
+- After Option A stabilization, the bounded Phase 1 engineering step to extract project business-rule validation and mutation orchestration into a dedicated state/service layer has been completed in the active stream while preserving the Option A UI buffer pattern.
 
 ## Architecture / Technical Backlog
 - Apply UI State Architecture to remaining editor pages:
   - `pages/actionItem.py`
   - `pages/delegationItem.py`
-  - `pages/eventItem.py`
+  - `pages/calendarEvent.py`
   Reason:
   Eliminate the same Streamlit widget lifecycle defect class across the rest of the editor surface after Option A is stabilized in `pages/projectItem.py`.
 
@@ -88,11 +88,11 @@ Execution rule:
 - No new Developer pass may be assigned for Option A unless a new defect is explicitly opened.
 - Option B may not begin until a new Architect DECISION FREEZE explicitly authorizes it.
 
-### Option B — Backlog Only
+### Option B — Implemented
 Scope:
 - `pages/actionItem.py`
 - `pages/delegationItem.py`
-- `pages/eventItem.py`
+- `pages/calendarEvent.py`
 
 Reason:
 - Extend the same UI State Architecture to remaining editor pages after Option A proves stable.
@@ -106,8 +106,8 @@ Earliest stage allowed:
   - stabilization confirmation in the active build stream
 
 Status:
-- Deferred backlog item
-- Not approved for current pass
+- COMPLETE and FROZEN in active build stream
+- Re-open only with new explicit defect or Product Owner scope authorization
 
 
 ## Backlog Item: Routines / Cadenced Checklists
@@ -179,10 +179,10 @@ Date mapping by linked-item type:
 ### Product Owner Clarifications (Accepted)
 - Applies only to `pages/projectItem.py`.
 - Use the order:
-  1. Project fields
-  2. Linked Items table
+  1. Project fields (+ Back available near top)
+  2. Linked Items table sections
   3. Add Task / Add Delegation controls
-  4. Save / Delete / Back controls
+  4. Save / Delete controls
 - Include all linked items in the table.
 - Group rows by: Completed, Past Due, Upcoming, Floating.
 - Sort by date ascending within each non-completed date group.
@@ -203,4 +203,7 @@ Improve project-review ergonomics by keeping linked-item context and add control
 QA should verify each Product Owner clarification item above is implemented.
 
 ### Phase
-Selected for immediate Phase 1 Architect DECISION FREEZE implementation planning
+Completed in Phase 1 (Architect DECISION FREEZE execution)
+
+### Status
+COMPLETE and FROZEN (do not re-open without a new explicit defect or Product Owner scope authorization)
