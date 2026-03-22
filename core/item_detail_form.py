@@ -8,6 +8,14 @@ import streamlit as st
 
 from core.entities import new_uuid
 from core.project_service import validate_project_save
+from core.page_state import (
+    flags_store,
+    pop_reset_flag,
+    prepare_widget_defaults,
+    sync_editor_from_widgets,
+    ui_store,
+    widget_key,
+)
 
 DEFAULT_STATUS_OPTIONS = ["Open", "Completed"]
 DELEGATION_STATUS_OPTIONS = ["Waiting", "Completed"]
@@ -82,36 +90,6 @@ def _restore_project_return_context_if_needed(back_page: str) -> None:
         st.session_state.project_view_id = st.session_state.get("return_project_view_id")
         st.session_state.return_to_project_on_back = False
         st.session_state.return_project_view_id = None
-
-
-def _ui_store() -> dict:
-    st.session_state.setdefault("ui", {})
-    return st.session_state.ui
-
-
-def _flags_store() -> dict:
-    st.session_state.setdefault("flags", {})
-    return st.session_state.flags
-
-
-def _widget_key(namespace: str, field: str) -> str:
-    return f"{namespace}__{field}"
-
-
-def _pop_reset_flag(namespace: str) -> bool:
-    return bool(_flags_store().pop(f"reset::{namespace}", False))
-
-
-def _prepare_widget_defaults(namespace: str, fields: list[str], editor: dict, *, force: bool = False) -> None:
-    for field in fields:
-        key = _widget_key(namespace, field)
-        if force or key not in st.session_state:
-            st.session_state[key] = editor.get(field)
-
-
-def _sync_editor_from_widgets(namespace: str, fields: list[str], editor: dict) -> None:
-    for field in fields:
-        editor[field] = st.session_state.get(_widget_key(namespace, field))
 
 
 def _project_delete_guard_errors(*, data: dict, list_key: str, item_id: str) -> list[str]:
@@ -253,7 +231,7 @@ def render_item_detail_form(
     default_due_date = _parse_iso_date(_pick(original, date_field_candidates, "")) if show_due_date else None
 
     namespace = f"{list_key}_detail_editor"
-    editor = _ui_store().get(namespace)
+    editor = ui_store().get(namespace)
     snapshot = (
         item_id,
         default_title,
@@ -264,7 +242,7 @@ def render_item_detail_form(
     )
     if not isinstance(editor, dict):
         editor = {}
-        _ui_store()[namespace] = editor
+        ui_store()[namespace] = editor
 
     if editor.get("source_snapshot") != snapshot:
         editor.update(
@@ -276,33 +254,33 @@ def render_item_detail_form(
                 "source_snapshot": snapshot,
             }
         )
-        _flags_store()[f"reset::{namespace}"] = True
+        flags_store()[f"reset::{namespace}"] = True
 
     fields = ["title", "details", "status"] + (["due_date"] if show_due_date else [])
-    _prepare_widget_defaults(namespace, fields, editor, force=_pop_reset_flag(namespace))
+    prepare_widget_defaults(namespace, fields, editor, force=pop_reset_flag(namespace))
 
     st.title(f"{title_emoji} {page_title}")
     st.caption(subtitle_text if is_edit else f"Create a new {page_title.lower()}.")
 
     with st.form(f"{list_key}_detail_form"):
-        st.text_input("Title", key=_widget_key(namespace, "title"))
+        st.text_input("Title", key=widget_key(namespace, "title"))
 
         if show_due_date:
-            due_date_kwargs = {"key": _widget_key(namespace, "due_date")}
+            due_date_kwargs = {"key": widget_key(namespace, "due_date")}
             if not is_edit:
                 due_date_kwargs["min_value"] = date.today()
             st.date_input(date_label, **due_date_kwargs)
 
-        st.text_area("Details", key=_widget_key(namespace, "details"), height=180)
+        st.text_area("Details", key=widget_key(namespace, "details"), height=180)
 
         st.selectbox(
             "Status",
             status_options,
             index=_status_index(str(editor.get("status", status_options[0])), status_options),
-            key=_widget_key(namespace, "status"),
+            key=widget_key(namespace, "status"),
         )
 
-        _sync_editor_from_widgets(namespace, fields, editor)
+        sync_editor_from_widgets(namespace, fields, editor)
 
         action_cols = st.columns(3)
         save = action_cols[0].form_submit_button("Save Changes" if is_edit else "Create")
@@ -313,8 +291,8 @@ def render_item_detail_form(
 
     if back:
         st.session_state[index_key] = None
-        _ui_store().pop(namespace, None)
-        _flags_store().pop(f"reset::{namespace}", None)
+        ui_store().pop(namespace, None)
+        flags_store().pop(f"reset::{namespace}", None)
         _restore_project_return_context_if_needed(back_page)
         st.switch_page(back_page)
         return
@@ -327,8 +305,8 @@ def render_item_detail_form(
             return
 
         st.session_state[index_key] = None
-        _ui_store().pop(namespace, None)
-        _flags_store().pop(f"reset::{namespace}", None)
+        ui_store().pop(namespace, None)
+        flags_store().pop(f"reset::{namespace}", None)
         _restore_project_return_context_if_needed(back_page)
         st.switch_page(back_page)
         return
@@ -351,7 +329,7 @@ def render_item_detail_form(
             return
 
         st.session_state[index_key] = None
-        _ui_store().pop(namespace, None)
-        _flags_store().pop(f"reset::{namespace}", None)
+        ui_store().pop(namespace, None)
+        flags_store().pop(f"reset::{namespace}", None)
         _restore_project_return_context_if_needed(back_page)
         st.switch_page(back_page)

@@ -11,6 +11,29 @@ This file captures the current project requirements and guardrails so future cha
 - Avoid unnecessary complexity.
 - Maintain high performance.
 
+## Control File Governance
+- Canonical active control files are root-level only:
+  - `NEXT_AGENT_HANDOFF.md`
+  - `execution_state.json`
+  - `LIFEWARE_REQUIREMENTS_TRACKER.md`
+- Archive stale/superseded execution artifacts in:
+  - `specifications/executionState/archive/`
+  - `openAI/archive/`
+- Future agents must only update canonical root control files for active execution state.
+
+## GUI Freeze
+- Current screen designs are intentionally preserved.
+- Refactors must avoid changing layouts, flows, labels, or widgets unless fixing a functional defect or with explicit approval.
+- Architectural cleanup should happen behind the current screens.
+- Frozen functional screens/pages:
+  - Home
+  - Calendar
+  - Actions
+  - Delegations
+  - Projects
+  - Routines
+  - My Day
+
 ## Application Architecture
 lifeware/
 ├── app.py

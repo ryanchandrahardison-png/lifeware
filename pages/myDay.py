@@ -8,6 +8,7 @@ import streamlit as st
 from core.calendar_utils import parse_dt_any
 from core.entities import is_completed_status, is_waiting_status, parse_date_only
 from core.layout import sidebar_file_controls
+from core.navigation import render_primary_navigation
 from core.routine_service import apply_postpone, reset_due_instance_if_needed, routine_due_today
 from core.state import init_state
 
@@ -15,14 +16,7 @@ st.set_page_config(page_title="My Day", layout="wide")
 init_state()
 sidebar_file_controls()
 
-st.sidebar.markdown("---")
-st.sidebar.page_link("app.py", label="Home", icon="🏠")
-st.sidebar.page_link("pages/calendarList.py", label="Calendar", icon="📅")
-st.sidebar.page_link("pages/actions.py", label="Actions", icon="✅")
-st.sidebar.page_link("pages/delegations.py", label="Delegations", icon="🤝")
-st.sidebar.page_link("pages/projects.py", label="Projects", icon="📁")
-st.sidebar.page_link("pages/routines.py", label="Routines", icon="🔁")
-st.sidebar.page_link("pages/myDay.py", label="My Day", icon="☀️")
+render_primary_navigation()
 
 st.title("☀️ My Day")
 st.caption("Today view across calendar, actions, delegations, and routines.")

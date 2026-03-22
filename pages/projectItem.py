@@ -14,6 +14,26 @@ from core.entities import (
 )
 from core.item_detail_form import delete_item_with_project_guard, save_item_with_constraints
 from core.layout import sidebar_file_controls
+from core.page_state import (
+    clear_selection_keys,
+    flags_store,
+    pop_reset_flag,
+    prepare_widget_defaults,
+    reset_editor_namespace,
+    sync_editor_from_widgets,
+    ui_store,
+    widget_key,
+)
+from core.project_linked_items import (
+    count_grouped_items,
+    filter_linked_items_by_activity,
+    grouped_linked_items,
+    linked_item_date,
+    linked_item_date_text,
+    linked_item_type,
+    project_linked_items_with_unresolved,
+)
+from core.navigation import render_primary_navigation
 from core.project_service import (
     DELETE_CHOICE_OPTIONS,
     create_linked_action,
@@ -35,14 +55,7 @@ st.set_page_config(page_title="Project Details", layout="wide")
 init_state()
 sidebar_file_controls()
 
-st.sidebar.markdown("---")
-st.sidebar.page_link("app.py", label="Home", icon="🏠")
-st.sidebar.page_link("pages/calendarList.py", label="Calendar", icon="📅")
-st.sidebar.page_link("pages/actions.py", label="Actions", icon="✅")
-st.sidebar.page_link("pages/delegations.py", label="Delegations", icon="🤝")
-st.sidebar.page_link("pages/projects.py", label="Projects", icon="📁")
-st.sidebar.page_link("pages/routines.py", label="Routines", icon="🔁")
-st.sidebar.page_link("pages/myDay.py", label="My Day", icon="☀️")
+render_primary_navigation()
 
 st.session_state.setdefault("ui", {})
 st.session_state.setdefault("flags", {})
@@ -67,97 +80,9 @@ def draft_linked_count(draft: dict) -> int:
 
 
 
-def _linked_item_date(item: dict) -> date | None:
-    return parse_date_only(item.get("due_date") or item.get("follow_up_date"))
-
-
-def _linked_item_group(item: dict) -> str:
-    status = str(item.get("status", "")).strip().lower()
-    if status == "completed":
-        return "Completed"
-
-    linked_date = _linked_item_date(item)
-    if linked_date is None:
-        return "Floating"
-    if linked_date < date.today():
-        return "Past Due"
-    return "Upcoming"
-
-
-def _linked_item_type(item: dict) -> str:
-    return "Delegation" if item.get("kind") == "delegation" else "Action"
-
-
-def _linked_item_sort_key(item: dict):
-    linked_date = _linked_item_date(item)
-    return (linked_date is None, linked_date or date.max, str(item.get("title", "")).lower())
-
-
-def _grouped_linked_items(linked_actions: list[dict], linked_delegations: list[dict]) -> dict[str, list[dict]]:
-    grouped = {"Completed": [], "Past Due": [], "Upcoming": [], "Floating": []}
-    merged = [{**item, "kind": "action"} for item in linked_actions] + [{**item, "kind": "delegation"} for item in linked_delegations]
-    for item in merged:
-        grouped[_linked_item_group(item)].append(item)
-    for key in ["Past Due", "Upcoming", "Floating"]:
-        grouped[key] = sorted(grouped[key], key=_linked_item_sort_key)
-    return grouped
-
-
-def _is_next_action_item(item: dict) -> bool:
-    if item.get("unresolved"):
-        return False
-    return bool(item.get("is_active_global", True))
-
-
-def _filter_linked_items_by_activity(
-    grouped_items: dict[str, list[dict]],
-    *,
-    active: bool,
-) -> dict[str, list[dict]]:
-    filtered: dict[str, list[dict]] = {}
-    for group, items in grouped_items.items():
-        filtered[group] = [item for item in items if _is_next_action_item(item) is active]
-    return filtered
-
-
-def _count_grouped_items(grouped_items: dict[str, list[dict]]) -> int:
-    return sum(len(items) for items in grouped_items.values())
-
-
-def _project_linked_items_with_unresolved(data: dict, project: dict) -> tuple[list[dict], list[dict]]:
-    actions: list[dict] = []
-    for action_id in project.get("action_ids", []):
-        action = data.get("actions", {}).get(action_id)
-        if action:
-            actions.append(action)
-        else:
-            actions.append({"id": action_id, "title": "Missing Action", "status": "Open", "unresolved": True})
-
-    delegations: list[dict] = []
-    for delegation_id in project.get("delegation_ids", []):
-        delegation = data.get("delegations", {}).get(delegation_id)
-        if delegation:
-            delegations.append(delegation)
-        else:
-            delegations.append({"id": delegation_id, "title": "Missing Delegation", "status": "Waiting", "unresolved": True})
-
-    return actions, delegations
-
-
-def _linked_item_date_text(item: dict) -> str:
-    linked_date = _linked_item_date(item)
-    return linked_date.isoformat() if linked_date else "—"
-
-
 def _clear_linked_item_modal_state() -> None:
-    _flags_store().pop("project_linked_item_modal", None)
-    _flags_store().pop("project_linked_item_modal_editor_key", None)
-
-
-def _clear_linked_item_table_selection_state() -> None:
-    keys_to_clear = [key for key in st.session_state.keys() if str(key).startswith("project_linked_items::")]
-    for key in keys_to_clear:
-        st.session_state.pop(key, None)
+    flags_store().pop("project_linked_item_modal", None)
+    flags_store().pop("project_linked_item_modal_editor_key", None)
 
 
 def _linked_item_table_key(scope: str, group: str) -> str:
@@ -165,13 +90,13 @@ def _linked_item_table_key(scope: str, group: str) -> str:
 
 
 def _open_linked_item(item: dict) -> None:
-    _flags_store()["project_linked_item_modal"] = item
-    _flags_store().pop("project_linked_item_modal_editor_key", None)
+    flags_store()["project_linked_item_modal"] = item
+    flags_store().pop("project_linked_item_modal_editor_key", None)
 
 
 @st.dialog("Linked Item Details")
 def _linked_item_detail_dialog() -> None:
-    modal_item = _flags_store().get("project_linked_item_modal")
+    modal_item = flags_store().get("project_linked_item_modal")
     if not isinstance(modal_item, dict):
         st.info("No linked item selected.")
         return
@@ -207,8 +132,8 @@ def _linked_item_detail_dialog() -> None:
 
     if record is None:
         st.markdown(f"**Task Name:** {modal_item.get('title', 'Untitled')}")
-        st.markdown(f"**Type:** {_linked_item_type(modal_item)}")
-        st.markdown(f"**Date:** {_linked_item_date_text(modal_item)}")
+        st.markdown(f"**Type:** {linked_item_type(modal_item)}")
+        st.markdown(f"**Date:** {linked_item_date_text(modal_item)}")
         details_text = str(modal_item.get("details", "") or "").strip() or "(No details)"
         st.markdown("**Details**")
         st.write(details_text)
@@ -224,13 +149,13 @@ def _linked_item_detail_dialog() -> None:
     details_key = f"{editor_key}::details"
     status_key = f"{editor_key}::status"
 
-    if _flags_store().get("project_linked_item_modal_editor_key") != editor_key:
+    if flags_store().get("project_linked_item_modal_editor_key") != editor_key:
         st.session_state[title_key] = str(record.get("title", "") or "")
         st.session_state[details_key] = str(record.get("details", "") or "")
         st.session_state[date_key] = parse_date_only(record.get(date_field)) or date.today()
         status_value = record.get("status", status_options[0])
         st.session_state[status_key] = status_value if status_value in status_options else status_options[0]
-        _flags_store()["project_linked_item_modal_editor_key"] = editor_key
+        flags_store()["project_linked_item_modal_editor_key"] = editor_key
 
     with st.form(f"project_linked_modal_form::{kind}::{item_id}"):
         st.text_input("Title", key=title_key)
@@ -324,7 +249,7 @@ def _remove_broken_project_link(*, project_id: str, item_type: str, item_id: str
 
 
 def _render_unresolved_warning(*, item: dict, warning: str, remove_label: str, on_remove) -> None:
-    kind = _linked_item_type(item)
+    kind = linked_item_type(item)
     name = item.get("title") or "Untitled"
     st.warning(f"{warning} ({kind}: {name})")
     if st.button(remove_label, key=f"remove_unresolved::{item.get('kind')}::{item.get('id') or id(item)}"):
@@ -373,8 +298,8 @@ def _render_linked_items(
         if use_compact_view:
             for idx, item in enumerate(items):
                 task_name = item.get("title", "Untitled")
-                task_type = _linked_item_type(item)
-                task_date = _linked_item_date_text(item)
+                task_type = linked_item_type(item)
+                task_date = linked_item_date_text(item)
                 row_label = f"{task_name}  |  {task_type}  |  {task_date}"
                 if st.button(row_label, key=f"project_linked_compact::{project_id or 'draft'}::{group}::{idx}", use_container_width=True):
                     selected_id = item.get("id")
@@ -392,8 +317,8 @@ def _render_linked_items(
         rows = [
             {
                 "Task Name": item.get("title", "Untitled"),
-                "Type": _linked_item_type(item),
-                "Date": _linked_item_date_text(item),
+                "Type": linked_item_type(item),
+                "Date": linked_item_date_text(item),
             }
             for item in items
         ]
@@ -407,7 +332,7 @@ def _render_linked_items(
             selection_mode="single-row",
             key=table_key,
         )
-        if _flags_store().get("suppress_linked_item_selection_once"):
+        if flags_store().get("suppress_linked_item_selection_once"):
             continue
         selected_index, had_stale_selection = selected_single_row_index(selection, len(items))
         if had_stale_selection:
@@ -426,36 +351,24 @@ def _render_linked_items(
             else:
                 _open_linked_item(selected_item)
 
-    if _flags_store().pop("suppress_linked_item_selection_once", False):
+    if flags_store().pop("suppress_linked_item_selection_once", False):
         pass
 
-def _ui_store() -> dict:
-    return st.session_state.ui
-
-
-def _flags_store() -> dict:
-    return st.session_state.flags
-
-
-def _widget_key(namespace: str, field: str) -> str:
-    return f"{namespace}__{field}"
-
-
 def _queue_notice(message: str) -> None:
-    _flags_store()["project_item_notice"] = message
+    flags_store()["project_item_notice"] = message
 
 
 def _render_notice() -> None:
-    message = _flags_store().pop("project_item_notice", None)
+    message = flags_store().pop("project_item_notice", None)
     if message:
         st.success(message)
 
 
 def _get_editor(namespace: str, defaults: dict) -> dict:
-    editor = _ui_store().get(namespace)
+    editor = ui_store().get(namespace)
     if not isinstance(editor, dict):
         editor = deepcopy(defaults)
-        _ui_store()[namespace] = editor
+        ui_store()[namespace] = editor
     return editor
 
 
@@ -465,16 +378,9 @@ def _coerce_widget_value(field: str, value):
     return value
 
 
-def _prepare_widget_defaults(namespace: str, fields: list[str], editor: dict, *, force: bool = False) -> None:
-    for field in fields:
-        key = _widget_key(namespace, field)
-        if force or key not in st.session_state:
-            st.session_state[key] = _coerce_widget_value(field, editor.get(field))
-
-
-def _sync_editor_from_widgets(namespace: str, fields: list[str], editor: dict) -> None:
-    for field in fields:
-        editor[field] = st.session_state.get(_widget_key(namespace, field))
+def _prepare_project_widget_defaults(namespace: str, fields: list[str], editor: dict, *, force: bool = False) -> None:
+    coerced = {field: _coerce_widget_value(field, editor.get(field)) for field in fields}
+    prepare_widget_defaults(namespace, fields, coerced, force=force)
 
 
 def _editor_text(editor: dict, field: str) -> str:
@@ -491,22 +397,13 @@ def _editor_date_value(editor: dict, field: str) -> str | None:
     return parsed.isoformat() if parsed else None
 
 
-def _reset_editor(namespace: str, defaults: dict) -> None:
-    _ui_store()[namespace] = deepcopy(defaults)
-    _flags_store()[f"reset::{namespace}"] = True
-
-
-def _pop_reset_flag(namespace: str) -> bool:
-    return bool(_flags_store().pop(f"reset::{namespace}", False))
-
-
 def _set_delete_mode(project_id: str | None) -> None:
-    _flags_store()["project_delete_mode"] = project_id
+    flags_store()["project_delete_mode"] = project_id
     st.session_state.project_delete_mode = project_id
 
 
 def _get_delete_mode() -> str | None:
-    flags = _flags_store()
+    flags = flags_store()
     if "project_delete_mode" not in flags:
         flags["project_delete_mode"] = st.session_state.get("project_delete_mode")
     return flags.get("project_delete_mode")
@@ -544,13 +441,13 @@ DELEGATION_EDITOR_FIELDS = ["title", "details", "date", "active_global"]
 
 
 def _draft_project_ui() -> dict:
-    editor = _ui_store().get(DRAFT_PROJECT_NS)
+    editor = ui_store().get(DRAFT_PROJECT_NS)
     if not isinstance(editor, dict):
         source = st.session_state.get("draft_project") or empty_draft()
         editor = deepcopy(source)
         editor.setdefault("draft_actions", [])
         editor.setdefault("draft_delegations", [])
-        _ui_store()[DRAFT_PROJECT_NS] = editor
+        ui_store()[DRAFT_PROJECT_NS] = editor
         st.session_state.draft_project = deepcopy(editor)
     return editor
 
@@ -560,11 +457,11 @@ def _sync_draft_runtime(draft: dict) -> None:
 
 
 def _clear_draft_runtime() -> None:
-    _ui_store().pop(DRAFT_PROJECT_NS, None)
-    _ui_store().pop("draft_action_editor", None)
-    _ui_store().pop("draft_delegation_editor", None)
-    _flags_store().pop("reset::draft_action_editor", None)
-    _flags_store().pop("reset::draft_delegation_editor", None)
+    ui_store().pop(DRAFT_PROJECT_NS, None)
+    ui_store().pop("draft_action_editor", None)
+    ui_store().pop("draft_delegation_editor", None)
+    flags_store().pop("reset::draft_action_editor", None)
+    flags_store().pop("reset::draft_delegation_editor", None)
     st.session_state.draft_project = None
 
 
@@ -579,7 +476,7 @@ def _load_project_editor(project: dict) -> dict:
     if (
         editor.get("loaded_project_id") != project.get("id")
         or editor.get("source_snapshot") != snapshot
-        or bool(_flags_store().pop("reload_project_editor", False))
+        or bool(flags_store().pop("reload_project_editor", False))
     ):
         editor.update(
             {
@@ -592,45 +489,45 @@ def _load_project_editor(project: dict) -> dict:
             }
         )
         _clear_linked_item_modal_state()
-        _clear_linked_item_table_selection_state()
-        _flags_store()["suppress_linked_item_selection_once"] = True
-        _flags_store()[f"reset::{PROJECT_EDITOR_NS}"] = True
+        clear_selection_keys("project_linked_items::")
+        flags_store()["suppress_linked_item_selection_once"] = True
+        flags_store()[f"reset::{PROJECT_EDITOR_NS}"] = True
     return editor
 
 
 def _render_project_editor(namespace: str, editor: dict, *, status_options: list[str], original_due_date: date | None = None) -> None:
-    _prepare_widget_defaults(namespace, PROJECT_FIELDS, editor, force=_pop_reset_flag(namespace))
-    st.text_input("Title", key=_widget_key(namespace, "title"))
+    _prepare_project_widget_defaults(namespace, PROJECT_FIELDS, editor, force=pop_reset_flag(namespace))
+    st.text_input("Title", key=widget_key(namespace, "title"))
     today = date.today()
     current_due = parse_date_only(editor.get("due_date"))
     min_due = today
     if original_due_date and original_due_date < today and current_due == original_due_date:
         min_due = original_due_date
-    st.date_input("Due Date", key=_widget_key(namespace, "due_date"), value=None, min_value=min_due)
-    st.text_area("Description", key=_widget_key(namespace, "description"), height=180)
-    st.selectbox("Status", status_options, key=_widget_key(namespace, "status"))
-    _sync_editor_from_widgets(namespace, PROJECT_FIELDS, editor)
+    st.date_input("Due Date", key=widget_key(namespace, "due_date"), value=None, min_value=min_due)
+    st.text_area("Description", key=widget_key(namespace, "description"), height=180)
+    st.selectbox("Status", status_options, key=widget_key(namespace, "status"))
+    sync_editor_from_widgets(namespace, PROJECT_FIELDS, editor)
 
 
 def _render_action_editor(namespace: str, button_label: str) -> tuple[dict, bool]:
     editor = _get_editor(namespace, ACTION_EDITOR_DEFAULTS)
-    _prepare_widget_defaults(namespace, ACTION_EDITOR_FIELDS, editor, force=_pop_reset_flag(namespace))
-    st.text_input("Action Title", key=_widget_key(namespace, "title"))
-    st.date_input("Action Due Date", key=_widget_key(namespace, "date"), value=None, min_value=date.today())
-    st.text_area("Action Details", key=_widget_key(namespace, "details"))
-    st.checkbox("Show in global Actions list now", key=_widget_key(namespace, "active_global"))
-    _sync_editor_from_widgets(namespace, ACTION_EDITOR_FIELDS, editor)
+    _prepare_project_widget_defaults(namespace, ACTION_EDITOR_FIELDS, editor, force=pop_reset_flag(namespace))
+    st.text_input("Action Title", key=widget_key(namespace, "title"))
+    st.date_input("Action Due Date", key=widget_key(namespace, "date"), value=None, min_value=date.today())
+    st.text_area("Action Details", key=widget_key(namespace, "details"))
+    st.checkbox("Show in global Actions list now", key=widget_key(namespace, "active_global"))
+    sync_editor_from_widgets(namespace, ACTION_EDITOR_FIELDS, editor)
     return editor, st.button(button_label, key=f"{namespace}__submit")
 
 
 def _render_delegation_editor(namespace: str, button_label: str) -> tuple[dict, bool]:
     editor = _get_editor(namespace, DELEGATION_EDITOR_DEFAULTS)
-    _prepare_widget_defaults(namespace, DELEGATION_EDITOR_FIELDS, editor, force=_pop_reset_flag(namespace))
-    st.text_input("Delegation Title", key=_widget_key(namespace, "title"))
-    st.date_input("Follow-Up Date", key=_widget_key(namespace, "date"), value=None)
-    st.text_area("Delegation Details", key=_widget_key(namespace, "details"))
-    st.checkbox("Show in global Delegations list now", key=_widget_key(namespace, "active_global"))
-    _sync_editor_from_widgets(namespace, DELEGATION_EDITOR_FIELDS, editor)
+    _prepare_project_widget_defaults(namespace, DELEGATION_EDITOR_FIELDS, editor, force=pop_reset_flag(namespace))
+    st.text_input("Delegation Title", key=widget_key(namespace, "title"))
+    st.date_input("Follow-Up Date", key=widget_key(namespace, "date"), value=None)
+    st.text_area("Delegation Details", key=widget_key(namespace, "details"))
+    st.checkbox("Show in global Delegations list now", key=widget_key(namespace, "active_global"))
+    sync_editor_from_widgets(namespace, DELEGATION_EDITOR_FIELDS, editor)
     return editor, st.button(button_label, key=f"{namespace}__submit")
 
 
@@ -653,7 +550,7 @@ def add_draft_action(draft: dict) -> None:
             },
         )
         _sync_draft_runtime(draft)
-        _reset_editor(namespace, ACTION_EDITOR_DEFAULTS)
+        reset_editor_namespace(namespace, ACTION_EDITOR_DEFAULTS)
         _queue_notice("Draft action added.")
         st.rerun()
 
@@ -677,7 +574,7 @@ def add_draft_delegation(draft: dict) -> None:
             },
         )
         _sync_draft_runtime(draft)
-        _reset_editor(namespace, DELEGATION_EDITOR_DEFAULTS)
+        reset_editor_namespace(namespace, DELEGATION_EDITOR_DEFAULTS)
         _queue_notice("Draft delegation added.")
         st.rerun()
 
@@ -699,7 +596,7 @@ def add_saved_project_action(project: dict) -> None:
             due_date=_editor_date_value(editor, "date"),
             is_active_global=bool(editor.get("active_global", False)),
         )
-        _reset_editor(namespace, ACTION_EDITOR_DEFAULTS)
+        reset_editor_namespace(namespace, ACTION_EDITOR_DEFAULTS)
         _queue_notice("Action added to project.")
         st.rerun()
 
@@ -719,7 +616,7 @@ def add_saved_project_delegation(project: dict) -> None:
             follow_up_date=_editor_date_value(editor, "date"),
             is_active_global=bool(editor.get("active_global", False)),
         )
-        _reset_editor(namespace, DELEGATION_EDITOR_DEFAULTS)
+        reset_editor_namespace(namespace, DELEGATION_EDITOR_DEFAULTS)
         _queue_notice("Delegation added to project.")
         st.rerun()
 
@@ -761,7 +658,7 @@ if not is_edit:
     _sync_draft_runtime(draft)
 
     st.markdown(f"**Linked items:** {draft_linked_count(draft)}")
-    draft_grouped_items = _grouped_linked_items(
+    draft_grouped_items = grouped_linked_items(
         draft.get("draft_actions", []),
         draft.get("draft_delegations", []),
     )
@@ -770,10 +667,10 @@ if not is_edit:
 
     add_cols = st.columns(2)
     if add_cols[0].button("Add Action", use_container_width=True):
-        _reset_editor("draft_action_editor", ACTION_EDITOR_DEFAULTS)
+        reset_editor_namespace("draft_action_editor", ACTION_EDITOR_DEFAULTS)
         _draft_action_dialog(draft)
     if add_cols[1].button("Add Delegation", use_container_width=True):
-        _reset_editor("draft_delegation_editor", DELEGATION_EDITOR_DEFAULTS)
+        reset_editor_namespace("draft_delegation_editor", DELEGATION_EDITOR_DEFAULTS)
         _draft_delegation_dialog(draft)
 
     action_cols = st.columns(2)
@@ -825,19 +722,19 @@ else:
     delete = False
     back = nav_cols[2].button("Back", use_container_width=True)
 
-    linked_actions_with_unresolved, linked_delegations_with_unresolved = _project_linked_items_with_unresolved(data, project)
-    grouped_items = _grouped_linked_items(linked_actions_with_unresolved, linked_delegations_with_unresolved)
-    next_actions_grouped = _filter_linked_items_by_activity(grouped_items, active=True)
-    backlog_grouped = _filter_linked_items_by_activity(grouped_items, active=False)
+    linked_actions_with_unresolved, linked_delegations_with_unresolved = project_linked_items_with_unresolved(data, project)
+    grouped_items = grouped_linked_items(linked_actions_with_unresolved, linked_delegations_with_unresolved)
+    next_actions_grouped = filter_linked_items_by_activity(grouped_items, active=True)
+    backlog_grouped = filter_linked_items_by_activity(grouped_items, active=False)
 
     st.markdown("**Next Actions**")
-    if _count_grouped_items(next_actions_grouped) == 0:
+    if count_grouped_items(next_actions_grouped) == 0:
         st.caption("No next actions.")
     else:
         _render_linked_items(next_actions_grouped, project_id=f"{project_id}::next", show_controls=True)
 
     st.markdown("**Backlog Tasks**")
-    if _count_grouped_items(backlog_grouped) == 0:
+    if count_grouped_items(backlog_grouped) == 0:
         st.caption("No backlog tasks.")
     else:
         _render_linked_items(backlog_grouped, project_id=f"{project_id}::backlog", show_controls=False)
@@ -847,10 +744,10 @@ else:
     open_add_delegation_dialog = add_cols[1].button("Add Delegation", use_container_width=True)
     if open_add_task_dialog:
         _clear_linked_item_modal_state()
-        _reset_editor(f"project_action_editor::{project['id']}", ACTION_EDITOR_DEFAULTS)
+        reset_editor_namespace(f"project_action_editor::{project['id']}", ACTION_EDITOR_DEFAULTS)
     if open_add_delegation_dialog:
         _clear_linked_item_modal_state()
-        _reset_editor(f"project_delegation_editor::{project['id']}", DELEGATION_EDITOR_DEFAULTS)
+        reset_editor_namespace(f"project_delegation_editor::{project['id']}", DELEGATION_EDITOR_DEFAULTS)
 
     action_cols = st.columns(2)
     save = action_cols[0].button("Save", use_container_width=True)
@@ -874,7 +771,7 @@ else:
                 if result.deleted:
                     st.session_state.project_view_id = None
                     _set_delete_mode(None)
-                    _ui_store().pop(PROJECT_EDITOR_NS, None)
+                    ui_store().pop(PROJECT_EDITOR_NS, None)
                     st.switch_page("pages/projects.py")
                 elif not result.ok:
                     for error in result.errors or []:
@@ -889,7 +786,7 @@ else:
     if back:
         st.session_state.project_view_id = None
         _set_delete_mode(None)
-        _ui_store().pop(PROJECT_EDITOR_NS, None)
+        ui_store().pop(PROJECT_EDITOR_NS, None)
         st.switch_page("pages/projects.py")
     elif delete:
         delete_request = request_project_delete(data=data, project_id=project_id)
@@ -902,7 +799,7 @@ else:
         elif delete_request.deleted:
             st.session_state.project_view_id = None
             _set_delete_mode(None)
-            _ui_store().pop(PROJECT_EDITOR_NS, None)
+            ui_store().pop(PROJECT_EDITOR_NS, None)
             st.switch_page("pages/projects.py")
     elif save:
         status = editor.get("status", "Active")
@@ -941,5 +838,5 @@ else:
         _saved_action_dialog(project)
     elif open_add_delegation_dialog:
         _saved_delegation_dialog(project)
-    elif _flags_store().get("project_linked_item_modal"):
+    elif flags_store().get("project_linked_item_modal"):
         _linked_item_detail_dialog()

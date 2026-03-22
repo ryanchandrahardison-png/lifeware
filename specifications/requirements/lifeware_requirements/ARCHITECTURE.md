@@ -41,6 +41,11 @@ All detail screens must contain, as applicable:
 
 Action, Delegation, and Project detail views must visually match the Event View pattern as closely as practical.
 
+## GUI Change Justification Rule
+Current GUI layouts and interaction patterns are frozen.
+Any GUI-visible change (layout, labels, widgets, navigation flow) requires explicit justification tied to a functional defect or explicit product approval.
+Architecture refactors should be implemented behind existing screens whenever possible.
+
 ## Data Integrity Principles
 - All entities must use UUID-style random identifiers.
 - Items must not be duplicated across canonical collections.

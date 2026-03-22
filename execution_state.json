@@ -1,32 +1,59 @@
 {
   "agent_role": "Developer",
-  "phase": "PHASE 1 \u2014 Projects MVP Foundation",
-  "task": "Fix project detail re-entry UI regression by clearing stale runtime state",
-  "input_build": "lifeware_codebase_developer_pass_v1_4.zip",
-  "requirements_build": "lifeware_requirements_baseline_v1_3.zip",
+  "phase": "PHASE 1 — Projects MVP Foundation",
+  "task": "Architecture hardening priorities 1-3: canonical control files, GUI freeze policy, and internal dedup/refactor without visual redesign",
+  "input_build": "workspace/lifeware working tree",
+  "requirements_build": "LIFEWARE_REQUIREMENTS_TRACKER.md",
   "status": "completed",
   "modified_files": [
+    "app.py",
+    "core/item_detail_form.py",
+    "core/layout.py",
+    "core/navigation.py",
+    "core/page_state.py",
+    "core/project_linked_items.py",
+    "pages/actionItem.py",
+    "pages/actions.py",
+    "pages/calendarEvent.py",
+    "pages/calendarList.py",
+    "pages/delegationItem.py",
+    "pages/delegations.py",
+    "pages/myDay.py",
+    "pages/projectItem.py",
     "pages/projects.py",
+    "pages/routineItem.py",
+    "pages/routines.py",
     "LIFEWARE_REQUIREMENTS_TRACKER.md",
     "NEXT_AGENT_HANDOFF.md",
-    "execution_state.json"
+    "execution_state.json",
+    "specifications/requirements/README_BASELINE.md",
+    "specifications/requirements/lifeware_requirements/ARCHITECTURE.md"
+  ],
+  "archived_files": [
+    "openAI/archive/developer_diff_patch.diff",
+    "specifications/executionState/archive/NEXT_AGENT_HANDOFF.md",
+    "specifications/executionState/archive/execution_state_qa_pass_v1_7.zip"
+  ],
+  "canonical_control_files": [
+    "NEXT_AGENT_HANDOFF.md",
+    "execution_state.json",
+    "LIFEWARE_REQUIREMENTS_TRACKER.md"
   ],
   "preserved_constraints": [
-    "Canonical state remains only in st.session_state.data",
-    "UI buffers do not directly mutate canonical collections",
-    "Validation remains centralized in core.project_service.validate_project_save",
-    "No calendar or event system changes",
-    "No project completion gating changes"
+    "Current GUI layouts and flows preserved",
+    "Sidebar menu labels and behavior unchanged",
+    "Project detail visual flow unchanged",
+    "Canonical data source remains st.session_state.data"
   ],
   "validation": {
     "python_compile_check": true,
+    "imports_check": true,
     "files_checked": [
-      "pages/projects.py",
-      "pages/projectItem.py",
-      "core/project_service.py",
-      "core/item_detail_form.py"
+      "app.py",
+      "core/*.py",
+      "pages/*.py"
     ]
   },
   "next_recommended_role": "QA",
-  "next_action": "Reproduce save -> back to list -> reopen project flow and verify updated Project Details layout/modal behavior persists."
+  "next_action": "Run end-to-end smoke checks for navigation and project detail behaviors, then verify archive/canonical control-file governance remains intact."
 }
