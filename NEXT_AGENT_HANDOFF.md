@@ -4,83 +4,69 @@
 Developer
 
 ## Timestamp
-2026-03-12T21:20:00Z
-
-## Build / Package Reviewed
-workspace/lifeware working tree @ HEAD
-
---------------------------------------------------
+2026-03-22T00:00:00Z
 
 ## Summary
-Implemented routines save-flow fix: after successful Save on routine details, navigation now returns to the routines list view.
+Implemented architecture hardening priorities 1–3 with no intentional GUI redesign:
+- consolidated canonical control files at repo root and archived stale execution artifacts,
+- added explicit GUI freeze policy and governance notes,
+- refactored shared navigation/sidebar wiring and extracted project/detail state helpers.
 
---------------------------------------------------
+## Control File Governance (Canonical)
+Canonical active control files are only:
+- `NEXT_AGENT_HANDOFF.md`
+- `execution_state.json`
+- `LIFEWARE_REQUIREMENTS_TRACKER.md`
 
-## Current Development Phase
-PHASE 1 — Projects MVP Foundation (bounded routines pass)
+Archive locations:
+- `specifications/executionState/archive/` for superseded execution-state/handoff bundles.
+- `openAI/archive/` for transient patch/diff debris.
 
---------------------------------------------------
+Future agents must update only the canonical root control files above.
 
-## Requirements Confirmed
-- Successful routine save now returns user to `pages/routines.py` list view.
-- Routines list/details remain separated (prior pass behavior preserved).
+## GUI Freeze
+The current GUI is intentionally frozen.
+Do not change layouts, page flow, labels, or interaction patterns unless fixing a functional defect or with explicit approval.
+Architectural cleanup should happen behind existing screens.
 
---------------------------------------------------
-
-## Files Reviewed
-- pages/routines.py
-- pages/routineItem.py
-- NEXT_AGENT_HANDOFF.md
-
---------------------------------------------------
+Frozen screens in this build:
+- Home
+- Calendar
+- Actions
+- Delegations
+- Projects
+- Routines
+- My Day
 
 ## Files Modified
-- pages/routineItem.py
-- NEXT_AGENT_HANDOFF.md
+- `core/navigation.py` (new)
+- `core/page_state.py` (new)
+- `core/project_linked_items.py` (new)
+- `core/layout.py`
+- `core/item_detail_form.py`
+- `app.py`
+- `pages/actionItem.py`
+- `pages/actions.py`
+- `pages/calendarEvent.py`
+- `pages/calendarList.py`
+- `pages/delegationItem.py`
+- `pages/delegations.py`
+- `pages/myDay.py`
+- `pages/projectItem.py`
+- `pages/projects.py`
+- `pages/routineItem.py`
+- `pages/routines.py`
+- `LIFEWARE_REQUIREMENTS_TRACKER.md`
+- `execution_state.json`
+- `specifications/requirements/README_BASELINE.md`
+- `specifications/requirements/lifeware_requirements/ARCHITECTURE.md`
 
---------------------------------------------------
+## Files Archived
+- `openAI/archive/developer_diff_patch.diff`
+- `specifications/executionState/archive/NEXT_AGENT_HANDOFF.md`
+- `specifications/executionState/archive/execution_state_qa_pass_v1_7.zip`
 
-## Key Decisions / Implementation Notes
-- On valid Save, `pages/routineItem.py` now immediately `st.switch_page("pages/routines.py")` per requested flow.
-
---------------------------------------------------
-
-## Risks / Watch Areas
-- No new structural risk; behavior change is limited to post-save navigation target.
-
---------------------------------------------------
-
-## Escalation Needed
-No
-
---------------------------------------------------
-
-## Validation Performed
-- Python bytecode compile for changed modules.
-- UI smoke screenshot capture for routines list/detail flow.
-
---------------------------------------------------
-
-## Expected Behavior After This Pass
-- Saving routine details now returns to `pages/routines.py` automatically.
-- Back and Delete behavior continue returning to list view.
-
---------------------------------------------------
-
-## Recommended Next Agent Role
-Auditor
-
---------------------------------------------------
-
-## Recommended Next Action
-Verify save redirect flow (list->detail->save returns to list) and regression-check delete/back behavior.
-
---------------------------------------------------
-
-## Smoke Test Focus
-- Save on `pages/routineItem.py` returns to `pages/routines.py`.
-- Delete/Back still return to list.
-
---------------------------------------------------
-
-End of handoff
+## Validation Focus For Next Agent
+- Verify sidebar navigation remains identical across all pages.
+- Smoke test Project Details create/edit/delete flows and linked-item modal edits.
+- Confirm no duplicate active control files exist outside root canonical set.
