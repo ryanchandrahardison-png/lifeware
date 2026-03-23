@@ -1,53 +1,42 @@
 {
   "agent_role": "Developer",
-  "phase": "PHASE 1 — Projects MVP Foundation",
-  "task": "Architecture hardening priorities 1-3: canonical control files, GUI freeze policy, and internal dedup/refactor without visual redesign",
+  "phase": "Stabilization Pass",
+  "task": "Priority 1 control-file hard lock and project detail decomposition without GUI redesign",
   "input_build": "workspace/lifeware working tree",
   "requirements_build": "LIFEWARE_REQUIREMENTS_TRACKER.md",
   "status": "completed",
   "modified_files": [
-    "app.py",
-    "core/item_detail_form.py",
-    "core/layout.py",
-    "core/navigation.py",
-    "core/page_state.py",
-    "core/project_linked_items.py",
-    "pages/actionItem.py",
-    "pages/actions.py",
-    "pages/calendarEvent.py",
-    "pages/calendarList.py",
-    "pages/delegationItem.py",
-    "pages/delegations.py",
-    "pages/myDay.py",
-    "pages/projectItem.py",
-    "pages/projects.py",
-    "pages/routineItem.py",
-    "pages/routines.py",
-    "LIFEWARE_REQUIREMENTS_TRACKER.md",
     "NEXT_AGENT_HANDOFF.md",
+    "LIFEWARE_REQUIREMENTS_TRACKER.md",
     "execution_state.json",
-    "specifications/requirements/README_BASELINE.md",
-    "specifications/requirements/lifeware_requirements/ARCHITECTURE.md"
+    "specifications/requirements/SYSTEM_BOOT.md",
+    "core/item_detail_form.py",
+    "core/project_service.py",
+    "core/project_types.py",
+    "core/project_validation.py",
+    "core/project_links.py",
+    "core/project_state.py",
+    "pages/projectItem.py"
   ],
   "archived_files": [
-    "openAI/archive/developer_diff_patch.diff",
-    "specifications/executionState/archive/NEXT_AGENT_HANDOFF.md",
-    "specifications/executionState/archive/execution_state_qa_pass_v1_7.zip"
+    "archive/control/QA_REPORT.md",
+    "archive/control/REQUIREMENTS_TRACKER.md"
   ],
   "canonical_control_files": [
-    "NEXT_AGENT_HANDOFF.md",
-    "execution_state.json",
-    "LIFEWARE_REQUIREMENTS_TRACKER.md"
+    "/NEXT_AGENT_HANDOFF.md",
+    "/execution_state.json",
+    "/LIFEWARE_REQUIREMENTS_TRACKER.md"
   ],
   "preserved_constraints": [
     "Current GUI layouts and flows preserved",
-    "Sidebar menu labels and behavior unchanged",
-    "Project detail visual flow unchanged",
+    "No intentional visual redesign",
+    "Project detail user flow preserved",
     "Canonical data source remains st.session_state.data"
   ],
   "validation": {
     "python_compile_check": true,
     "imports_check": true,
+    "app_boot_check": true,
     "files_checked": [
       "app.py",
       "core/*.py",
@@ -55,5 +44,5 @@
     ]
   },
   "next_recommended_role": "QA",
-  "next_action": "Run end-to-end smoke checks for navigation and project detail behaviors, then verify archive/canonical control-file governance remains intact."
+  "next_action": "Run UI smoke checks for project create/edit/save/delete and linked-item behavior, and verify canonical control-file governance remains root-only."
 }

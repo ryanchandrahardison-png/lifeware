@@ -1,105 +1,22 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
-from datetime import date
 from typing import Any
 
-from core.entities import is_completed_status, new_uuid
-
-DELETE_CHOICE_CONVERT = "Convert linked items to standalone items"
-DELETE_CHOICE_DELETE = "Delete linked items with the project"
-DELETE_CHOICE_CANCEL = "Cancel deletion"
-DELETE_CHOICE_OPTIONS = [
+from core.entities import new_uuid
+from core.project_types import (
+    DELETE_CHOICE_CANCEL,
     DELETE_CHOICE_CONVERT,
     DELETE_CHOICE_DELETE,
-    DELETE_CHOICE_CANCEL,
-]
-
-
-@dataclass
-class ServiceResult:
-    ok: bool
-    message: str = ""
-    errors: list[str] | None = None
-    project_id: str | None = None
-
-
-@dataclass
-class DeleteResult(ServiceResult):
-    deleted: bool = False
-    requires_choice: bool = False
-
-
-def _linked_count(action_ids: list[str], delegation_ids: list[str]) -> int:
-    return len(action_ids) + len(delegation_ids)
-
-
-def validate_project_save(*, title: str, action_ids: list[str], delegation_ids: list[str]) -> ServiceResult:
-    errors: list[str] = []
-    if not str(title or "").strip():
-        errors.append("Project title is required.")
-    if _linked_count(action_ids, delegation_ids) < 2:
-        errors.append("A project requires at least 2 linked items total before it can be saved.")
-    return ServiceResult(ok=not errors, errors=errors)
-
-
-def validate_project_completion(*, status: str, linked_actions: list[dict[str, Any]], linked_delegations: list[dict[str, Any]]) -> ServiceResult:
-    if str(status or "") != "Completed":
-        return ServiceResult(ok=True)
-    incomplete = [item for item in linked_actions + linked_delegations if not is_completed_status(item.get("status"))]
-    if incomplete:
-        return ServiceResult(
-            ok=False,
-            errors=["Project cannot be marked Completed until all linked actions and delegations are completed."],
-        )
-    return ServiceResult(ok=True)
-
-
-def validate_project_due_date_change(*, selected_due_date: date | None, original_due_date: date | None) -> ServiceResult:
-    if selected_due_date and selected_due_date < date.today() and selected_due_date != original_due_date:
-        return ServiceResult(ok=False, errors=["Project Due Date cannot be in the past unless it is unchanged."])
-    return ServiceResult(ok=True)
-
-
-def validate_linked_item_date_change(*, selected_date: date | None, original_date: date | None, date_label: str) -> ServiceResult:
-    if selected_date and selected_date < date.today() and selected_date != original_date:
-        return ServiceResult(ok=False, errors=[f"{date_label} cannot be in the past unless it is unchanged."])
-    return ServiceResult(ok=True)
+    DELETE_CHOICE_OPTIONS,
+    DeleteResult,
+    ServiceResult,
+)
+from core.project_validation import validate_project_completion, validate_project_save
 
 
 def is_delete_cancellation_choice(choice: str) -> bool:
     return choice == DELETE_CHOICE_CANCEL
-
-
-def create_linked_action(*, data: dict[str, Any], project_id: str, title: str, details: str, due_date: str | None, is_active_global: bool) -> str:
-    action_id = new_uuid()
-    data["actions"][action_id] = {
-        "id": action_id,
-        "title": str(title or "").strip(),
-        "details": str(details or "").strip(),
-        "due_date": due_date,
-        "status": "Open",
-        "project_id": project_id,
-        "is_active_global": bool(is_active_global),
-    }
-    data["projects"][project_id].setdefault("action_ids", []).append(action_id)
-    return action_id
-
-
-def create_linked_delegation(*, data: dict[str, Any], project_id: str, title: str, details: str, follow_up_date: str | None, is_active_global: bool) -> str:
-    delegation_id = new_uuid()
-    data["delegations"][delegation_id] = {
-        "id": delegation_id,
-        "title": str(title or "").strip(),
-        "details": str(details or "").strip(),
-        "follow_up_date": follow_up_date,
-        "status": "Waiting",
-        "project_id": project_id,
-        "is_active_global": bool(is_active_global),
-    }
-    data["projects"][project_id].setdefault("delegation_ids", []).append(delegation_id)
-    return delegation_id
 
 
 def save_new_project(*, data: dict[str, Any], draft: dict[str, Any]) -> ServiceResult:
@@ -236,33 +153,3 @@ def update_project_from_editor(
         linked_actions=linked_actions,
         linked_delegations=linked_delegations,
     )
-
-
-def remove_project_link_reference(
-    *,
-    data: dict[str, Any],
-    project_id: str,
-    item_type: str,
-    item_id: str,
-) -> ServiceResult:
-    project = data.get("projects", {}).get(project_id)
-    if not project:
-        return ServiceResult(ok=False, errors=["Project not found."])
-
-    if item_type == "action":
-        project["action_ids"] = [aid for aid in project.get("action_ids", []) if aid != item_id]
-        action = data.get("actions", {}).get(item_id)
-        if action and action.get("project_id") == project_id:
-            action["project_id"] = None
-            action["is_active_global"] = True
-        return ServiceResult(ok=True, message="Action link removed from project.")
-
-    if item_type == "delegation":
-        project["delegation_ids"] = [did for did in project.get("delegation_ids", []) if did != item_id]
-        delegation = data.get("delegations", {}).get(item_id)
-        if delegation and delegation.get("project_id") == project_id:
-            delegation["project_id"] = None
-            delegation["is_active_global"] = True
-        return ServiceResult(ok=True, message="Delegation link removed from project.")
-
-    return ServiceResult(ok=False, errors=["Invalid linked-item type."])

@@ -7,7 +7,7 @@ from typing import Any
 import streamlit as st
 
 from core.entities import new_uuid
-from core.project_service import validate_project_save
+from core.project_validation import validate_project_save
 from core.page_state import (
     flags_store,
     pop_reset_flag,

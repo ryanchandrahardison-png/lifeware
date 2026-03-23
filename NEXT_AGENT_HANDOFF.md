@@ -4,32 +4,38 @@
 Developer
 
 ## Timestamp
-2026-03-22T00:00:00Z
+2026-03-23T00:00:00Z
 
 ## Summary
-Implemented architecture hardening priorities 1–3 with no intentional GUI redesign:
-- consolidated canonical control files at repo root and archived stale execution artifacts,
-- added explicit GUI freeze policy and governance notes,
-- refactored shared navigation/sidebar wiring and extracted project/detail state helpers.
+Completed stabilization pass for:
+1. **Priority 1 control-file hard lock** (single canonical active control set + archival cleanup)
+2. **Project page decomposition** (non-visual project logic extracted into focused core modules)
 
-## Control File Governance (Canonical)
-Canonical active control files are only:
-- `NEXT_AGENT_HANDOFF.md`
-- `execution_state.json`
-- `LIFEWARE_REQUIREMENTS_TRACKER.md`
+No intentional GUI redesign was performed.
 
-Archive locations:
-- `specifications/executionState/archive/` for superseded execution-state/handoff bundles.
-- `openAI/archive/` for transient patch/diff debris.
+## Control File Governance
+The canonical active control files are **only**:
+- `/NEXT_AGENT_HANDOFF.md`
+- `/execution_state.json`
+- `/LIFEWARE_REQUIREMENTS_TRACKER.md`
 
-Future agents must update only the canonical root control files above.
+Archive location for superseded control artifacts:
+- `/archive/control/`
+- `/specifications/executionState/archive/`
+- `/openAI/archive/`
+
+Rules:
+1. Future agents must only read/update canonical root control files for active state.
+2. Archived control artifacts are historical reference only and must never be treated as active state.
+3. Superseded control artifacts must be moved to an archive location, not left beside canonical files.
+4. If any conflict is found, canonical root files win.
 
 ## GUI Freeze
-The current GUI is intentionally frozen.
-Do not change layouts, page flow, labels, or interaction patterns unless fixing a functional defect or with explicit approval.
-Architectural cleanup should happen behind existing screens.
+Current screen designs are intentionally preserved.
+Architectural cleanup must happen behind existing screens.
+Layout/flow/widget changes require explicit justification/approval.
 
-Frozen screens in this build:
+Frozen screens:
 - Home
 - Calendar
 - Actions
@@ -38,35 +44,40 @@ Frozen screens in this build:
 - Routines
 - My Day
 
-## Files Modified
-- `core/navigation.py` (new)
-- `core/page_state.py` (new)
-- `core/project_linked_items.py` (new)
-- `core/layout.py`
-- `core/item_detail_form.py`
-- `app.py`
-- `pages/actionItem.py`
-- `pages/actions.py`
-- `pages/calendarEvent.py`
-- `pages/calendarList.py`
-- `pages/delegationItem.py`
-- `pages/delegations.py`
-- `pages/myDay.py`
+## Control Cleanup Performed
+Archived stale control artifacts:
+- `archive/control/QA_REPORT.md` (from `specifications/executionState/QA_REPORT.md`)
+- `archive/control/REQUIREMENTS_TRACKER.md` (from `specifications/requirements/lifeware_requirements/REQUIREMENTS_TRACKER.md`)
+
+Canonical control narrative is now root-only and aligned.
+
+## Project Decomposition Performed
+Primary module decomposed:
 - `pages/projectItem.py`
-- `pages/projects.py`
-- `pages/routineItem.py`
-- `pages/routines.py`
-- `LIFEWARE_REQUIREMENTS_TRACKER.md`
-- `execution_state.json`
-- `specifications/requirements/README_BASELINE.md`
-- `specifications/requirements/lifeware_requirements/ARCHITECTURE.md`
 
-## Files Archived
-- `openAI/archive/developer_diff_patch.diff`
-- `specifications/executionState/archive/NEXT_AGENT_HANDOFF.md`
-- `specifications/executionState/archive/execution_state_qa_pass_v1_7.zip`
+New focused modules added:
+- `core/project_types.py`
+- `core/project_validation.py`
+- `core/project_links.py`
+- `core/project_state.py`
 
-## Validation Focus For Next Agent
-- Verify sidebar navigation remains identical across all pages.
-- Smoke test Project Details create/edit/delete flows and linked-item modal edits.
-- Confirm no duplicate active control files exist outside root canonical set.
+Refactor outcome:
+- Project validation logic extracted to `core/project_validation.py`.
+- Linked-item mutation logic extracted to `core/project_links.py`.
+- Project page state/reset/draft helpers extracted to `core/project_state.py`.
+- Save/update/delete orchestration remains in `core/project_service.py` and now consumes extracted validation/types.
+- `pages/projectItem.py` now focuses more on UI rendering and event wiring.
+
+## Current Objective for Next Agent
+- Perform QA smoke validation of the stabilized project flows end-to-end on a live run:
+  - project create/edit/save
+  - project delete with linked-item choices
+  - linked-item modal open/edit/delete
+  - draft linked-item add/remove flows
+- Confirm no non-canonical control state is reintroduced outside the root canonical set.
+
+## Resume Expectations
+1. Start with the canonical root control files only.
+2. Preserve GUI freeze constraints.
+3. Keep refactors surgical and behind existing screens.
+4. Archive any newly superseded control artifacts immediately.
