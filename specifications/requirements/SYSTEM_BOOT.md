@@ -212,7 +212,7 @@ Controlled requirement documents:
 - lifeware_requirements/MUTATION_RULES.md
 - lifeware_requirements/PRODUCT_BACKLOG.md
 - lifeware_requirements/REFERENCE_INTEGRITY_RULES.md
-- lifeware_requirements/REQUIREMENTS_TRACKER.md
+- LIFEWARE_REQUIREMENTS_TRACKER.md (root canonical control file; archived copies are historical only)
 - lifeware_requirements/STATE_SCHEMA.md
 - lifeware_requirements/UI_PATTERNS.md
 - lifeware_requirements/UI_STATE_ARCHITECTURE.md
@@ -220,6 +220,7 @@ Controlled requirement documents:
 
 Mutable execution-state documents:
 - NEXT_AGENT_HANDOFF.md
+- execution_state.json
 
 Default governance:
 - Architect may modify controlled requirement documents when the user approves a requirements change.

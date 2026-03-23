@@ -13,13 +13,21 @@ This file captures the current project requirements and guardrails so future cha
 
 ## Control File Governance
 - Canonical active control files are root-level only:
-  - `NEXT_AGENT_HANDOFF.md`
-  - `execution_state.json`
-  - `LIFEWARE_REQUIREMENTS_TRACKER.md`
+  - `/NEXT_AGENT_HANDOFF.md`
+  - `/execution_state.json`
+  - `/LIFEWARE_REQUIREMENTS_TRACKER.md`
 - Archive stale/superseded execution artifacts in:
+  - `archive/control/`
   - `specifications/executionState/archive/`
   - `openAI/archive/`
-- Future agents must only update canonical root control files for active execution state.
+- Future agents must only read/update canonical root control files for active execution state.
+- Archived control artifacts are historical reference only and must never be treated as active state.
+- If any control conflict is found, canonical root files always win.
+
+## Current Stabilization State (2026-03-23)
+- Latest completed pass: Priority 1 control hard lock + project page decomposition stabilization.
+- Current objective: preserve behavior and GUI while reducing project-page maintenance risk.
+- Next recommended work: QA smoke validation across project create/edit/save/delete and linked-item modal flows.
 
 ## GUI Freeze
 - Current screen designs are intentionally preserved.
