@@ -12,7 +12,7 @@ from core.entities import (
     parse_date_only,
     project_health,
 )
-from core.item_detail_form import delete_item_with_project_guard, save_item_with_constraints
+from core.item_detail_logic import delete_item_with_project_guard, save_item_with_constraints
 from core.layout import bootstrap_page
 from core.page_state import (
     flags_store,
@@ -38,6 +38,12 @@ from core.project_service import (
     request_project_delete,
     save_project_from_draft,
     update_project_from_editor,
+)
+from core.project_item_logic import (
+    build_draft_action_payload,
+    build_draft_delegation_payload,
+    build_project_action_payload,
+    build_project_delegation_payload,
 )
 from core.project_links import (
     create_linked_action,
@@ -424,16 +430,7 @@ def add_draft_action(draft: dict) -> None:
         if not title:
             st.error("Draft action title is required.")
             return
-        append_draft_action(
-            draft,
-            {
-                "title": title,
-                "details": editor_text(editor, "details"),
-                "due_date": editor_date_value(editor, "date"),
-                "status": "Open",
-                "is_active_global": bool(editor.get("active_global", False)),
-            },
-        )
+        append_draft_action(draft, build_draft_action_payload(editor))
         sync_draft_runtime(draft)
         reset_editor_namespace(namespace, ACTION_EDITOR_DEFAULTS)
         _queue_notice("Draft action added.")
@@ -448,16 +445,7 @@ def add_draft_delegation(draft: dict) -> None:
         if not title:
             st.error("Draft delegation title is required.")
             return
-        append_draft_delegation(
-            draft,
-            {
-                "title": title,
-                "details": editor_text(editor, "details"),
-                "follow_up_date": editor_date_value(editor, "date"),
-                "status": "Waiting",
-                "is_active_global": bool(editor.get("active_global", False)),
-            },
-        )
+        append_draft_delegation(draft, build_draft_delegation_payload(editor))
         sync_draft_runtime(draft)
         reset_editor_namespace(namespace, DELEGATION_EDITOR_DEFAULTS)
         _queue_notice("Draft delegation added.")
@@ -473,13 +461,14 @@ def add_saved_project_action(project: dict) -> None:
         if not editor_text(editor, "title"):
             st.error("Action title is required.")
             return
+        payload = build_project_action_payload(editor)
         create_linked_action(
             data=st.session_state.data,
             project_id=project["id"],
-            title=editor_text(editor, "title"),
-            details=editor_text(editor, "details"),
-            due_date=editor_date_value(editor, "date"),
-            is_active_global=bool(editor.get("active_global", False)),
+            title=payload["title"],
+            details=payload["details"],
+            due_date=payload["due_date"],
+            is_active_global=payload["is_active_global"],
         )
         reset_editor_namespace(namespace, ACTION_EDITOR_DEFAULTS)
         _queue_notice("Action added to project.")
@@ -493,13 +482,14 @@ def add_saved_project_delegation(project: dict) -> None:
         if not editor_text(editor, "title"):
             st.error("Delegation title is required.")
             return
+        payload = build_project_delegation_payload(editor)
         create_linked_delegation(
             data=st.session_state.data,
             project_id=project["id"],
-            title=editor_text(editor, "title"),
-            details=editor_text(editor, "details"),
-            follow_up_date=editor_date_value(editor, "date"),
-            is_active_global=bool(editor.get("active_global", False)),
+            title=payload["title"],
+            details=payload["details"],
+            follow_up_date=payload["follow_up_date"],
+            is_active_global=payload["is_active_global"],
         )
         reset_editor_namespace(namespace, DELEGATION_EDITOR_DEFAULTS)
         _queue_notice("Delegation added to project.")

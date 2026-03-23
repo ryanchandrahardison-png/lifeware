@@ -1,13 +1,19 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from datetime import date
-from typing import Any
 
 import streamlit as st
 
-from core.entities import new_uuid
-from core.project_validation import validate_project_save
+from core.item_detail_logic import (
+    build_item_defaults,
+    build_item_snapshot,
+    delete_item_with_project_guard,
+    detail_index_key,
+    item_editor_config,
+    restore_project_return_context,
+    save_item_with_constraints,
+    status_index,
+)
 from core.page_state import (
     flags_store,
     pop_reset_flag,
@@ -17,187 +23,42 @@ from core.page_state import (
     widget_key,
 )
 
-DEFAULT_STATUS_OPTIONS = ["Open", "Completed"]
-DELEGATION_STATUS_OPTIONS = ["Waiting", "Completed"]
-DATE_FIELD_CANDIDATES = ["due_date"]
-FOLLOW_UP_FIELD_CANDIDATES = ["follow_up_date"]
-SOURCE_FIELD_NAMES = {"source"}
 
+def _init_editor_state(*, namespace: str, item_id: str | None, defaults: dict, status_options: list[str], is_edit: bool) -> dict:
+    editor = ui_store().get(namespace)
+    snapshot = build_item_snapshot(item_id=item_id, defaults=defaults, is_edit=is_edit)
+    if not isinstance(editor, dict):
+        editor = {}
+        ui_store()[namespace] = editor
 
-def item_editor_config(list_key: str) -> dict:
-    if list_key == "delegations":
-        return {
-            "date_label": "Follow Up Date",
-            "date_field_candidates": FOLLOW_UP_FIELD_CANDIDATES,
-            "status_options": DELEGATION_STATUS_OPTIONS,
-        }
-    return {
-        "date_label": "Due Date",
-        "date_field_candidates": DATE_FIELD_CANDIDATES,
-        "status_options": DEFAULT_STATUS_OPTIONS,
-    }
-
-
-def _as_dict(item: Any) -> dict:
-    return deepcopy(item) if isinstance(item, dict) else {"title": "" if item is None else str(item)}
-
-
-def _pick(record: dict, keys: list[str], default: str = "") -> str:
-    for key in keys:
-        value = record.get(key)
-        if value not in (None, ""):
-            return str(value)
-    return default
-
-
-def _parse_iso_date(value: Any) -> date | None:
-    if value in (None, ""):
-        return None
-    if isinstance(value, date):
-        return value
-    try:
-        text = str(value).strip()
-        if "T" in text:
-            text = text.split("T", 1)[0]
-        return date.fromisoformat(text)
-    except Exception:
-        return None
-
-
-def _status_index(status: str, options: list[str]) -> int:
-    if status in options:
-        return options.index(status)
-    lowered = status.lower()
-    for i, option in enumerate(options):
-        if option.lower() == lowered:
-            return i
-    return 0
-
-
-def _delete_known_date_keys(record: dict, field_candidates: list[str]) -> None:
-    for key in field_candidates:
-        record.pop(key, None)
-
-
-def _sanitize_source_keys(record: dict) -> dict:
-    return {k: v for k, v in record.items() if k not in SOURCE_FIELD_NAMES}
-
-
-def _restore_project_return_context_if_needed(back_page: str) -> None:
-    if back_page != "pages/projectItem.py":
-        return
-    if st.session_state.get("return_to_project_on_back"):
-        st.session_state.project_view_id = st.session_state.get("return_project_view_id")
-        st.session_state.return_to_project_on_back = False
-        st.session_state.return_project_view_id = None
-
-
-def _project_delete_guard_errors(*, data: dict, list_key: str, item_id: str) -> list[str]:
-    guarded_projects: list[tuple[str, dict, list[str], list[str]]] = []
-    if list_key == "actions":
-        for project_id, project in data.setdefault("projects", {}).items():
-            action_ids = list(project.get("action_ids", []))
-            if item_id not in action_ids:
-                continue
-            guarded_projects.append(
-                (
-                    project_id,
-                    project,
-                    [action_id for action_id in action_ids if action_id != item_id],
-                    list(project.get("delegation_ids", [])),
-                )
-            )
-    elif list_key == "delegations":
-        for project_id, project in data.setdefault("projects", {}).items():
-            delegation_ids = list(project.get("delegation_ids", []))
-            if item_id not in delegation_ids:
-                continue
-            guarded_projects.append(
-                (
-                    project_id,
-                    project,
-                    list(project.get("action_ids", [])),
-                    [delegation_id for delegation_id in delegation_ids if delegation_id != item_id],
-                )
-            )
-
-    errors: list[str] = []
-    for project_id, project, action_ids, delegation_ids in guarded_projects:
-        validation = validate_project_save(
-            title=str(project.get("title", "") or ""),
-            action_ids=action_ids,
-            delegation_ids=delegation_ids,
+    if editor.get("source_snapshot") != snapshot:
+        editor.update(
+            {
+                "title": defaults["title"],
+                "details": defaults["details"],
+                "status": defaults["status"] if defaults["status"] in status_options else status_options[0],
+                "due_date": defaults["due_date"] if defaults["due_date"] is not None else date.today(),
+                "source_snapshot": snapshot,
+            }
         )
-        if validation.ok:
-            continue
-        project_title = str(project.get("title", "") or "Untitled Project")
-        errors.append(
-            f"Cannot delete this item because it would violate project save rules for '{project_title}' ({project_id})."
-        )
-    return errors
+        flags_store()[f"reset::{namespace}"] = True
+    return editor
 
 
-def delete_item_with_project_guard(*, data: dict, list_key: str, item_id: str) -> tuple[bool, list[str]]:
-    items = data.setdefault(list_key, {})
-    if item_id not in items:
-        return False, ["Item not found."]
-
-    delete_guard_errors = _project_delete_guard_errors(data=data, list_key=list_key, item_id=item_id)
-    if delete_guard_errors:
-        return False, delete_guard_errors
-
-    if list_key == "actions":
-        for project in data.setdefault("projects", {}).values():
-            project["action_ids"] = [action_id for action_id in project.get("action_ids", []) if action_id != item_id]
-    elif list_key == "delegations":
-        for project in data.setdefault("projects", {}).values():
-            project["delegation_ids"] = [delegation_id for delegation_id in project.get("delegation_ids", []) if delegation_id != item_id]
-
-    del items[item_id]
-    return True, []
+def _render_form_actions(*, is_edit: bool, back_label: str) -> tuple[bool, bool, bool]:
+    action_cols = st.columns(3)
+    save = action_cols[0].form_submit_button("Save Changes" if is_edit else "Create")
+    delete = action_cols[1].form_submit_button("Delete", disabled=not is_edit)
+    back = action_cols[2].form_submit_button(back_label)
+    return save, delete, back
 
 
-def save_item_with_constraints(
-    *,
-    data: dict,
-    list_key: str,
-    item_id: str | None,
-    title: str,
-    details: str,
-    status: str,
-    date_value: date | None,
-    date_field_candidates: list[str] | None = None,
-) -> tuple[bool, list[str], dict | None]:
-    items = data.setdefault(list_key, {})
-    is_edit = item_id is not None and item_id in items
-    date_field_candidates = date_field_candidates or DATE_FIELD_CANDIDATES
-    original = _as_dict(items[item_id]) if is_edit else {}
-
-    clean_title = str(title or "").strip()
-    if not clean_title:
-        return False, ["Title is required."], None
-
-    updated = deepcopy(original) if is_edit else {"id": new_uuid()}
-    updated = _sanitize_source_keys(updated)
-    updated["title"] = clean_title
-
-    if date_value is not None:
-        _delete_known_date_keys(updated, date_field_candidates)
-        updated[date_field_candidates[0]] = date_value.isoformat()
-
-    updated["details"] = str(details or "").strip()
-    updated["status"] = str(status or "").strip()
-
-    if list_key == "actions":
-        updated.setdefault("project_id", None)
-        updated.setdefault("is_active_global", True)
-    elif list_key == "delegations":
-        updated.setdefault("project_id", None)
-        updated.setdefault("is_active_global", True)
-
-    target_id = item_id if is_edit else updated["id"]
-    items[target_id] = updated
-    return True, [], deepcopy(updated)
+def _cleanup_and_navigate(*, list_key: str, namespace: str, back_page: str) -> None:
+    st.session_state[detail_index_key(list_key)] = None
+    ui_store().pop(namespace, None)
+    flags_store().pop(f"reset::{namespace}", None)
+    restore_project_return_context(session_state=st.session_state, back_page=back_page)
+    st.switch_page(back_page)
 
 
 def render_item_detail_form(
@@ -223,38 +84,23 @@ def render_item_detail_form(
     status_options = status_options or editor_config["status_options"]
     date_label = date_label or editor_config["date_label"]
 
-    original = _as_dict(items[item_id]) if is_edit else {}
-
-    default_title = _pick(original, title_keys, "")
-    default_details = _pick(original, ["details", "description", "notes"], "")
-    default_status = _pick(original, ["status", "state"], status_options[0])
-    default_due_date = _parse_iso_date(_pick(original, date_field_candidates, "")) if show_due_date else None
+    original = items.get(item_id, {}) if is_edit else {}
+    defaults = build_item_defaults(
+        original=original,
+        title_keys=title_keys,
+        status_options=status_options,
+        show_due_date=show_due_date,
+        date_field_candidates=date_field_candidates,
+    )
 
     namespace = f"{list_key}_detail_editor"
-    editor = ui_store().get(namespace)
-    snapshot = (
-        item_id,
-        default_title,
-        default_details,
-        default_status,
-        default_due_date.isoformat() if default_due_date else "",
-        bool(is_edit),
+    editor = _init_editor_state(
+        namespace=namespace,
+        item_id=item_id,
+        defaults=defaults,
+        status_options=status_options,
+        is_edit=is_edit,
     )
-    if not isinstance(editor, dict):
-        editor = {}
-        ui_store()[namespace] = editor
-
-    if editor.get("source_snapshot") != snapshot:
-        editor.update(
-            {
-                "title": default_title,
-                "details": default_details,
-                "status": default_status if default_status in status_options else status_options[0],
-                "due_date": default_due_date if default_due_date is not None else date.today(),
-                "source_snapshot": snapshot,
-            }
-        )
-        flags_store()[f"reset::{namespace}"] = True
 
     fields = ["title", "details", "status"] + (["due_date"] if show_due_date else [])
     prepare_widget_defaults(namespace, fields, editor, force=pop_reset_flag(namespace))
@@ -276,25 +122,15 @@ def render_item_detail_form(
         st.selectbox(
             "Status",
             status_options,
-            index=_status_index(str(editor.get("status", status_options[0])), status_options),
+            index=status_index(str(editor.get("status", status_options[0])), status_options),
             key=widget_key(namespace, "status"),
         )
 
         sync_editor_from_widgets(namespace, fields, editor)
-
-        action_cols = st.columns(3)
-        save = action_cols[0].form_submit_button("Save Changes" if is_edit else "Create")
-        delete = action_cols[1].form_submit_button("Delete", disabled=not is_edit)
-        back = action_cols[2].form_submit_button(back_label)
-
-    index_key = f"{list_key[:-1]}_view_id"
+        save, delete, back = _render_form_actions(is_edit=is_edit, back_label=back_label)
 
     if back:
-        st.session_state[index_key] = None
-        ui_store().pop(namespace, None)
-        flags_store().pop(f"reset::{namespace}", None)
-        _restore_project_return_context_if_needed(back_page)
-        st.switch_page(back_page)
+        _cleanup_and_navigate(list_key=list_key, namespace=namespace, back_page=back_page)
         return
 
     if delete and is_edit:
@@ -303,12 +139,7 @@ def render_item_detail_form(
             for error in errors:
                 st.error(error)
             return
-
-        st.session_state[index_key] = None
-        ui_store().pop(namespace, None)
-        flags_store().pop(f"reset::{namespace}", None)
-        _restore_project_return_context_if_needed(back_page)
-        st.switch_page(back_page)
+        _cleanup_and_navigate(list_key=list_key, namespace=namespace, back_page=back_page)
         return
 
     if save:
@@ -328,8 +159,4 @@ def render_item_detail_form(
                 st.error(error)
             return
 
-        st.session_state[index_key] = None
-        ui_store().pop(namespace, None)
-        flags_store().pop(f"reset::{namespace}", None)
-        _restore_project_return_context_if_needed(back_page)
-        st.switch_page(back_page)
+        _cleanup_and_navigate(list_key=list_key, namespace=namespace, back_page=back_page)

@@ -1,7 +1,7 @@
 {
   "agent_role": "Developer",
   "phase": "Audit Hardening Pass",
-  "task": "Fix Risks 1-4 (routine draft isolation, calendar timezone consistency, shared selection helpers, shared page bootstrap) while preserving GUI",
+  "task": "Complete Priorities 5-7 (detail-flow standardization, heavy-file decomposition, focused helper tests) while preserving GUI",
   "input_build": "workspace/lifeware working tree",
   "requirements_build": "LIFEWARE_REQUIREMENTS_TRACKER.md",
   "status": "completed",
@@ -9,27 +9,15 @@
     "NEXT_AGENT_HANDOFF.md",
     "LIFEWARE_REQUIREMENTS_TRACKER.md",
     "execution_state.json",
-    "core/layout.py",
-    "core/state.py",
-    "core/page_state.py",
-    "core/routine_service.py",
-    "core/calendar_utils.py",
-    "core/selection_utils.py",
-    "app.py",
-    "pages/actions.py",
-    "pages/actionItem.py",
-    "pages/calendarEvent.py",
-    "pages/calendarList.py",
-    "pages/delegationItem.py",
-    "pages/delegations.py",
-    "pages/myDay.py",
+    "core/calendar_event_form.py",
+    "core/calendar_event_logic.py",
+    "core/item_detail_form.py",
+    "core/item_detail_logic.py",
+    "core/project_item_logic.py",
     "pages/projectItem.py",
-    "pages/projects.py",
-    "pages/routineItem.py",
-    "pages/routines.py",
-    "tests/test_routine_service.py",
-    "tests/test_calendar_utils.py",
-    "tests/test_selection_utils.py"
+    "tests/test_calendar_event_logic.py",
+    "tests/test_item_detail_logic.py",
+    "tests/test_project_item_logic.py"
   ],
   "canonical_control_files": [
     "/NEXT_AGENT_HANDOFF.md",
@@ -39,20 +27,21 @@
   "preserved_constraints": [
     "Current GUI layouts and flows preserved",
     "No intentional visual redesign",
-    "Refactors limited to Risks 1-4 scope",
+    "Refactors focused on detail orchestration and pure helper extraction",
     "Canonical data source remains st.session_state.data"
   ],
   "validation": {
     "python_compile_check": true,
     "unit_tests": true,
     "files_checked": [
+      "app.py",
       "core/*.py",
       "pages/*.py",
       "tests/*.py"
     ]
   },
   "next_recommended_role": "QA",
-  "next_action": "Run UI smoke checks across Home/Calendar/Actions/Delegations/Projects/Routines/My Day and confirm no visual/flow regressions.",
+  "next_action": "Run manual UI smoke checks for Actions, Delegations, Calendar Event form, and Project Details to reconfirm no UX drift.",
   "hard_lock_reasserted_on": "2026-03-23",
   "hard_lock_note": "Only root canonical control files are authoritative; archived/duplicate control artifacts are non-authoritative."
 }
