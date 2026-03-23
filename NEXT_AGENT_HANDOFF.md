@@ -81,3 +81,12 @@ Refactor outcome:
 2. Preserve GUI freeze constraints.
 3. Keep refactors surgical and behind existing screens.
 4. Archive any newly superseded control artifacts immediately.
+
+
+## User-Reasserted Hard Lock (2026-03-23)
+The user explicitly reaffirmed a hard lock on canonical execution control files:
+- `/NEXT_AGENT_HANDOFF.md`
+- `/execution_state.json`
+- `/LIFEWARE_REQUIREMENTS_TRACKER.md`
+
+Execution decisions must ignore all archived/duplicate control artifacts. If any conflict exists, the canonical root control files always win.

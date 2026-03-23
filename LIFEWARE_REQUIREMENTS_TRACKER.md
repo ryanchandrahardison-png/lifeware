@@ -12,6 +12,8 @@ This file captures the current project requirements and guardrails so future cha
 - Maintain high performance.
 
 ## Control File Governance
+- Hard lock reaffirmed on 2026-03-23: only canonical root control files are authoritative input for execution decisions.
+- All other control/handoff/execution artifacts are archived and must be ignored as execution authority.
 - Canonical active control files are root-level only:
   - `/NEXT_AGENT_HANDOFF.md`
   - `/execution_state.json`
