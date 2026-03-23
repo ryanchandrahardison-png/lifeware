@@ -27,14 +27,14 @@ This file captures the current project requirements and guardrails so future cha
 - If any control conflict is found, canonical root files always win.
 
 ## Current Stabilization State (2026-03-23)
-- Latest completed pass: Audit hardening for Risks 1-4 with GUI preserved.
+- Latest completed pass: Hardening Priorities 5-7 with GUI preserved.
 - Completed in this pass:
-  - Routine detail draft isolation to prevent unsaved new/edit mutations leaking into live data.
-  - Calendar + My Day timezone/day grouping consistency via shared America/New_York helpers.
-  - Shared selectable-table CSS/selection helper reuse across list pages.
-  - Shared page bootstrap helper adoption across app/page entrypoints; removed duplicate startup calls.
-- Added focused helper/service tests under `tests/` for routines, calendar timezone mapping, and selection stale-guard behavior.
-- Next recommended work: run manual Streamlit smoke checks to verify unchanged visuals/flow.
+  - Standardized detail mutation/service logic for actions/delegations via `core/item_detail_logic.py` and thinner `core/item_detail_form.py`.
+  - Decomposed calendar event form complexity by moving defaults/normalization/validation/payload logic into `core/calendar_event_logic.py`.
+  - Applied light-touch project detail standardization by extracting linked-item payload shaping into `core/project_item_logic.py` and reducing repeated inline orchestration in `pages/projectItem.py`.
+  - Added focused pure-logic tests for detail record handling, event datetime normalization/validation, and project payload helpers.
+- Prior completed baseline (still preserved): Risks 1-4 hardening (routine draft isolation, calendar timezone helper centralization, table selection helper reuse, shared page bootstrap).
+- Next recommended work: optional Streamlit manual smoke checks to reconfirm no UX drift.
 
 ## GUI Freeze
 - Current screen designs are intentionally preserved.
