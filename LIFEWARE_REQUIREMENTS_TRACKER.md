@@ -27,14 +27,14 @@ This file captures the current project requirements and guardrails so future cha
 - If any control conflict is found, canonical root files always win.
 
 ## Current Stabilization State (2026-03-23)
-- Latest completed pass: Hardening Priorities 5-7 with GUI preserved.
+- Latest completed pass: Hardening Priorities 8-10 with Project Details decomposition and GUI preserved.
 - Completed in this pass:
-  - Standardized detail mutation/service logic for actions/delegations via `core/item_detail_logic.py` and thinner `core/item_detail_form.py`.
-  - Decomposed calendar event form complexity by moving defaults/normalization/validation/payload logic into `core/calendar_event_logic.py`.
-  - Applied light-touch project detail standardization by extracting linked-item payload shaping into `core/project_item_logic.py` and reducing repeated inline orchestration in `pages/projectItem.py`.
-  - Added focused pure-logic tests for detail record handling, event datetime normalization/validation, and project payload helpers.
-- Prior completed baseline (still preserved): Risks 1-4 hardening (routine draft isolation, calendar timezone helper centralization, table selection helper reuse, shared page bootstrap).
-- Next recommended work: optional Streamlit manual smoke checks to reconfirm no UX drift.
+  - Decomposed `pages/projectItem.py` by extracting linked-item modal orchestration helpers into `core/project_linked_item_modal.py` (context/key/date/status helpers).
+  - Decomposed linked-item table/list view support helpers into `core/project_linked_item_views.py` (group order, compact default, row/label payload helpers, draft-warning guard).
+  - Kept Project Details visual layout and navigation behavior intentionally unchanged while reducing inline orchestration in the page module.
+  - Added focused pure-logic tests for extracted project helpers: `tests/test_project_linked_item_modal.py` and `tests/test_project_linked_item_views.py`.
+- Prior completed baseline (still preserved): Risks/Priorities 1-7 hardening (routine draft isolation, calendar timezone helper centralization, table selection helper reuse, shared page bootstrap, detail-flow and calendar form decomposition, initial project payload extraction).
+- Next recommended work: optional manual Streamlit smoke checks to reconfirm no UX drift under interactive usage.
 
 ## GUI Freeze
 - Current screen designs are intentionally preserved.

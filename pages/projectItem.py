@@ -23,6 +23,20 @@ from core.page_state import (
     ui_store,
     widget_key,
 )
+from core.project_linked_item_modal import (
+    linked_item_modal_context,
+    min_linked_item_date,
+    modal_editor_key,
+    modal_widget_keys,
+    normalize_modal_status,
+)
+from core.project_linked_item_views import (
+    LINKED_ITEM_GROUP_ORDER,
+    default_compact_view_from_user_agent,
+    linked_item_compact_label,
+    linked_item_display_rows,
+    requires_draft_link_warning,
+)
 from core.project_linked_items import (
     count_grouped_items,
     filter_linked_items_by_activity,
@@ -95,12 +109,13 @@ def _linked_item_detail_dialog() -> None:
         st.info("No linked item selected.")
         return
 
-    kind = "delegation" if modal_item.get("kind") == "delegation" else "action"
-    item_id = modal_item.get("id")
-    collection_key = "delegations" if kind == "delegation" else "actions"
-    date_field = "follow_up_date" if kind == "delegation" else "due_date"
-    date_label = "Follow Up Date" if kind == "delegation" else "Due Date"
-    status_options = ["Waiting", "Completed"] if kind == "delegation" else ["Open", "Completed"]
+    context = linked_item_modal_context(modal_item)
+    kind = context["kind"]
+    item_id = context["item_id"]
+    collection_key = context["collection_key"]
+    date_field = context["date_field"]
+    date_label = context["date_label"]
+    status_options = context["status_options"]
 
     if modal_item.get("unresolved"):
         st.warning("This linked item reference is unresolved and cannot be edited.")
@@ -137,27 +152,28 @@ def _linked_item_detail_dialog() -> None:
             st.rerun()
         return
 
-    editor_key = f"project_linked_modal_editor::{kind}::{item_id}"
-    title_key = f"{editor_key}::title"
-    date_key = f"{editor_key}::date"
-    details_key = f"{editor_key}::details"
-    status_key = f"{editor_key}::status"
+    editor_key = modal_editor_key(kind, item_id)
+    modal_keys = modal_widget_keys(editor_key)
+    title_key = modal_keys["title"]
+    date_key = modal_keys["date"]
+    details_key = modal_keys["details"]
+    status_key = modal_keys["status"]
 
     if flags_store().get("project_linked_item_modal_editor_key") != editor_key:
         st.session_state[title_key] = str(record.get("title", "") or "")
         st.session_state[details_key] = str(record.get("details", "") or "")
         st.session_state[date_key] = parse_date_only(record.get(date_field)) or date.today()
-        status_value = record.get("status", status_options[0])
-        st.session_state[status_key] = status_value if status_value in status_options else status_options[0]
+        st.session_state[status_key] = normalize_modal_status(record.get("status", status_options[0]), status_options)
         flags_store()["project_linked_item_modal_editor_key"] = editor_key
 
     with st.form(f"project_linked_modal_form::{kind}::{item_id}"):
         st.text_input("Title", key=title_key)
         original_item_date = parse_date_only(record.get(date_field))
         current_item_date = parse_date_only(st.session_state.get(date_key))
-        min_item_date = date.today()
-        if original_item_date and original_item_date < date.today() and current_item_date == original_item_date:
-            min_item_date = original_item_date
+        min_item_date = min_linked_item_date(
+            original_value=original_item_date,
+            current_value=current_item_date,
+        )
         st.date_input(date_label, key=date_key, min_value=min_item_date)
         st.text_area("Details", key=details_key, height=180)
         st.selectbox("Status", status_options, key=status_key)
@@ -252,14 +268,11 @@ def _render_linked_items(
 ) -> None:
     compact_key = f"project_linked_items_compact::{project_id or 'draft'}"
     if compact_key not in st.session_state:
-        ua = ""
-        try:
-            headers = getattr(st.context, "headers", None)
-            if headers:
-                ua = str(headers.get("user-agent", "") or "").lower()
-        except Exception:
-            ua = ""
-        st.session_state[compact_key] = any(token in ua for token in ["iphone", "android", "mobile", "ipad"])
+        user_agent = ""
+        headers = getattr(st.context, "headers", None)
+        if headers:
+            user_agent = str(headers.get("user-agent", "") or "")
+        st.session_state[compact_key] = default_compact_view_from_user_agent(user_agent)
 
     if show_controls:
         st.markdown(
@@ -274,7 +287,7 @@ def _render_linked_items(
         st.toggle("Compact linked-item view", key=compact_key, help="Use compact stacked rows (recommended for narrow screens).")
     use_compact_view = bool(st.session_state.get(compact_key, False))
 
-    for group in ["Completed", "Past Due", "Upcoming", "Floating"]:
+    for group in LINKED_ITEM_GROUP_ORDER:
         items = grouped_items.get(group, [])
         st.markdown(f"**{group}**")
         if not items:
@@ -283,13 +296,10 @@ def _render_linked_items(
 
         if use_compact_view:
             for idx, item in enumerate(items):
-                task_name = item.get("title", "Untitled")
-                task_type = linked_item_type(item)
-                task_date = linked_item_date_text(item)
-                row_label = f"{task_name}  |  {task_type}  |  {task_date}"
+                row_label = linked_item_compact_label(item)
                 if st.button(row_label, key=f"project_linked_compact::{project_id or 'draft'}::{group}::{idx}", use_container_width=True):
                     selected_id = item.get("id")
-                    if not selected_id and draft is not None:
+                    if requires_draft_link_warning(item_id=selected_id, draft=draft):
                         _render_unresolved_warning(
                             item=item,
                             warning="This linked item is still a draft and cannot be opened until the project is saved.",
@@ -300,14 +310,7 @@ def _render_linked_items(
                         _open_linked_item(item)
             continue
 
-        rows = [
-            {
-                "Task Name": item.get("title", "Untitled"),
-                "Type": linked_item_type(item),
-                "Date": linked_item_date_text(item),
-            }
-            for item in items
-        ]
+        rows = linked_item_display_rows(items)
         table_scope = project_id or "draft"
         table_key = _linked_item_table_key(table_scope, group)
         selection = st.dataframe(
@@ -327,7 +330,7 @@ def _render_linked_items(
         if selected_index is not None:
             selected_item = items[selected_index]
             selected_id = selected_item.get("id")
-            if not selected_id and draft is not None:
+            if requires_draft_link_warning(item_id=selected_id, draft=draft):
                 _render_unresolved_warning(
                     item=selected_item,
                     warning="This linked item is still a draft and cannot be opened until the project is saved.",

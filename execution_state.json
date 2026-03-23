@@ -1,7 +1,7 @@
 {
   "agent_role": "Developer",
   "phase": "Audit Hardening Pass",
-  "task": "Complete Priorities 5-7 (detail-flow standardization, heavy-file decomposition, focused helper tests) while preserving GUI",
+  "task": "Complete Priorities 8-10 by decomposing pages/projectItem.py, adding focused helper tests, and updating canonical docs with GUI preserved",
   "input_build": "workspace/lifeware working tree",
   "requirements_build": "LIFEWARE_REQUIREMENTS_TRACKER.md",
   "status": "completed",
@@ -9,15 +9,11 @@
     "NEXT_AGENT_HANDOFF.md",
     "LIFEWARE_REQUIREMENTS_TRACKER.md",
     "execution_state.json",
-    "core/calendar_event_form.py",
-    "core/calendar_event_logic.py",
-    "core/item_detail_form.py",
-    "core/item_detail_logic.py",
-    "core/project_item_logic.py",
+    "core/project_linked_item_modal.py",
+    "core/project_linked_item_views.py",
     "pages/projectItem.py",
-    "tests/test_calendar_event_logic.py",
-    "tests/test_item_detail_logic.py",
-    "tests/test_project_item_logic.py"
+    "tests/test_project_linked_item_modal.py",
+    "tests/test_project_linked_item_views.py"
   ],
   "canonical_control_files": [
     "/NEXT_AGENT_HANDOFF.md",
@@ -25,10 +21,10 @@
     "/LIFEWARE_REQUIREMENTS_TRACKER.md"
   ],
   "preserved_constraints": [
-    "Current GUI layouts and flows preserved",
-    "No intentional visual redesign",
-    "Refactors focused on detail orchestration and pure helper extraction",
-    "Canonical data source remains st.session_state.data"
+    "Project Details GUI and navigation flow preserved",
+    "No intentional visual redesign of modal, editor layout, tables, or buttons",
+    "Refactor limited to decomposition/orchestration helper extraction",
+    "No persistence model or feature expansion"
   ],
   "validation": {
     "python_compile_check": true,
@@ -41,7 +37,7 @@
     ]
   },
   "next_recommended_role": "QA",
-  "next_action": "Run manual UI smoke checks for Actions, Delegations, Calendar Event form, and Project Details to reconfirm no UX drift.",
+  "next_action": "Run manual Project Details UI smoke checks for modal/edit/delete/back/save flows to reconfirm no UX drift.",
   "hard_lock_reasserted_on": "2026-03-23",
   "hard_lock_note": "Only root canonical control files are authoritative; archived/duplicate control artifacts are non-authoritative."
 }
