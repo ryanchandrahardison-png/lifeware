@@ -1,7 +1,7 @@
 {
   "agent_role": "Developer",
-  "phase": "Stabilization Pass",
-  "task": "Priority 1 control-file hard lock and project detail decomposition without GUI redesign",
+  "phase": "Audit Hardening Pass",
+  "task": "Fix Risks 1-4 (routine draft isolation, calendar timezone consistency, shared selection helpers, shared page bootstrap) while preserving GUI",
   "input_build": "workspace/lifeware working tree",
   "requirements_build": "LIFEWARE_REQUIREMENTS_TRACKER.md",
   "status": "completed",
@@ -9,18 +9,27 @@
     "NEXT_AGENT_HANDOFF.md",
     "LIFEWARE_REQUIREMENTS_TRACKER.md",
     "execution_state.json",
-    "specifications/requirements/SYSTEM_BOOT.md",
-    "core/item_detail_form.py",
-    "core/project_service.py",
-    "core/project_types.py",
-    "core/project_validation.py",
-    "core/project_links.py",
-    "core/project_state.py",
-    "pages/projectItem.py"
-  ],
-  "archived_files": [
-    "archive/control/QA_REPORT.md",
-    "archive/control/REQUIREMENTS_TRACKER.md"
+    "core/layout.py",
+    "core/state.py",
+    "core/page_state.py",
+    "core/routine_service.py",
+    "core/calendar_utils.py",
+    "core/selection_utils.py",
+    "app.py",
+    "pages/actions.py",
+    "pages/actionItem.py",
+    "pages/calendarEvent.py",
+    "pages/calendarList.py",
+    "pages/delegationItem.py",
+    "pages/delegations.py",
+    "pages/myDay.py",
+    "pages/projectItem.py",
+    "pages/projects.py",
+    "pages/routineItem.py",
+    "pages/routines.py",
+    "tests/test_routine_service.py",
+    "tests/test_calendar_utils.py",
+    "tests/test_selection_utils.py"
   ],
   "canonical_control_files": [
     "/NEXT_AGENT_HANDOFF.md",
@@ -30,21 +39,20 @@
   "preserved_constraints": [
     "Current GUI layouts and flows preserved",
     "No intentional visual redesign",
-    "Project detail user flow preserved",
+    "Refactors limited to Risks 1-4 scope",
     "Canonical data source remains st.session_state.data"
   ],
   "validation": {
     "python_compile_check": true,
-    "imports_check": true,
-    "app_boot_check": true,
+    "unit_tests": true,
     "files_checked": [
-      "app.py",
       "core/*.py",
-      "pages/*.py"
+      "pages/*.py",
+      "tests/*.py"
     ]
   },
   "next_recommended_role": "QA",
-  "next_action": "Run UI smoke checks for project create/edit/save/delete and linked-item behavior, and verify canonical control-file governance remains root-only.",
+  "next_action": "Run UI smoke checks across Home/Calendar/Actions/Delegations/Projects/Routines/My Day and confirm no visual/flow regressions.",
   "hard_lock_reasserted_on": "2026-03-23",
-  "hard_lock_note": "User reaffirmed that only root canonical control files are authoritative; all archived/duplicate control artifacts must be ignored for execution decisions."
+  "hard_lock_note": "Only root canonical control files are authoritative; archived/duplicate control artifacts are non-authoritative."
 }

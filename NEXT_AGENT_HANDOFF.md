@@ -6,87 +6,66 @@ Developer
 ## Timestamp
 2026-03-23T00:00:00Z
 
-## Summary
-Completed stabilization pass for:
-1. **Priority 1 control-file hard lock** (single canonical active control set + archival cleanup)
-2. **Project page decomposition** (non-visual project logic extracted into focused core modules)
+## Summary of This Pass
+Completed audit hardening for **Risks 1–4** with no intentional GUI redesign:
+1. Routine detail page now uses a draft buffer and only commits on Save.
+2. Calendar/My Day timezone handling is centralized on America/New_York.
+3. Shared selectable-table CSS + single-row table helper extracted and reused.
+4. Shared page bootstrap helper added and adopted across app/page entrypoints.
 
-No intentional GUI redesign was performed.
+## GUI Preservation Confirmation
+- Preserved existing layouts, labels, page flow, and navigation for:
+  - Home
+  - Calendar
+  - Actions
+  - Delegations
+  - Projects
+  - Routines
+  - My Day
+- Refactors were behind existing screens only.
 
-## Control File Governance
-The canonical active control files are **only**:
+## Risk Fix Details
+### Risk 1 — Routine draft isolation
+- `pages/routineItem.py` now edits `st.session_state.routine_draft` (new + existing).
+- New Routine no longer inserts into `data["routines"]` on page open.
+- Back/cancel clears draft state, leaving live routines untouched.
+- Save validates + normalizes then commits once.
+- Delete still works for existing routines.
+
+### Risk 2 — Calendar timezone consistency
+- Added reusable NY/UTC helpers in `core/calendar_utils.py` for parse/convert/day/time/now/today logic.
+- `pages/calendarList.py` now uses these helpers for sorting, grouping, past/upcoming split, and rendered times.
+- `pages/myDay.py` now uses the same local-day interpretation for “today” event filtering and display.
+
+### Risk 3 — Shared selectable table behavior
+- Added shared selection helpers in `core/selection_utils.py`:
+  - CSS injector to hide the selection column.
+  - shared single-row dataframe renderer.
+- Refactored to use helpers in:
+  - `pages/calendarList.py`
+  - `pages/actions.py`
+  - `pages/delegations.py`
+  - `pages/routines.py`
+  - `pages/projects.py`
+
+### Risk 4 — Page bootstrap dedupe
+- Added `bootstrap_page(...)` in `core/layout.py`.
+- Removed `init_state()` call from `sidebar_file_controls()`.
+- Refactored app and page entrypoints to call `bootstrap_page(...)` instead of duplicating startup sequence.
+
+## Tests Added
+- `tests/test_routine_service.py`
+- `tests/test_calendar_utils.py`
+- `tests/test_selection_utils.py`
+
+## Follow-up Items
+- Optional UI smoke run in a live Streamlit session to manually verify no UX drift.
+- Optional additional unit tests for page-level routing edge cases (not required for this hardening pass).
+
+## Canonical Control File Governance (unchanged)
+Active canonical control files remain:
 - `/NEXT_AGENT_HANDOFF.md`
 - `/execution_state.json`
 - `/LIFEWARE_REQUIREMENTS_TRACKER.md`
 
-Archive location for superseded control artifacts:
-- `/archive/control/`
-- `/specifications/executionState/archive/`
-- `/openAI/archive/`
-
-Rules:
-1. Future agents must only read/update canonical root control files for active state.
-2. Archived control artifacts are historical reference only and must never be treated as active state.
-3. Superseded control artifacts must be moved to an archive location, not left beside canonical files.
-4. If any conflict is found, canonical root files win.
-
-## GUI Freeze
-Current screen designs are intentionally preserved.
-Architectural cleanup must happen behind existing screens.
-Layout/flow/widget changes require explicit justification/approval.
-
-Frozen screens:
-- Home
-- Calendar
-- Actions
-- Delegations
-- Projects
-- Routines
-- My Day
-
-## Control Cleanup Performed
-Archived stale control artifacts:
-- `archive/control/QA_REPORT.md` (from `specifications/executionState/QA_REPORT.md`)
-- `archive/control/REQUIREMENTS_TRACKER.md` (from `specifications/requirements/lifeware_requirements/REQUIREMENTS_TRACKER.md`)
-
-Canonical control narrative is now root-only and aligned.
-
-## Project Decomposition Performed
-Primary module decomposed:
-- `pages/projectItem.py`
-
-New focused modules added:
-- `core/project_types.py`
-- `core/project_validation.py`
-- `core/project_links.py`
-- `core/project_state.py`
-
-Refactor outcome:
-- Project validation logic extracted to `core/project_validation.py`.
-- Linked-item mutation logic extracted to `core/project_links.py`.
-- Project page state/reset/draft helpers extracted to `core/project_state.py`.
-- Save/update/delete orchestration remains in `core/project_service.py` and now consumes extracted validation/types.
-- `pages/projectItem.py` now focuses more on UI rendering and event wiring.
-
-## Current Objective for Next Agent
-- Perform QA smoke validation of the stabilized project flows end-to-end on a live run:
-  - project create/edit/save
-  - project delete with linked-item choices
-  - linked-item modal open/edit/delete
-  - draft linked-item add/remove flows
-- Confirm no non-canonical control state is reintroduced outside the root canonical set.
-
-## Resume Expectations
-1. Start with the canonical root control files only.
-2. Preserve GUI freeze constraints.
-3. Keep refactors surgical and behind existing screens.
-4. Archive any newly superseded control artifacts immediately.
-
-
-## User-Reasserted Hard Lock (2026-03-23)
-The user explicitly reaffirmed a hard lock on canonical execution control files:
-- `/NEXT_AGENT_HANDOFF.md`
-- `/execution_state.json`
-- `/LIFEWARE_REQUIREMENTS_TRACKER.md`
-
-Execution decisions must ignore all archived/duplicate control artifacts. If any conflict exists, the canonical root control files always win.
+Archived control artifacts remain reference-only.

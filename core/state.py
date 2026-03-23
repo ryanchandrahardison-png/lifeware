@@ -18,12 +18,16 @@ def _initialize_runtime_state() -> None:
         "action_view_id": None,
         "delegation_view_id": None,
         "routine_view_id": None,
+        "routine_draft": None,
+        "routine_draft_source_id": None,
         "project_view_id": None,
         "project_delete_mode": None,
         "project_delete_choice": "Convert linked items to standalone items",
         "draft_project": None,
         "uploaded_sig": None,
         "integrity_warnings": [],
+        "return_to_project_on_back": False,
+        "return_project_view_id": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:

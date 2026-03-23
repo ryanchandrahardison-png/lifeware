@@ -74,6 +74,8 @@ def reset_state_for_uploaded_file() -> None:
     st.session_state.action_view_id = None
     st.session_state.delegation_view_id = None
     st.session_state.routine_view_id = None
+    st.session_state.routine_draft = None
+    st.session_state.routine_draft_source_id = None
     st.session_state.project_view_id = None
     st.session_state.project_delete_mode = None
     st.session_state.draft_project = None

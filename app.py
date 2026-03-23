@@ -1,14 +1,7 @@
 import streamlit as st
-from core.state import init_state
-from core.layout import sidebar_file_controls
-from core.navigation import render_primary_navigation
+from core.layout import bootstrap_page
 
-st.set_page_config(page_title="Lifeware Control Engine", layout="wide")
-
-init_state()
-sidebar_file_controls()
-
-render_primary_navigation()
+bootstrap_page("Lifeware Control Engine")
 
 st.title("Lifeware Control Engine")
 st.write("Use the menu on the left to navigate.")
