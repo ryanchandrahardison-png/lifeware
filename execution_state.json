@@ -44,5 +44,7 @@
     ]
   },
   "next_recommended_role": "QA",
-  "next_action": "Run UI smoke checks for project create/edit/save/delete and linked-item behavior, and verify canonical control-file governance remains root-only."
+  "next_action": "Run UI smoke checks for project create/edit/save/delete and linked-item behavior, and verify canonical control-file governance remains root-only.",
+  "hard_lock_reasserted_on": "2026-03-23",
+  "hard_lock_note": "User reaffirmed that only root canonical control files are authoritative; all archived/duplicate control artifacts must be ignored for execution decisions."
 }
