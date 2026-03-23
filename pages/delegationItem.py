@@ -1,14 +1,8 @@
 import streamlit as st
-from core.state import init_state
-from core.layout import sidebar_file_controls
-from core.navigation import render_primary_navigation
+from core.layout import bootstrap_page
 from core.item_detail_form import render_item_detail_form
 
-st.set_page_config(page_title="Delegation Details", layout="wide")
-init_state()
-sidebar_file_controls()
-
-render_primary_navigation()
+bootstrap_page("Delegation Details")
 
 render_item_detail_form(
     data=st.session_state.data,

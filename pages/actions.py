@@ -1,18 +1,15 @@
 from datetime import date
 
-import pandas as pd
 import streamlit as st
-from core.state import init_state
-from core.layout import sidebar_file_controls
-from core.navigation import render_primary_navigation
+from core.layout import bootstrap_page
 from core.entities import parse_date_only
-from core.selection_utils import selected_single_row_index
+from core.selection_utils import (
+    inject_selection_column_hide_css,
+    selectable_table_single_row,
+    selected_single_row_index,
+)
 
-st.set_page_config(page_title="Actions", layout="wide")
-init_state()
-sidebar_file_controls()
-
-render_primary_navigation()
+bootstrap_page("Actions")
 
 st.title("✅ Actions")
 st.caption("Select a row to view or edit action details.")
@@ -22,35 +19,14 @@ if st.button("New Action"):
     st.session_state.action_view_id = None
     st.switch_page("pages/actionItem.py")
 
-st.markdown(
-    '''
-    <style>
-    [data-testid="stDataFrame"] [role="columnheader"][aria-colindex="1"],
-    [data-testid="stDataFrame"] [role="gridcell"][aria-colindex="1"] {
-        display: none !important;
-        width: 0 !important;
-        min-width: 0 !important;
-        padding: 0 !important;
-        border: 0 !important;
-    }
-    </style>
-    ''',
-    unsafe_allow_html=True,
-)
+inject_selection_column_hide_css()
 
 
 def render_action_table(rows, row_ids, key_suffix):
     if not rows:
         return
 
-    selection = st.dataframe(
-        pd.DataFrame(rows),
-        use_container_width=True,
-        hide_index=True,
-        on_select="rerun",
-        selection_mode="single-row",
-        key=key_suffix,
-    )
+    selection = selectable_table_single_row(rows, key=key_suffix)
     selected_index, had_stale_selection = selected_single_row_index(selection, len(row_ids))
     if had_stale_selection:
         st.session_state.pop(key_suffix, None)

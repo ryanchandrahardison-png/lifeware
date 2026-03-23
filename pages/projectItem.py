@@ -13,7 +13,7 @@ from core.entities import (
     project_health,
 )
 from core.item_detail_form import delete_item_with_project_guard, save_item_with_constraints
-from core.layout import sidebar_file_controls
+from core.layout import bootstrap_page
 from core.page_state import (
     flags_store,
     pop_reset_flag,
@@ -31,7 +31,6 @@ from core.project_linked_items import (
     linked_item_type,
     project_linked_items_with_unresolved,
 )
-from core.navigation import render_primary_navigation
 from core.project_service import (
     DELETE_CHOICE_OPTIONS,
     delete_project,
@@ -67,14 +66,9 @@ from core.project_validation import (
     validate_project_completion,
     validate_project_due_date_change,
 )
-from core.state import init_state
 from core.selection_utils import selected_single_row_index
 
-st.set_page_config(page_title="Project Details", layout="wide")
-init_state()
-sidebar_file_controls()
-
-render_primary_navigation()
+bootstrap_page("Project Details")
 
 st.session_state.setdefault("ui", {})
 st.session_state.setdefault("flags", {})

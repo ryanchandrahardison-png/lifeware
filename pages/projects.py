@@ -1,20 +1,13 @@
 from datetime import date
 
-import pandas as pd
 import streamlit as st
 
 from core.entities import parse_date_only, project_health
-from core.selection_utils import selected_single_row_index
-from core.layout import sidebar_file_controls
+from core.selection_utils import inject_selection_column_hide_css, selectable_table_single_row, selected_single_row_index
+from core.layout import bootstrap_page
 from core.page_state import reset_project_detail_runtime_state
-from core.navigation import render_primary_navigation
-from core.state import init_state
 
-st.set_page_config(page_title="Projects", layout="wide")
-init_state()
-sidebar_file_controls()
-
-render_primary_navigation()
+bootstrap_page("Projects")
 
 st.title("📁 Projects")
 st.caption("Projects are grouped by status first, then Active projects by due-date bucket.")
@@ -33,22 +26,13 @@ if st.button("New Project"):
         "draft_delegations": [],
     }
     st.switch_page("pages/projectItem.py")
-
-
-
+inject_selection_column_hide_css()
 
 def render_project_table(rows, row_ids, key_suffix):
     if not rows:
         return
 
-    selection = st.dataframe(
-        pd.DataFrame(rows),
-        use_container_width=True,
-        hide_index=True,
-        on_select="rerun",
-        selection_mode="single-row",
-        key=key_suffix,
-    )
+    selection = selectable_table_single_row(rows, key=key_suffix)
     selected_index, had_stale_selection = selected_single_row_index(selection, len(row_ids))
     if had_stale_selection:
         st.session_state.pop(key_suffix, None)

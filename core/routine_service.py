@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 import calendar
@@ -18,6 +19,57 @@ TASK_STATE_OPTIONS = [TASK_STATE_PENDING, TASK_STATE_COMPLETED, TASK_STATE_POSTP
 class ServiceResult:
     ok: bool
     errors: list[str] | None = None
+
+
+@dataclass
+class RoutineSaveResult(ServiceResult):
+    routine_id: str | None = None
+    routine: dict[str, Any] | None = None
+
+
+def empty_routine_draft() -> dict[str, Any]:
+    return ensure_routine_shape(
+        {
+            "id": new_uuid(),
+            "title": "",
+            "cadence": "Daily",
+            "start_time": "09:00",
+            "day_of_week": None,
+            "day_of_month": None,
+            "anchor_date": None,
+            "tasks": [{"id": new_uuid(), "title": "", "state": TASK_STATE_PENDING, "postpone_until": None}],
+            "active_instance_key": None,
+        }
+    )
+
+
+def routine_draft_from_existing(routine: dict[str, Any]) -> dict[str, Any]:
+    return ensure_routine_shape(deepcopy(routine))
+
+
+def save_routine_draft(
+    routines: dict[str, Any],
+    draft: dict[str, Any],
+    *,
+    existing_routine_id: str | None = None,
+    today: date | None = None,
+) -> RoutineSaveResult:
+    to_save = ensure_routine_shape(deepcopy(draft))
+    if existing_routine_id:
+        to_save["id"] = existing_routine_id
+
+    result = validate_routine_payload(to_save)
+    if not result.ok:
+        return RoutineSaveResult(ok=False, errors=result.errors or [])
+
+    if to_save.get("day_of_month") is not None:
+        to_save["day_of_month"] = int(to_save["day_of_month"])
+
+    reset_due_instance_if_needed(to_save, today=today or date.today())
+    routine_id = str(to_save.get("id") or existing_routine_id or new_uuid())
+    to_save["id"] = routine_id
+    routines[routine_id] = to_save
+    return RoutineSaveResult(ok=True, routine_id=routine_id, routine=to_save)
 
 
 def _parse_hhmm(value: str | None) -> time | None:

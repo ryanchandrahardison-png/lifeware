@@ -33,6 +33,46 @@ def parse_dt_any(value):
     except Exception:
         return None
 
+
+def parse_event_dt_utc(value):
+    return parse_dt_any(value)
+
+
+def utc_to_ny(dt_utc: datetime | None) -> datetime | None:
+    if dt_utc is None:
+        return None
+    return dt_utc.astimezone(NY_TZ)
+
+
+def local_ny_date_from_utc(dt_utc: datetime | None) -> date | None:
+    local = utc_to_ny(dt_utc)
+    return local.date() if local else None
+
+
+def format_ny_time(dt_utc: datetime | None) -> str:
+    local = utc_to_ny(dt_utc)
+    if local is None:
+        return ""
+    return local.strftime("%I:%M %p")
+
+
+def now_utc() -> datetime:
+    return datetime.now(UTC_TZ)
+
+
+def today_ny() -> date:
+    return datetime.now(NY_TZ).date()
+
+
+def now_ny() -> datetime:
+    return datetime.now(NY_TZ)
+
+
+def is_utc_dt_today_ny(dt_utc: datetime | None, *, today: date | None = None) -> bool:
+    if dt_utc is None:
+        return False
+    return local_ny_date_from_utc(dt_utc) == (today or today_ny())
+
 def ensure_event_utc_fields(ev):
     if "start_utc" not in ev or not ev.get("start_utc"):
         dt = parse_dt_any(ev.get("start", ""))

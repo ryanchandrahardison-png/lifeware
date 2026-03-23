@@ -27,9 +27,14 @@ This file captures the current project requirements and guardrails so future cha
 - If any control conflict is found, canonical root files always win.
 
 ## Current Stabilization State (2026-03-23)
-- Latest completed pass: Priority 1 control hard lock + project page decomposition stabilization.
-- Current objective: preserve behavior and GUI while reducing project-page maintenance risk.
-- Next recommended work: QA smoke validation across project create/edit/save/delete and linked-item modal flows.
+- Latest completed pass: Audit hardening for Risks 1-4 with GUI preserved.
+- Completed in this pass:
+  - Routine detail draft isolation to prevent unsaved new/edit mutations leaking into live data.
+  - Calendar + My Day timezone/day grouping consistency via shared America/New_York helpers.
+  - Shared selectable-table CSS/selection helper reuse across list pages.
+  - Shared page bootstrap helper adoption across app/page entrypoints; removed duplicate startup calls.
+- Added focused helper/service tests under `tests/` for routines, calendar timezone mapping, and selection stale-guard behavior.
+- Next recommended work: run manual Streamlit smoke checks to verify unchanged visuals/flow.
 
 ## GUI Freeze
 - Current screen designs are intentionally preserved.

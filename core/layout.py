@@ -7,7 +7,6 @@ from core.page_state import reset_state_for_uploaded_file
 
 
 def sidebar_file_controls():
-    init_state()
     st.sidebar.title("Session File")
 
     uploaded = st.sidebar.file_uploader("Upload GTD JSON", type="json")
@@ -37,3 +36,20 @@ def sidebar_file_controls():
         "gtd_updated.json",
         "application/json"
     )
+
+
+def bootstrap_page(
+    page_title: str,
+    *,
+    layout: str = "wide",
+    show_navigation: bool = True,
+    show_sidebar_file_controls: bool = True,
+) -> None:
+    from core.navigation import render_primary_navigation
+
+    st.set_page_config(page_title=page_title, layout=layout)
+    init_state()
+    if show_sidebar_file_controls:
+        sidebar_file_controls()
+    if show_navigation:
+        render_primary_navigation()
